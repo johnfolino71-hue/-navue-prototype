@@ -1,0 +1,45 @@
+name: Apply approved NaVue upgrade
+on:
+  push:
+    paths:
+      - '.github/workflows/navue-approved-upgrade.yml'
+permissions:
+  contents: write
+jobs:
+  upgrade:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply approved refinements
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          replacements=[
+          (".mic.listening:after{content:'LISTENING';color:#1769e0}",".mic.listening:after{content:'ON';color:#1769e0}"),
+          (".car-dot{position:absolute;left:42%;top:61%;width:46px;height:64px;filter:drop-shadow(0 2px 3px #0004)}",".car-dot{position:absolute;left:46%;top:61%;width:58px;height:78px;transform:translateX(-50%) rotate(8deg);transform-origin:center;filter:drop-shadow(0 3px 4px #0004);z-index:3}"),
+          ("function show(id){stopListen(false);document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');scrollTo(0,0)}","function show(id){if(rec){try{rec.onend=null;rec.stop()}catch(e){}rec=null;micState(mic,false);mic=null}document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');scrollTo(0,0);if(voiceFlow)setTimeout(()=>rearmVoice(id),220)}function rearmVoice(id){let map={home:['home',document.querySelector('#home .mic')],destination:['destination',destMic],ambiguity:['ambiguity',ambiguityMic],routes:['routes',routeMic],navigation:['navigation',navMic]};let x=map[id];if(x&&!rec)startListen(x[0],x[1],true)}"),
+          ("[['Warm natural female','female'],['Warm natural male','male'],['Neutral NaVue voice','navue']]","[['Bella — Kokoro','female'],['Michael — Kokoro','male'],['Default (af) — Kokoro','navue']]"),
+          ("function updateHomeSpeaker(){if(homeSpeaker)homeSpeaker.textContent=p.voice?'🔊':'🔇'}","function speakerIcon(on){return on?'🔊':'🔊❌'}function updateHomeSpeaker(){if(homeSpeaker)homeSpeaker.textContent=speakerIcon(p.voice)}"),
+          ("function setSpeaker(){speakerBtn.textContent=tripVoice?'🔊':'🔇'}","function setSpeaker(){speakerBtn.textContent=speakerIcon(tripVoice)}"),
+          ("function routeFromSpeech(s){if(/\\b(route\\s*)?a\\b|\\bfirst\\b|\\bone\\b/.test(s))return'A';if(/\\b(route\\s*)?b\\b|\\bsecond\\b|\\btwo\\b/.test(s))return'B';if(/\\b(route\\s*)?c\\b|\\bthird\\b|\\bthree\\b/.test(s))return'C';return null}","function routeFromSpeech(s){s=s.toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\\s+/g,' ').trim();if(/\\b(route )?a\\b|\\b(first|one|1st|number one)\\b|\\b(take|choose|want|select|pick) (route )?a\\b/.test(s))return'A';if(/\\b(route )?b\\b|\\b(second|two|2nd|number two)\\b|\\b(take|choose|want|select|pick) (route )?b\\b/.test(s))return'B';if(/\\b(route )?c\\b|\\b(third|three|3rd|number three)\\b|\\b(take|choose|want|select|pick) (route )?c\\b/.test(s))return'C';return null}"),
+          ]
+          for old,new in replacements:
+              if old not in s:
+                  raise SystemExit('Expected code not found: '+old[:80])
+              s=s.replace(old,new,1)
+          start=s.index('function vehicleSVG(type,color){')
+          end=s.index('function renderVehicles',start)
+          new_vehicle=r'''function vehicleSVG(type,color){let c=color,stroke='#26343c',glass='#cfe5f2',wheel='#1c252b';let body='';if(type==='sedan')body=`<path d="M30 6 C20 8 15 18 14 31 L13 63 C14 75 20 83 30 85 C40 83 46 75 47 63 L46 31 C45 18 40 8 30 6Z" fill="${c}" stroke="${stroke}" stroke-width="2"/><path d="M20 28 Q30 20 40 28 L39 48 Q30 52 21 48Z" fill="${glass}"/><path d="M21 55 Q30 51 39 55 L40 68 Q30 73 20 68Z" fill="${glass}" opacity=".72"/>`;else if(type==='sports')body=`<path d="M30 7 C17 8 10 20 9 39 L12 68 C16 79 22 84 30 85 C38 84 44 79 48 68 L51 39 C50 20 43 8 30 7Z" fill="${c}" stroke="${stroke}" stroke-width="2"/><path d="M17 31 Q30 20 43 31 L40 51 Q30 56 20 51Z" fill="${glass}"/><path d="M13 65 Q30 72 47 65" fill="none" stroke="${stroke}" stroke-width="3"/>`;else if(type==='convertible')body=`<path d="M30 7 C19 8 13 18 12 34 L13 67 C16 78 22 84 30 85 C38 84 44 78 47 67 L48 34 C47 18 41 8 30 7Z" fill="${c}" stroke="${stroke}" stroke-width="2"/><path d="M18 30 Q30 23 42 30 L40 39 L20 39Z" fill="${glass}"/><rect x="19" y="43" width="22" height="22" rx="8" fill="#27333a"/><path d="M22 48 Q30 44 38 48" fill="none" stroke="#aeb8bf" stroke-width="3"/>`;else if(type==='suv')body=`<rect x="12" y="5" width="36" height="80" rx="13" fill="${c}" stroke="${stroke}" stroke-width="2"/><path d="M17 24 Q30 17 43 24 L42 47 Q30 51 18 47Z" fill="${glass}"/><path d="M18 54 H42 V70 Q30 75 18 70Z" fill="${glass}" opacity=".65"/>`;else if(type==='pickup')body=`<path d="M15 6 H45 Q49 10 49 28 V48 H11 V28 Q11 10 15 6Z" fill="${c}" stroke="${stroke}" stroke-width="2"/><path d="M17 25 Q30 18 43 25 V42 H17Z" fill="${glass}"/><rect x="11" y="49" width="38" height="35" rx="5" fill="${c}" stroke="${stroke}" stroke-width="2"/><rect x="17" y="54" width="26" height="24" rx="3" fill="#172126" opacity=".2"/>`;else body=`<rect x="13" y="4" width="34" height="32" rx="8" fill="${c}" stroke="${stroke}" stroke-width="2"/><path d="M18 12 H42 V26 H18Z" fill="${glass}"/><rect x="9" y="38" width="42" height="47" rx="5" fill="#e7ebee" stroke="${stroke}" stroke-width="2"/><path d="M13 45 H47" stroke="#b8c2c8" stroke-width="2"/>`;let wheels=`<rect x="7" y="22" width="6" height="16" rx="3" fill="${wheel}"/><rect x="47" y="22" width="6" height="16" rx="3" fill="${wheel}"/><rect x="7" y="60" width="6" height="16" rx="3" fill="${wheel}"/><rect x="47" y="60" width="6" height="16" rx="3" fill="${wheel}"/>`;return `<svg viewBox="0 0 60 90" aria-label="${type}">${wheels}${body}</svg>`}'''
+          s=s[:start]+new_vehicle+s[end:]
+          p.write_text(s)
+          PY
+      - name: Commit upgrade
+        run: |
+          git config user.name "NaVue Update"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git commit -m "Execute approved NaVue control and vehicle update"
+          git push
