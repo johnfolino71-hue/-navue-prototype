@@ -1,0 +1,89 @@
+name: NaVue approved voice and guidance update
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/navue-voice-guidance-update.yml']
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply approved NaVue update
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+
+          # CSS: compact route screen, clearer controls, 3D selection presentation
+          s=s.replace(".vehicle-card svg{height:70px;width:54px}",".vehicle-card svg{height:92px;width:118px;max-width:100%}.vehicle-card{min-height:132px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}.vehicle-card svg{filter:drop-shadow(0 8px 7px #0003)}")
+          s=s.replace(".route-voice{display:flex;align-items:center;gap:12px;margin:12px 0 20px}",".route-voice{display:flex;align-items:center;gap:10px;margin:7px 0 10px}.routes-compact{padding:18px 18px 24px}.routes-compact h2{margin:8px 0}.routes-compact>.card{padding:9px 12px;margin:6px 0}.routes-compact>p.small{font-size:11px;margin:5px 0}.routes-compact #routeCards .card{padding:9px 11px;margin:6px 0;border-radius:14px}.routes-compact .route-main{font-size:17px;margin:4px 0}.routes-compact .route-head{font-size:13px}.routes-compact .eta,.routes-compact .trade{font-size:12px}.routes-compact .badge{padding:3px 6px;font-size:9px}.routes-compact .notice{padding:7px;margin:6px 0;font-size:11px}.routes-compact .route-voice .small{font-size:11px}.routes-compact .mic{width:48px;min-width:48px;height:48px}.routes-compact .mic:after{top:51px}.setting-toggle{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px}.setting-toggle button{width:78px;margin:0}.restart{background:#fff1f1;color:#b42318;border:1px solid #ffd0d0}.voice-note{padding:11px;border-radius:12px;background:#f3f8ff;font-size:12px;color:#40515a;margin:10px 0}")
+          s=s.replace("<section id=\"routes\" class=\"screen\">","<section id=\"routes\" class=\"screen routes-compact\">")
+
+          # Add Voice & Guidance onboarding step and Restart Onboarding/settings mic control
+          old='<section id="profileStart" class="screen"><div class="brand">NaVue</div>'
+          new='<section id="voiceGuidanceScreen" class="screen"><div class="brand">NaVue</div><div class="small">VOICE &amp; GUIDANCE</div><h1>How do you want to use NaVue?</h1><p class="small">Start hands-free or keep either control off. You can change these anytime in Settings.</p><div class="card setting-toggle"><div><strong>Voice Guidance / Speaker</strong><div class="small">Hear greetings and spoken directions.</div></div><button id="onboardSpeaker" onclick="toggleOnboardSpeaker()">ON</button></div><div class="card setting-toggle"><div><strong>Microphone</strong><div class="small">Talk to NaVue on demand and through your journey.</div></div><button id="onboardMic" onclick="toggleOnboardMic()">ON</button></div><div class="voice-note">Your iPhone will show Apple’s microphone permission when access is first requested. NaVue does not replace or imitate that permission screen.</div><button onclick="finishProfile()">Continue</button></section><section id="profileStart" class="screen"><div class="brand">NaVue</div>'
+          s=s.replace(old,new)
+          s=s.replace('<button onclick="finishProfile()">Continue</button></section><section id="profileStart"','<button onclick="showVoiceGuidanceScreen()">Continue</button></section><section id="voiceGuidanceScreen"',1)
+          # Above replacement can hit voice screen only because it is first exact occurrence.
+          s=s.replace('<div class="pref-title">Voice</div><div id="prefVoices"></div><button onclick="savePreferences()">Save Changes</button>', '<div class="pref-title">Microphone</div><div class="card setting-toggle"><div><strong id="micLabel"></strong><div class="small">When ON, NaVue keeps the voice session active across screens and resumes listening after speaking.</div></div><button id="micToggle" onclick="toggleMicPreference()"></button></div><div class="pref-title">Voice</div><div id="prefVoices"></div><div class="pref-title">Prototype Testing</div><button class="restart" onclick="restartOnboarding()">Restart Onboarding</button><button onclick="savePreferences()">Save Changes</button>')
+
+          # Profile defaults: speaker + mic ON
+          s=s.replace("voice:true,voiceStyle:'navue'","voice:true,micEnabled:true,voiceStyle:'navue'")
+
+          # Real Kokoro mappings and runtime; no browser speechSynthesis masquerading as Kokoro
+          start=s.index('function voices(){')
+          end=s.index('function routine(){', start)
+          real="""let kokoroTTS=null,kokoroLoading=null,kokoroAudio=null;const KOKORO_VOICES={female:'af_bella',male:'am_michael',navue:'af'};async function getKokoro(){if(kokoroTTS)return kokoroTTS;if(kokoroLoading)return kokoroLoading;kokoroLoading=(async()=>{try{let m=await import('https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+esm');kokoroTTS=await m.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX',{dtype:'q4',device:'wasm'});return kokoroTTS}catch(e){kokoroLoading=null;console.error('Kokoro load failed',e);throw e}})();return kokoroLoading}async function speak(t,force=false,style=p.voiceStyle,after){if(!p.voice&&!force){if(after)after();return}lastSpoken=t;if(rec){try{rec.onend=null;rec.stop()}catch(e){}rec=null;micState(mic,false);mic=null}try{let tts=await getKokoro();let audio=await tts.generate(t,{voice:KOKORO_VOICES[style]||'af'});if(kokoroAudio){try{kokoroAudio.pause()}catch(e){}}let url=URL.createObjectURL(audio.toBlob());kokoroAudio=new Audio(url);kokoroAudio.onended=()=>{URL.revokeObjectURL(url);kokoroAudio=null;if(after)after();else if(voiceFlow&&p.micEnabled)setTimeout(()=>rearmVoice(document.querySelector('.screen.active')?.id),180)};kokoroAudio.onerror=()=>{URL.revokeObjectURL(url);kokoroAudio=null;if(after)after()};await kokoroAudio.play()}catch(e){console.error('Real Kokoro unavailable',e);let status=document.getElementById('voiceStatus');if(status)status.textContent='Kokoro voice could not load. No substitute voice is being used.';if(after)after()}}function previewVoice(style){speak(greet(),true,style)}"""
+          s=s[:start]+real+s[end:]
+
+          # Voice onboarding controls
+          marker='function finishProfile(){'
+          insert="""function showVoiceGuidanceScreen(){onboardSpeaker.textContent=p.voice?'ON':'OFF';onboardMic.textContent=p.micEnabled?'ON':'OFF';show('voiceGuidanceScreen')}function toggleOnboardSpeaker(){p.voice=!p.voice;onboardSpeaker.textContent=p.voice?'ON':'OFF'}function toggleOnboardMic(){p.micEnabled=!p.micEnabled;onboardMic.textContent=p.micEnabled?'ON':'OFF';if(p.micEnabled){let SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(SR){try{let r=new SR;r.lang='en-CA';r.onend=()=>{};r.start();setTimeout(()=>{try{r.stop()}catch(e){}},300)}catch(e){}}}}"""
+          s=s.replace(marker,insert+marker)
+
+          # Start voice-first when chosen, persist across screens
+          s=s.replace("if(voiceFlow)setTimeout(()=>rearmVoice(id),220)","if(voiceFlow&&p.micEnabled)setTimeout(()=>rearmVoice(id),220)")
+          s=s.replace("function completeOnboarding(){p.onboarded=true;save();showHome(true)}","function completeOnboarding(){p.onboarded=true;voiceFlow=!!p.micEnabled;save();showHome(true)}")
+          s=s.replace("function showHome(announce=true){","function showHome(announce=true){voiceFlow=!!p.micEnabled;")
+          s=s.replace("if(announce&&p.voice)setTimeout(()=>speak(r?greet()+' Heading to '+r+'?':greet()+' Where are you going?'),250)","if(announce&&p.voice)setTimeout(()=>speak(r?greet()+' Heading to '+r+'?':greet()+' Where are you going?',false,p.voiceStyle,()=>{if(p.micEnabled)setTimeout(()=>rearmVoice('home'),180)}),250);else if(p.micEnabled)setTimeout(()=>rearmVoice('home'),250)")
+          s=s.replace("function toggleMainVoice(){p.voice=!p.voice;save();updateHomeSpeaker();if(p.voice)speak(greet()+' Where are you going?',true);else speechSynthesis.cancel()}","function toggleMainVoice(){p.voice=!p.voice;save();updateHomeSpeaker();if(p.voice)speak(greet()+' Where are you going?',true,p.voiceStyle,()=>{if(p.micEnabled)setTimeout(()=>rearmVoice('home'),180)});else if(kokoroAudio){kokoroAudio.pause();kokoroAudio=null}}")
+          s=s.replace("else speechSynthesis.cancel()","else if(kokoroAudio){kokoroAudio.pause();kokoroAudio=null}")
+
+          # Natural saved-destination intent and stronger route phrases
+          s=s.replace("if(mode==='home')openDestination();destinationInput.value=t;destinationChanged();resolveDestination()","if(mode==='home')openDestination();if(/\\b(work|office|job)\\b/i.test(t)){p.destination='Work';return buildRoutes(true)}if(/\\b(home|house)\\b/i.test(t)){p.destination='Home';return buildRoutes(true)}destinationInput.value=t.replace(/^(i am|i'm|im|we are|we're) (going|heading|driving) (to )?/i,'').replace(/^(take me|navigate me|drive me) to /i,'').trim();destinationChanged();resolveDestination()")
+          s=s.replace("if(/\\b(route )?a\\b|\\b(first|one|1st|number one)\\b|\\b(take|choose|want|select|pick) (route )?a\\b/.test(s))return'A';if(/\\b(route )?b\\b|\\b(second|two|2nd|number two)\\b|\\b(take|choose|want|select|pick) (route )?b\\b/.test(s))return'B';if(/\\b(route )?c\\b|\\b(third|three|3rd|number three)\\b|\\b(take|choose|want|select|pick) (route )?c\\b/.test(s))return'C';", "if(/\\b(route\\s*)?a\\b|\\b(first|one|1st|number one)\\b|\\b(take|choose|want|select|pick)(\\s+the)?(\\s+route)?\\s+a\\b/.test(s))return'A';if(/\\b(route\\s*)?b\\b|\\b(second|two|2nd|number two)\\b|\\b(take|choose|want|select|pick)(\\s+the)?(\\s+route)?\\s+b\\b/.test(s))return'B';if(/\\b(route\\s*)?c\\b|\\b(third|three|3rd|number three)\\b|\\b(take|choose|want|select|pick)(\\s+the)?(\\s+route)?\\s+c\\b/.test(s))return'C';")
+
+          # Keep mic preference ON across speech/screens; turning mic button off is intentional
+          s=s.replace("function toggleListen(mode,b){voiceFlow=true;if(rec&&mic===b)return stopListen();startListen(mode,b,false)}","function toggleListen(mode,b){if(rec&&mic===b){p.micEnabled=false;voiceFlow=false;save();return stopListen()}p.micEnabled=true;voiceFlow=true;save();startListen(mode,b,false)}")
+          s=s.replace("rec.onend=()=>{micState(b,false);rec=null;mic=null}","rec.onend=()=>{micState(b,false);rec=null;mic=null;if(voiceFlow&&p.micEnabled)setTimeout(()=>rearmVoice(document.querySelector('.screen.active')?.id),260)}")
+
+          # Navigation vehicle alignment: center on route line
+          s=s.replace("left:46%;top:61%;width:58px;height:78px;transform:translateX(-50%) rotate(8deg)","left:47.2%;top:61%;width:58px;height:78px;transform:translateX(-50%) rotate(8deg)")
+
+          # Settings mic, restart onboarding, real voice status
+          s=s.replace("voiceToggle.textContent=p.voice?'ON':'OFF';renderVoiceChoices(prefVoices,true)","voiceToggle.textContent=p.voice?'ON':'OFF';micLabel.textContent=p.micEnabled?'ON — Microphone ready':'OFF — Microphone off';micToggle.textContent=p.micEnabled?'ON':'OFF';renderVoiceChoices(prefVoices,true)")
+          s=s.replace("function toggleVoice(){p.voice=!p.voice;renderPreferences()}","function toggleVoice(){p.voice=!p.voice;renderPreferences()}function toggleMicPreference(){p.micEnabled=!p.micEnabled;voiceFlow=!!p.micEnabled;renderPreferences()}function restartOnboarding(){if(!confirm('Restart first-time onboarding? Your trip history will stay saved.'))return;let keep={recent:p.recent,history:p.history,routeStats:p.routeStats,completedTrips:p.completedTrips};p={...D,...keep};localStorage.removeItem('navueOnboarded');save();voiceFlow=false;show('welcome')}")
+          s=s.replace("function savePreferences(){p.firstName=prefName.value.trim();save();prefReturn==='home'?showHome(false):show(prefReturn)}","function savePreferences(){p.firstName=prefName.value.trim();voiceFlow=!!p.micEnabled;save();prefReturn==='home'?showHome(false):show(prefReturn)}")
+          s=s.replace("if('speechSynthesis'in window)speechSynthesis.onvoiceschanged=()=>voices();p.onboarded?showHome(true):show('welcome');","p.onboarded?showHome(true):show('welcome');")
+
+          # More polished 3/4 vehicle selection art while navigation keeps compact route marker
+          old="d.innerHTML=vehicleSVG(v[1],p.vehicleColor)+'<strong>'+v[0]+'</strong>'"
+          new="d.innerHTML=vehicleDisplaySVG(v[1],p.vehicleColor)+'<strong>'+v[0]+'</strong>'"
+          s=s.replace(old,new)
+          marker='function renderVehicles(el,selectFn)'
+          vehicle3d="""function vehicleDisplaySVG(type,color){let names={sedan:'Sedan',suv:'SUV',sports:'Sports Car',convertible:'Convertible',pickup:'Pickup',truck:'Tractor-Trailer'},wide=type==='truck'||type==='pickup',sport=type==='sports'||type==='convertible',h=wide?62:sport?48:55;let bed=type==='pickup'?'<path d=\"M72 28 L112 35 L103 58 L67 52Z\" fill=\"'+color+'\" stroke=\"#25313a\" stroke-width=\"2\"/><path d=\"M78 34 L105 39 L99 51 L73 47Z\" fill=\"#172126\" opacity=\".25\"/>':'';let trailer=type==='truck'?'<path d=\"M62 22 L121 31 L112 61 L58 53Z\" fill=\"#eef2f4\" stroke=\"#25313a\" stroke-width=\"2\"/><path d=\"M69 27 L114 34\" stroke=\"#c0cbd1\" stroke-width=\"2\"/>':'';let open=type==='convertible'?'<path d=\"M45 27 L76 32 L69 47 L41 43Z\" fill=\"#202a30\"/><ellipse cx=\"52\" cy=\"35\" rx=\"6\" ry=\"5\" fill=\"#aeb8bf\"/><ellipse cx=\"66\" cy=\"37\" rx=\"6\" ry=\"5\" fill=\"#aeb8bf\"/>':'<path d=\"M39 20 L78 26 L72 43 L35 38Z\" fill=\"#bfe0f0\" stroke=\"#25313a\" stroke-width=\"1.5\"/>';return '<svg viewBox=\"0 0 130 80\" aria-label=\"'+names[type]+' 3D preview\"><ellipse cx=\"65\" cy=\"65\" rx=\"52\" ry=\"8\" fill=\"#000\" opacity=\".12\"/><path d=\"M20 43 Q24 23 42 16 L82 22 Q96 26 105 42 L99 '+h+' Q96 62 84 64 L32 57 Q19 54 20 43Z\" fill=\"'+color+'\" stroke=\"#25313a\" stroke-width=\"2\"/>'+open+'<path d=\"M25 45 L101 53\" stroke=\"#fff\" stroke-opacity=\".45\" stroke-width=\"2\"/><ellipse cx=\"37\" cy=\"58\" rx=\"10\" ry=\"10\" fill=\"#1b242a\"/><ellipse cx=\"88\" cy=\"63\" rx=\"10\" ry=\"10\" fill=\"#1b242a\"/><ellipse cx=\"37\" cy=\"58\" rx=\"5\" ry=\"5\" fill=\"#aeb8bf\"/><ellipse cx=\"88\" cy=\"63\" rx=\"5\" ry=\"5\" fill=\"#aeb8bf\"/>'+bed+trailer+'</svg>'}"""
+          s=s.replace(marker,vehicle3d+marker)
+
+          p.write_text(s)
+          PY
+      - name: Commit update
+        run: |
+          git config user.name "NaVue Update Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git commit -m "Apply approved NaVue voice guidance and UI update"
+          git push
