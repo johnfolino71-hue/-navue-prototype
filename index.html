@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>NaVue Prototype 0.1</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:#f4f7f8;
+  color:#172126;
+}
+.app{
+  max-width:480px;
+  min-height:100vh;
+  margin:auto;
+  background:white;
+  position:relative;
+  overflow:hidden;
+}
+.screen{
+  display:none;
+  min-height:100vh;
+  padding:30px 22px 40px;
+}
+.screen.active{display:block}
+.brand{
+  font-size:34px;
+  font-weight:800;
+  letter-spacing:-1px;
+}
+.tagline{
+  color:#607078;
+  margin-top:4px;
+}
+.hero{
+  padding-top:70px;
+}
+h1{
+  font-size:34px;
+  line-height:1.1;
+  margin:22px 0 14px;
+}
+h2{font-size:25px}
+p{line-height:1.5}
+.small{
+  font-size:14px;
+  color:#6b777d;
+}
+button{
+  width:100%;
+  border:0;
+  border-radius:16px;
+  padding:17px;
+  margin-top:12px;
+  font-size:17px;
+  font-weight:700;
+  background:#1769e0;
+  color:white;
+}
+button.secondary{
+  background:#eef3f6;
+  color:#172126;
+}
+.card{
+  border:1px solid #dfe6e9;
+  border-radius:18px;
+  padding:18px;
+  margin:12px 0;
+  background:white;
+}
+.option{
+  cursor:pointer;
+}
+.option.selected{
+  border:2px solid #1769e0;
+  background:#f3f8ff;
+}
+.progress{
+  height:7px;
+  background:#e8edef;
+  border-radius:10px;
+  overflow:hidden;
+  margin:22px 0;
+}
+.progress div{
+  height:100%;
+  background:#1769e0;
+}
+.map{
+  height:330px;
+  border-radius:22px;
+  background:
+    linear-gradient(35deg,#dbe8df 25%,transparent 25%) 0 0/50px 50px,
+    linear-gradient(-35deg,#e9eef1 25%,transparent 25%) 0 0/50px 50px,
+    #edf2ee;
+  position:relative;
+  margin:18px 0;
+}
+.map:after{
+  content:"📍";
+  position:absolute;
+  font-size:38px;
+  left:48%;
+  top:44%;
+}
+.search{
+  width:100%;
+  padding:17px;
+  border:1px solid #d7dfe3;
+  border-radius:16px;
+  font-size:17px;
+}
+.route-title{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.badge{
+  display:inline-block;
+  background:#e9f2ff;
+  color:#1769e0;
+  padding:6px 10px;
+  border-radius:20px;
+  font-size:12px;
+  font-weight:800;
+}
+.match{
+  font-size:44px;
+  font-weight:800;
+  color:#1769e0;
+}
+.profile-row{
+  display:flex;
+  justify-content:space-between;
+  padding:13px 0;
+  border-bottom:1px solid #edf0f2;
+}
+.navbar{
+  display:flex;
+  justify-content:space-around;
+  position:absolute;
+  bottom:0;
+  width:100%;
+  padding:15px 8px 25px;
+  background:white;
+  border-top:1px solid #e7ecee;
+}
+.navbar span{
+  font-size:13px;
+  color:#536269;
+}
+.question{margin-top:30px}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+<!-- WELCOME -->
+<section id="welcome" class="screen active">
+  <div class="hero">
+    <div class="brand">NaVue</div>
+    <div class="tagline">The GPS that learns your way.</div>
+
+    <h1>Navigation should understand how you drive.</h1>
+
+    <p>
+      Everyone chooses routes differently.
+      NaVue learns what matters to you — time, distance,
+      tolls and driving style — so your recommendations
+      become more personal over time.
+    </p>
+
+    <button onclick="show('q1')">Personalize NaVue</button>
+    <p class="small">Takes about 60 seconds.</p>
+  </div>
+</section>
+
+<!-- QUESTION 1 -->
+<section id="q1" class="screen">
+  <div class="brand">NaVue</div>
+  <div class="progress"><div style="width:25%"></div></div>
+
+  <div class="small">QUESTION 1 OF 4</div>
+  <h2>Which route would you normally choose?</h2>
+
+  <div class="card option" onclick="choose(this,'time','high')">
+    <strong>Route A</strong><br>
+    24 min • 34 km<br>
+    <span class="small">Save 5 minutes</span>
+  </div>
+
+  <div class="card option" onclick="choose(this,'time','low')">
+    <strong>Route B</strong><br>
+    29 min • 25 km<br>
+    <span class="small">Drive 9 km less</span>
+  </div>
+
+  <button onclick="show('q2')">Continue</button>
+</section>
+
+<!-- QUESTION 2 -->
+<section id="q2" class="screen">
+  <div class="brand">NaVue</div>
+  <div class="progress"><div style="width:50%"></div></div>
+
+  <div class="small">QUESTION 2 OF 4</div>
+  <h2>Would you pay a $5 toll to save 10 minutes?</h2>
+
+  <div class="card option" onclick="choose(this,'toll','yes')">Usually yes</div>
+  <div class="card option" onclick="choose(this,'toll','depends')">Depends</div>
+  <div class="card option" onclick="choose(this,'toll','no')">Usually no</div>
+
+  <button onclick="show('q3')">Continue</button>
+</section>
+
+<!-- QUESTION 3 -->
+<section id="q3" class="screen">
+  <div class="brand">NaVue</div>
+  <div class="progress"><div style="width:75%"></div></div>
+
+  <div class="small">QUESTION 3 OF 4</div>
+  <h2>When should NaVue prepare you for your next lane?</h2>
+
+  <div class="card option" onclick="choose(this,'lane','early')">Early — plenty of warning</div>
+  <div class="card option" onclick="choose(this,'lane','normal')">Normal</div>
+  <div class="card option" onclick="choose(this,'lane','late')">Only when necessary</div>
+
+  <button onclick="show('q4')">Continue</button>
+</section>
+
+<!-- QUESTION 4 -->
+<section id="q4" class="screen">
+  <div class="brand">NaVue</div>
+  <div class="progress"><div style="width:100%"></div></div>
+
+  <div class="small">QUESTION 4 OF 4</div>
+  <h2>What matters most when you drive?</h2>
+
+  <div class="card option" onclick="choose(this,'priority','fastest')">⚡ Getting there fastest</div>
+  <div class="card option" onclick="choose(this,'priority','balanced')">⚖️ Balancing time and distance</div>
+  <div class="card option" onclick="choose(this,'priority','cost')">💰 Keeping driving costs down</div>
+  <div class="card option" onclick="choose(this,'priority','easy')">😌 Easier, simpler routes</div>
+
+  <button onclick="createProfile()">Create my NaVue profile</button>
+</section>
+
+<!-- PROFILE CREATED -->
+<section id="profileStart" class="screen">
+  <div class="brand">NaVue</div>
+  <h1>Your NaVue profile has started.</h1>
+
+  <p>
+    This is only the beginning. NaVue will continue learning
+    from the routes you choose.
+  </p>
+
+  <div class="card">
+    <strong>Initial driving profile</strong>
+    <div class="profile-row"><span>Time preference</span><strong id="timeProfile">Learning</strong></div>
+    <div class="profile-row"><span>Toll preference</span><strong id="tollProfile">Learning</strong></div>
+    <div class="profile-row"><span>Lane guidance</span><strong id="laneProfile">Learning</strong></div>
+  </div>
+
+  <button onclick="show('home')">Start NaVue</button>
+</section>
+
+<!-- HOME -->
+<section id="home" class="screen">
+  <div class="brand">NaVue</div>
+  <div class="tagline">Where are you going?</div>
+
+  <input class="search" placeholder="Search destination" onclick="show('destination')">
+
+  <div class="map"></div>
+
+  <div class="card">
+    🏠 Home
+  </div>
+  <div class="card">
+    💼 Work
+  </div>
+</section>
+
+<!-- DESTINATION -->
+<section id="destination" class="screen">
+  <div class="brand">NaVue</div>
+  <h2>Where to?</h2>
+
+  <input class="search" value="Vaughan destination">
+
+  <div class="card">
+    📍 Sample Destination<br>
+    <span class="small">Prototype route simulation</span>
+  </div>
+
+  <button onclick="show('routes')">Show routes</button>
+  <button class="secondary" onclick="show('home')">Back</button>
+</section>
+
+<!-- ROUTES -->
+<section id="routes" class="screen">
+  <div class="brand">NaVue</div>
+  <h2>Choose your route</h2>
+  <p class="small">Prototype route data • Live Google traffic comes next</p>
+
+  <div class="card option" onclick="selectRoute(this,'A')">
+    <div class="route-title">
+      <strong>Route A</strong>
+      <span class="badge">FASTEST</span>
+    </div>
+    <h2>24 min</h2>
+    31 km • No tolls
+  </div>
+
+  <div class="card option" onclick="selectRoute(this,'B')">
+    <strong>Route B</strong>
+    <h2>27 min</h2>
+    24 km • 7 km shorter
+  </div>
+
+  <div class="card option" onclick="selectRoute(this,'C')">
+    <strong>Route C</strong>
+    <h2>22 min</h2>
+    33 km • $8 toll
+  </div>
+
+  <button onclick="calculateMatch()">Show my NaVue Pick</button>
+</section>
+
+<!-- NAVUE PICK -->
+<section id="pick" class="screen">
+  <div class="brand">NaVue</div>
+  <span class="badge">NAVUE PICK</span>
+
+  <h1>Your route match</h1>
+
+  <div class="match" id="matchNumber">92%</div>
+  <div class="small">MATCH FOR YOUR DRIVING PROFILE</div>
+
+  <div class="card">
+    <strong>Route A</strong>
+    <h2>24 min • 31 km</h2>
+    Current preference considered<br>
+    No toll<br>
+    <span class="small">Live Google traffic will feed this calculation in the connected version.</span>
+  </div>
+
+  <button onclick="show('navigation')">Start this route</button>
+  <button class="secondary" onclick="show('override')">Choose another route</button>
+</section>
+
+<!-- OVERRIDE -->
+<section id="override" class="screen">
+  <div class="brand">NaVue</div>
+  <h2>Use a different preference for this trip?</h2>
+
+  <div class="card">
+    NaVue can change this trip without changing what it has learned about you.
+  </div>
+
+  <button onclick="temporaryOverride()">Yes — this trip only</button>
+  <button class="secondary" onclick="show('routes')">No — show routes again</button>
+</section>
+
+<!-- NAVIGATION -->
+<section id="navigation" class="screen">
+  <div class="brand">NaVue</div>
+
+  <div class="card">
+    <div class="small">NEXT</div>
+    <h1>↑ Continue straight</h1>
+    <strong>1.2 km</strong>
+  </div>
+
+  <div class="map"></div>
+
+  <h2>24 min • 31 km</h2>
+  <p class="small">6:42 PM estimated arrival • Prototype simulation</p>
+
+  <button onclick="show('feedback')">Finish simulated trip</button>
+</section>
+
+<!-- FEEDBACK -->
+<section id="feedback" class="screen">
+  <div class="brand">NaVue</div>
+  <h1>How was that route?</h1>
+
+  <button onclick="recordFeedback('again')">👍 I'd take it again</button>
+  <button class="secondary" onclick="recordFeedback('no')">👎 Not for me</button>
+</section>
+
+<!-- FINAL PROFILE -->
+<section id="profile" class="screen">
+  <div class="brand">NaVue</div>
+  <h1>NaVue is learning you.</h1>
+
+  <div class="card">
+    <div class="profile-row"><span>Route choices learned</span><strong id="learned">1</strong></div>
+    <div class="profile-row"><span>Time preference</span><strong id="finalTime">High</strong></div>
+    <div class="profile-row"><span>Toll tolerance</span><strong id="finalToll">Learning</strong></div>
+    <div class="profile-row"><span>Lane guidance</span><strong id="finalLane">Learning</strong></div>
+  </div>
+
+  <p>
+    NaVue will look for repeated behavior before suggesting
+    that your permanent preferences have changed.
+  </p>
+
+  <div class="card">
+    <strong>NaVue learning rule</strong><br><br>
+    One unusual trip does not redefine you.<br><br>
+    Repeated choices may trigger a simple question:
+    <br><br>
+    <strong>"Make this part of your normal NaVue preference?"</strong>
+    <br><br>
+    YES • NO
+  </div>
+
+  <button onclick="show('home')">Drive again</button>
+</section>
+
+</div>
+
+<script>
+const profile = {
+  time:null,
+  toll:null,
+  lane:null,
+  priority:null,
+  routeChoices:0,
+  temporaryOverride:false
+};
+
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function choose(el,key,value){
+  el.parentElement.querySelectorAll('.option').forEach(o=>o.classList.remove('selected'));
+  el.classList.add('selected');
+  profile[key]=value;
+}
+
+function createProfile(){
+  document.getElementById('timeProfile').textContent =
+    profile.time==='high' ? 'High' :
+    profile.time==='low' ? 'Balanced' : 'Learning';
+
+  document.getElementById('tollProfile').textContent =
+    profile.toll==='yes' ? 'Open to tolls' :
+    profile.toll==='no' ? 'Low' :
+    profile.toll==='depends' ? 'Situational' : 'Learning';
+
+  document.getElementById('laneProfile').textContent =
+    profile.lane==='early' ? 'Early' :
+    profile.lane==='normal' ? 'Normal' :
+    profile.lane==='late' ? 'Minimal' : 'Learning';
+
+  show('profileStart');
+}
+
+function selectRoute(el,route){
+  document.querySelectorAll('#routes .option').forEach(o=>o.classList.remove('selected'));
+  el.classList.add('selected');
+  profile.selectedRoute=route;
+}
+
+function calculateMatch(){
+  let match=84;
+
+  if(profile.priority==='fastest') match+=5;
+  if(profile.time==='high') match+=3;
+  if(profile.toll==='no') match+=2;
+
+  match=Math.min(match,96);
+  document.getElementById('matchNumber').textContent=match+'%';
+  show('pick');
+}
+
+function temporaryOverride(){
+  profile.temporaryOverride=true;
+  show('navigation');
+}
+
+function recordFeedback(answer){
+  profile.routeChoices++;
+
+  document.getElementById('learned').textContent=profile.routeChoices;
+
+  document.getElementById('finalTime').textContent =
+    profile.time==='high' ? 'High' :
+    profile.time==='low' ? 'Balanced' : 'Learning';
+
+  document.getElementById('finalToll').textContent =
+    profile.toll==='yes' ? 'Open' :
+    profile.toll==='no' ? 'Low' :
+    profile.toll==='depends' ? 'Situational' : 'Learning';
+
+  document.getElementById('finalLane').textContent =
+    profile.lane==='early' ? 'Early' :
+    profile.lane==='normal' ? 'Normal' :
+    profile.lane==='late' ? 'Minimal' : 'Learning';
+
+  if(profile.temporaryOverride){
+    profile.temporaryOverride=false;
+  }
+
+  show('profile');
+}
+</script>
+
+</body>
+</html>
