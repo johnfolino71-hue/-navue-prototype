@@ -1,4 +1,4 @@
-name: NaVue Signal 3 and flow fix
+name: NaVue repair package
 on:
   push:
     branches: [main]
@@ -6,62 +6,57 @@ on:
 permissions:
   contents: write
 jobs:
-  fix:
+  repair:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Fix Signal 3 and onboarding progression
+      - name: Apply approved repair package
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p=Path('index.html')
           s=p.read_text()
-          # Add the missing balanced route to the exact Signal 3 two-route option list.
-          old="['Route A — 24 min • 34 km','Route B — 29 min • 25 km']"
-          new="['Route A — 24 min • 34 km','Route B — 29 min • 25 km','Route C — 26 min • 29 km']"
-          s=s.replace(old,new)
-          old2='["Route A — 24 min • 34 km","Route B — 29 min • 25 km"]'
-          new2='["Route A — 24 min • 34 km","Route B — 29 min • 25 km","Route C — 26 min • 29 km"]'
-          s=s.replace(old2,new2)
-          # Install a direct click guard for the onboarding Continue button. It preserves normal nextQuestion
-          # behavior, but if a selected signal fails to advance, it advances the question index/render itself;
-          # after Signal 5 it moves directly to the combined vehicle+colour screen.
-          marker='</body></html>'
-          patch=r'''<script>
-(function(){
- const btn=document.getElementById('continueBtn');
- if(!btn || btn.dataset.flowGuard==='1') return;
- btn.dataset.flowGuard='1';
- btn.addEventListener('click',function(){
-   const q=document.getElementById('question');
-   const before=(document.getElementById('questionCount')?.textContent||'').match(/(\d+)/);
-   const n=before?Number(before[1]):0;
-   setTimeout(function(){
-     if(!q.classList.contains('active')) return;
-     const after=(document.getElementById('questionCount')?.textContent||'').match(/(\d+)/);
-     const m=after?Number(after[1]):0;
-     if(m!==n) return;
-     if(n>=5){
-       document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
-       document.getElementById('vehicleScreen')?.classList.add('active');
-       if(typeof renderVehicles==='function') renderVehicles();
-       if(typeof renderColors==='function') renderColors();
-       return;
-     }
-     if(typeof qIndex==='number' && Array.isArray(questions) && qIndex < questions.length-1){
-       qIndex++;
-       if(typeof renderQuestion==='function') renderQuestion();
-     }
-   },40);
- },true);
-})();
-</script>'''
-          if marker in s and "dataset.flowGuard" not in s:
-              s=s.replace(marker,patch+marker)
+
+          # Full available viewport and exact route/vehicle centerline alignment.
+          s=s.replace('.nav-map{height:100vh;', '.nav-map{height:100dvh;min-height:100vh;')
+          s=s.replace('.route-line{position:absolute;left:46%;top:18%;width:10px;height:57%;background:#1769e0;border-radius:20px;transform:rotate(8deg)}', '.route-line{position:absolute;left:50%;top:14%;width:10px;height:66%;background:#1769e0;border-radius:20px;transform:translateX(-50%)}')
+          s=s.replace('.car-dot{position:absolute;left:46%;top:61%;width:58px;height:78px;transform:translateX(-50%) rotate(8deg);transform-origin:center;filter:drop-shadow(0 3px 4px #0004);z-index:3}', '.car-dot{position:absolute;left:50%;top:58%;width:58px;height:78px;transform:translate(-50%,-50%);transform-origin:center;filter:drop-shadow(0 5px 6px #0005);z-index:3}')
+          s=s.replace('.nav-bottom{position:absolute;left:12px;right:12px;bottom:12px;', '.nav-bottom{position:absolute;left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));')
+
+          # Premium three-quarter selection artwork: replace the previous flat/basic side drawings.
+          new_vehicle=r'''function vehicleDisplaySVG(type,color){
+          const truck=type==='truck',pickup=type==='pickup',sport=type==='sports',open=type==='convertible',suv=type==='suv';
+          let roof=truck?'M29 16 L62 11 L80 25 L73 44 L31 48 L17 36 Z':pickup?'M29 20 L67 15 L82 29 L72 43 L28 46 L17 35 Z':suv?'M27 18 L70 13 L87 31 L76 46 L26 48 L15 35 Z':sport?'M32 24 L69 20 L82 31 L72 41 L28 43 L18 35 Z':'M29 21 L68 17 L84 31 L73 44 L27 46 L17 35 Z';
+          let body=truck?'M8 38 L19 24 L72 29 L84 39 L124 36 L126 59 L81 67 L21 64 L7 52 Z':pickup?'M7 40 L18 28 L78 31 L91 39 L123 37 L123 58 L80 65 L20 63 L7 53 Z':'M7 42 L19 30 L80 31 L105 40 L122 50 L116 61 L78 66 L20 63 L7 53 Z';
+          return `<svg viewBox="0 0 132 78" aria-label="${type}"><defs><linearGradient id="paint-${type}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".42"/><stop offset=".24" stop-color="${color}"/><stop offset=".72" stop-color="${color}"/><stop offset="1" stop-color="#07131d" stop-opacity=".48"/></linearGradient><linearGradient id="glass-${type}" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#dff4ff"/><stop offset=".55" stop-color="#7299ae"/><stop offset="1" stop-color="#172630"/></linearGradient><filter id="sh-${type}"><feDropShadow dx="0" dy="3" stdDeviation="2.4" flood-opacity=".32"/></filter></defs><ellipse cx="65" cy="69" rx="55" ry="6" fill="#000" opacity=".18"/><g filter="url(#sh-${type})"><path d="${body}" fill="url(#paint-${type})" stroke="#15232c" stroke-width="1.6"/><path d="${roof}" fill="${open?'#202a30':`url(#glass-${type})`}" stroke="#263b47" stroke-width="1.4"/>${open?'<path d="M31 26 L68 22 L77 31 L29 35 Z" fill="url(#glass-convertible)"/><path d="M38 37 L67 34" stroke="#b9c7ce" stroke-width="3"/>':''}${pickup?'<path d="M87 40 L119 39 L118 53 L85 57 Z" fill="#172126" opacity=".28"/>':''}${truck?'<path d="M85 39 L121 37 L122 55 L84 60 Z" fill="#f2f4f5" opacity=".88"/>':''}<path d="M14 47 Q63 54 116 47" fill="none" stroke="#fff" stroke-width="2.3" opacity=".42"/><path d="M23 58 Q67 63 111 55" fill="none" stroke="#07131d" stroke-width="1.3" opacity=".35"/><ellipse cx="30" cy="61" rx="11" ry="8" fill="#0a1014"/><ellipse cx="96" cy="59" rx="11" ry="8" fill="#0a1014"/><ellipse cx="30" cy="61" rx="5.5" ry="4" fill="#d6dde1"/><ellipse cx="96" cy="59" rx="5.5" ry="4" fill="#d6dde1"/><path d="M15 44 L22 39" stroke="#fff5c7" stroke-width="4" stroke-linecap="round"/><path d="M112 48 L119 50" stroke="#ff5b55" stroke-width="3" stroke-linecap="round"/>${sport?'<path d="M16 52 L113 48" stroke="#fff" stroke-width="2" opacity=".38"/>':''}</g></svg>`}'''
+          s=re.sub(r'function vehicleDisplaySVG\(type,color\)\{.*?\}function renderVehicles',new_vehicle+'function renderVehicles',s,flags=re.S)
+          s=s.replace('.vehicle-personalize .vehicle-card svg{height:49px;width:82px}', '.vehicle-personalize .vehicle-card svg{height:58px;width:102px}')
+          s=s.replace('.vehicle-personalize .vehicle-card{min-height:82px;', '.vehicle-personalize .vehicle-card{min-height:94px;')
+
+          # Kokoro: expose the actual failing stage and try native audio playback first,
+          # with WebAudio decoding as a second path. Never report success until ended.
+          old="async function playKokoroBlob(blob,after){let ctx=unlockAudio();if(!ctx)throw new Error('Web Audio is unavailable');let ab=await blob.arrayBuffer();let buffer=await ctx.decodeAudioData(ab.slice(0));if(kokoroSource){try{kokoroSource.stop()}catch(e){}}return await new Promise((resolve,reject)=>{try{let src=ctx.createBufferSource();kokoroSource=src;src.buffer=buffer;src.connect(ctx.destination);src.onended=()=>{if(kokoroSource===src)kokoroSource=null;if(after)after();resolve()};src.start(0)}catch(e){reject(e)}})}"
+          new="async function playKokoroBlob(blob,after){unlockAudio();let url=URL.createObjectURL(blob);try{return await new Promise((resolve,reject)=>{let a=new Audio(url);kokoroAudio=a;a.playsInline=true;a.onended=()=>{URL.revokeObjectURL(url);if(kokoroAudio===a)kokoroAudio=null;if(after)after();resolve()};a.onerror=()=>reject(new Error('Kokoro audio file could not be played'));let q=a.play();if(q&&q.catch)q.catch(reject)})}catch(nativeErr){URL.revokeObjectURL(url);let ctx=unlockAudio();if(!ctx)throw nativeErr;let ab=await blob.arrayBuffer();let buffer;try{buffer=await ctx.decodeAudioData(ab.slice(0))}catch(e){throw new Error('Kokoro generated audio but iPhone could not decode it')};if(kokoroSource){try{kokoroSource.stop()}catch(e){}}return await new Promise((resolve,reject)=>{try{let src=ctx.createBufferSource();kokoroSource=src;src.buffer=buffer;src.connect(ctx.destination);src.onended=()=>{if(kokoroSource===src)kokoroSource=null;if(after)after();resolve()};src.start(0)}catch(e){reject(e)}})}}"
+          if old in s:s=s.replace(old,new)
+
+          # Critical mic regression: a Kokoro failure previously swallowed the completion callback.
+          # That prevented automatic recognition restart after any failed spoken prompt.
+          s=s.replace("if(after&&document.getElementById('kokoroStatus')===null)after()", "if(after)after();if(voiceFlow&&p.micEnabled)setTimeout(()=>rearmVoice(document.querySelector('.screen.active')?.id),180)")
+
+          # Keep speaker and microphone independent and make recognition failures self-heal.
+          s=s.replace("rec.onresult=e=>handleVoice(e.results[0][0].transcript.trim(),mode);rec.onend=()=>", "rec.onresult=e=>handleVoice(e.results[0][0].transcript.trim(),mode);rec.onerror=e=>{console.warn('Speech recognition error',e.error);if(mode==='ambiguity')ambiguityStatus.textContent='Still listening… say Mississauga or Toronto.';else if(mode==='destination')voiceStatus.textContent='Still listening…';};rec.onend=()=>")
+          s=s.replace("function toggleTripVoice(){tripVoice=!tripVoice;setSpeaker();if(tripVoice)speak('Voice guidance on',true);else", "function toggleTripVoice(){tripVoice=!tripVoice;setSpeaker();if(tripVoice)speak('Voice guidance on',true,p.voiceStyle,()=>{if(p.micEnabled)setTimeout(()=>rearmVoice('navigation'),180)});else")
+
+          # Truthful voice diagnostics on the preview screen.
+          s=s.replace("if(x)x.textContent='Preparing voice…';let heard=false;", "if(x)x.textContent='Loading Kokoro model…';let heard=false;")
+          s=s.replace("console.error('Kokoro load failed',e);throw e", "console.error('Kokoro load failed',e);let x=document.getElementById('kokoroStatus');if(x)x.textContent='Kokoro model could not load on this iPhone.';throw e")
+          s=s.replace("let audio=await tts.generate(t,{voice:KOKORO_VOICES[style]||'af'});let blob=audio.toBlob();", "let x=document.getElementById('kokoroStatus');if(x)x.textContent='Generating Kokoro voice…';let audio=await tts.generate(t,{voice:KOKORO_VOICES[style]||'af'});let blob=audio.toBlob();if(x)x.textContent='Playing Kokoro voice…';")
+
           p.write_text(s)
           PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Fix Signal 3 third route and onboarding Continue flow" || exit 0
+          git commit -m "Repair microphone audio vehicles and navigation" || exit 0
           git push
