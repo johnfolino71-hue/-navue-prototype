@@ -1,0 +1,90 @@
+name: NaVue map-first manual controls
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/navue-map-first-manual-controls.yml']
+permissions:
+  contents: write
+jobs:
+  refine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply map-first refinement
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          marker='NAVUE_MAP_FIRST_MANUAL_V1'
+          if marker not in s:
+              css=r'''<style>/* NAVUE_MAP_FIRST_MANUAL_V1 */
+          /* Returning-driver home is map-first; voice/mic engines remain untouched. */
+          #home{padding:0!important;position:relative;overflow:hidden;background:#edf2ee}
+          #home>.map{position:absolute;inset:0;width:100%;height:100dvh;min-height:100vh;margin:0;border-radius:0;z-index:0}
+          #home>.topbar{position:absolute;top:max(16px,env(safe-area-inset-top));left:14px;right:14px;z-index:4;align-items:flex-start}
+          #home>.topbar .mini-brand{background:#fff;border-radius:14px;padding:4px 7px;width:118px;height:42px;box-shadow:0 3px 12px #0002}
+          #home>.topbar .mini-brand img{width:106px}
+          #home>.topbar .top-actions button{width:46px;height:46px;padding:0;border-radius:50%;box-shadow:0 3px 12px #0002;background:#fff}
+          #home>#homeGreeting{position:absolute;top:calc(max(16px,env(safe-area-inset-top)) + 54px);left:14px;right:14px;z-index:3;background:#ffffffee;border-radius:13px;padding:8px 11px;font-size:14px;box-shadow:0 2px 10px #0001}
+          #home>#routineBox{position:absolute;top:118px;left:14px;right:14px;z-index:3}
+          #home>.searchrow{position:absolute!important;left:14px;right:14px;bottom:max(92px,calc(env(safe-area-inset-bottom) + 78px));z-index:4;margin:0!important;align-items:center}
+          #home>.searchrow .search{background:#fff;box-shadow:0 3px 14px #0002;border:0}
+          #home>.searchrow .mic{border-radius:50%!important;box-shadow:0 3px 12px #0002;background:#fff}
+          #home>.searchrow .mic.listening{background:#1769e0}
+          #home>.card{position:absolute;bottom:max(22px,env(safe-area-inset-bottom));z-index:4;width:auto;margin:0;padding:11px 17px;border:0;box-shadow:0 3px 12px #0002;background:#fff}
+          #home>.card:nth-of-type(1){left:14px}
+          #home>.card:nth-of-type(2){left:112px}
+          #navigation .nav-mic{border-radius:50%!important}
+          #navigation .car-dot{bottom:140px!important;width:34px!important;height:47px!important}
+          #navigation .nav-bottom{padding:8px 12px!important;border-radius:18px!important}
+          #navigation .finish{margin-top:6px!important;padding:8px!important}
+          #navueManualButton{position:absolute;left:14px;bottom:132px;z-index:8;width:44px;height:44px;border-radius:50%;padding:0;margin:0;background:#fff;color:#172126;box-shadow:0 3px 12px #0003;font-size:22px}
+          #navueManualSheet{display:none;position:absolute;left:12px;right:12px;bottom:10px;z-index:20;background:#fff;border-radius:22px;padding:10px 12px max(14px,env(safe-area-inset-bottom));box-shadow:0 -5px 24px #0003}
+          #navueManualSheet.open{display:block}
+          #navueManualSheet .sheet-handle{width:42px;height:4px;border-radius:4px;background:#aab4ba;margin:0 auto 8px}
+          #navueManualSheet .sheet-title{font-weight:800;margin:4px 2px 7px}
+          #navueManualSheet .sheet-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+          #navueManualSheet button{margin:0;padding:11px 8px;font-size:13px;border-radius:13px}
+          #navueManualSheet .secondary{background:#eef3f6;color:#172126}
+          </style>'''
+              js=r'''<script>/* NAVUE_MAP_FIRST_MANUAL_V1_JS */
+          (function(){
+            function installManualControls(){
+              var nav=document.getElementById('navigation'); if(!nav||document.getElementById('navueManualButton'))return;
+              var b=document.createElement('button'); b.id='navueManualButton'; b.type='button'; b.setAttribute('aria-label','Navigation controls'); b.textContent='≡';
+              var sh=document.createElement('div'); sh.id='navueManualSheet';
+              sh.innerHTML='<div class="sheet-handle"></div><div class="sheet-title">Navigation controls</div><div class="sheet-grid"><button data-a="destination">Change destination</button><button data-a="routes" class="secondary">Alternate routes</button><button data-a="home" class="secondary">Home</button><button data-a="work" class="secondary">Work</button><button data-a="end">End trip</button><button data-a="close" class="secondary">Close</button></div>';
+              b.onclick=function(){sh.classList.toggle('open')};
+              sh.onclick=function(e){var a=e.target&&e.target.getAttribute('data-a');if(!a)return;sh.classList.remove('open');try{
+                if(a==='destination'&&typeof openDestination==='function')openDestination();
+                else if(a==='routes'&&typeof show==='function')show('routes');
+                else if(a==='home'&&typeof quickDestination==='function')quickDestination('Home');
+                else if(a==='work'&&typeof quickDestination==='function')quickDestination('Work');
+                else if(a==='end'&&typeof finishTrip==='function')finishTrip();
+              }catch(x){}};
+              nav.appendChild(b);nav.appendChild(sh);
+            }
+            if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installManualControls);else installManualControls();
+          })();
+          </script>'''
+              s=s.replace('</head>',css+'</head>')
+              s=s.replace('</body>',js+'</body>')
+          # Broaden the existing end-trip phrase family without changing recognition/mic mechanics.
+          replacements={
+            'stop navigation|end trip|cancel navigation': 'stop navigation|end trip|end the drive|end drive|stop the drive|stop drive|finish the trip|finish trip|finish the simulated trip|complete the trip|cancel navigation',
+            'end trip|stop navigation|cancel navigation': 'end trip|end the drive|end drive|stop navigation|stop the drive|stop drive|finish the trip|finish trip|finish the simulated trip|complete the trip|cancel navigation'
+          }
+          for old,new in replacements.items():
+              if old in s and new not in s:
+                  s=s.replace(old,new)
+          p.write_text(s)
+          PY
+      - name: Commit refinement
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Make NaVue map-first with manual driving controls'
+          git push
