@@ -26,3 +26,4 @@ if old not in s:
 s=s.replace(old,new,1)
 p.write_text(s)
 print('NaVue iPhone system-voice repair applied')
+# one-time execution trigger
