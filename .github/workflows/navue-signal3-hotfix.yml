@@ -1,0 +1,31 @@
+name: NaVue Signal 3 hotfix
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/navue-signal3-hotfix.yml']
+permissions:
+  contents: write
+jobs:
+  hotfix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repair Signal 3
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          a="'Route A — 24 min • 34 km','Route B — 29 min • 25 km'"
+          b="'Route A — 24 min • 34 km','Route B — 29 min • 25 km','Route C — 26 min • 29 km'"
+          s=s.replace(a,b)
+          a='"Route A — 24 min • 34 km","Route B — 29 min • 25 km"'
+          b='"Route A — 24 min • 34 km","Route B — 29 min • 25 km","Route C — 26 min • 29 km"'
+          s=s.replace(a,b)
+          p.write_text(s)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Add balanced Route C to Profile Signal 3" || exit 0
+          git push
