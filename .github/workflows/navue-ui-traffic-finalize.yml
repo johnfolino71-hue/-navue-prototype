@@ -1,0 +1,57 @@
+name: NaVue UI Traffic Finalize
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/navue-ui-traffic-finalize.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Apply locked refinements
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html'); s=p.read_text()
+          marker='NAVUE_LOCKED_UI_TRAFFIC_V2'
+          if marker not in s:
+            patch=r'''<style>/* NAVUE_LOCKED_UI_TRAFFIC_V2 */
+#home .top-actions .home-speaker{border-radius:50%!important;width:46px!important;height:46px!important;min-width:46px!important;padding:0!important;overflow:hidden!important}
+#home .top-actions .home-speaker .speaker-off-x,#home .speaker-off-x,#home .voice-off-x{display:none!important}
+#home .searchrow .mic{position:fixed!important;top:calc(max(16px,env(safe-area-inset-top)) + 56px)!important;right:14px!important;bottom:auto!important;width:46px!important;min-width:46px!important;height:46px!important;border-radius:50%!important;z-index:10!important}
+#home>.card{display:none!important}
+.navue-quick-row{display:flex;gap:8px;margin-top:8px}
+.navue-quick-row button{margin:0;padding:9px 10px;border-radius:13px;font-size:13px;background:#fff;color:#172126;box-shadow:0 2px 9px #0002}
+#home .navue-quick-row{position:fixed;left:14px;right:14px;bottom:max(38px,calc(env(safe-area-inset-bottom) + 25px));z-index:9}
+</style>
+<script>
+(function(){
+ function labelButton(b,label){b.textContent=label;b.className='secondary'}
+ function quickRow(search){if(!search||search.parentNode.querySelector('.navue-quick-row'))return;var row=document.createElement('div');row.className='navue-quick-row';['Home','Work','Saved'].forEach(function(x){var b=document.createElement('button');b.textContent=x;b.onclick=function(){if(x==='Saved'){window.navueOpenSaved&&window.navueOpenSaved()}else{search.value=x;search.dispatchEvent(new Event('input',{bubbles:true}))}};row.appendChild(b)});search.parentNode.insertAdjacentElement('afterend',row)}
+ function cleanHome(){var h=document.getElementById('home');if(!h)return;var sp=document.getElementById('homeSpeaker')||h.querySelector('.home-speaker');var mic=document.getElementById('homeMic')||h.querySelector('.searchrow .mic');if(sp){sp.style.borderRadius='50%';if((sp.textContent||'').indexOf('❌')>=0||(sp.textContent||'').indexOf('❎')>=0)sp.textContent='🔊'}if(mic){mic.style.borderRadius='50%'}var search=h.querySelector('.searchrow input,.searchrow .search');quickRow(search)}
+ function cleanMenu(){var sheet=document.getElementById('navueManualSheet');if(!sheet)return;var btns=[].slice.call(sheet.querySelectorAll('button'));btns.forEach(function(b){var t=(b.textContent||'').trim().toLowerCase();if(t.includes('home')||t.includes('work')||t.includes('end trip')||t==='close')b.remove()});var grid=sheet.querySelector('.sheet-grid')||sheet;function ensure(label,fn){if([].some.call(sheet.querySelectorAll('button'),function(b){return (b.textContent||'').toLowerCase().includes(label.toLowerCase())}))return;var b=document.createElement('button');labelButton(b,label);b.onclick=fn;grid.appendChild(b)}ensure('Saved places',function(){window.navueOpenSaved&&window.navueOpenSaved()});ensure('Settings',function(){document.getElementById('navueManualSheet')?.classList.remove('open');if(typeof show==='function')show('settings')});}
+ window.navueOpenSaved=function(){var saved=[];try{var raw=localStorage.getItem('navueSavedDestinations')||localStorage.getItem('savedDestinations');if(raw)saved=JSON.parse(raw)||[]}catch(e){}var names=saved.map(function(x){return typeof x==='string'?x:(x.name||x.address||'')}).filter(Boolean);alert(names.length?'Saved places:\n\n'+names.join('\n'):'No saved places yet.')}
+ function addTrafficCoverage(){if(window.__navueTrafficCoverage)return;window.__navueTrafficCoverage=true;document.addEventListener('navueTranscript',function(e){handle(e.detail||'')});window.navueTrafficReply=function(t){return handle(t)};function handle(t){t=String(t||'').toLowerCase();if(!t)return false;if(/traffic|slowdown|backed up|congestion/.test(t)){if(typeof speak==='function')speak('I can’t verify live traffic ahead in this prototype. If conditions are slowing, I can help you consider an alternate route.');return true}if(/shoulder/.test(t)&&/(car|vehicle|object|debris|stopped|ahead)/.test(t)){if(typeof speak==='function')speak('I heard you. There may be a vehicle or object on the shoulder ahead. Please drive carefully. This prototype cannot verify live roadside conditions.');return true}return false}}
+ document.addEventListener('DOMContentLoaded',function(){cleanHome();cleanMenu();addTrafficCoverage()});document.addEventListener('click',function(){setTimeout(function(){cleanHome();cleanMenu()},0)},true);setTimeout(function(){cleanHome();cleanMenu();addTrafficCoverage()},0)
+})();
+</script>'''
+            s=s.replace('</body>',patch+'\n</body>')
+            # Wire traffic/shoulder coverage into existing transcript handler without touching recognition engine.
+            needles=['function handleDrivingConversation(t){','function handleDrivingConversation(t) {','function handleNavConversation(t){','function handleNavConversation(t) {']
+            for n in needles:
+              if n in s:
+                s=s.replace(n,n+"\nif(window.navueTrafficReply&&window.navueTrafficReply(t))return true;",1);break
+            p.write_text(s)
+          PY
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'Refine NaVue destination controls and traffic conversation'
+          git push origin main
