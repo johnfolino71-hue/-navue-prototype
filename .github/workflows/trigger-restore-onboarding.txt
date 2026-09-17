@@ -1,0 +1,1 @@
+Trigger the one-time restoration of the Restart Onboarding prototype testing control.
