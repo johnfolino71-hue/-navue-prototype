@@ -1,0 +1,35 @@
+name: NaVue onboarding hotfix
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/navue-onboarding-hotfix.yml']
+permissions:
+  contents: write
+jobs:
+  hotfix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repair onboarding transition
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          # The combined vehicle+colour screen removed colorScreen, but nextQuestion still targeted it/old flow.
+          # Make the end of the five profile signals transition directly and safely to vehicleScreen.
+          s=s.replace("showScreen('colorScreen')", "showScreen('vehicleScreen')")
+          s=s.replace('showScreen("colorScreen")', 'showScreen("vehicleScreen")')
+          s=s.replace("showColorScreen()", "showVehicleScreen()")
+          # Defensive wrapper: if the existing nextQuestion reaches the end without navigating, force vehicle personalization.
+          marker='</script></body></html>'
+          patch='''\n<script>\n(function(){\n  const originalNextQuestion = window.nextQuestion;\n  if (typeof originalNextQuestion === 'function') {\n    window.nextQuestion = function(){\n      const before = document.querySelector('.screen.active')?.id;\n      originalNextQuestion.apply(this, arguments);\n      setTimeout(function(){\n        const q = document.getElementById('question');\n        const count = (document.getElementById('questionCount')?.textContent || '').toUpperCase();\n        if (q && q.classList.contains('active') && /(?:PROFILE SIGNAL|QUESTION)\\s*5/.test(count)) {\n          if (typeof showVehicleScreen === 'function') showVehicleScreen();\n          else {\n            document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));\n            document.getElementById('vehicleScreen')?.classList.add('active');\n            if (typeof renderVehicles === 'function') renderVehicles();\n            if (typeof renderColors === 'function') renderColors();\n          }\n        }\n      }, 0);\n    };\n  }\n})();\n</script>\n'''
+          if marker in s and 'const originalNextQuestion = window.nextQuestion' not in s:
+              s=s.replace(marker, patch+marker)
+          p.write_text(s)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Fix onboarding continuation after Profile Signal 5" || exit 0
+          git push
