@@ -1,4 +1,4 @@
-name: NaVue Signal 3 hotfix
+name: NaVue onboarding flow repair
 on:
   push:
     branches: [main]
@@ -6,26 +6,42 @@ on:
 permissions:
   contents: write
 jobs:
-  hotfix:
+  repair:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Repair Signal 3
+      - name: Repair onboarding source
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text()
-          a="'Route A — 24 min • 34 km','Route B — 29 min • 25 km'"
-          b="'Route A — 24 min • 34 km','Route B — 29 min • 25 km','Route C — 26 min • 29 km'"
-          s=s.replace(a,b)
-          a='"Route A — 24 min • 34 km","Route B — 29 min • 25 km"'
-          b='"Route A — 24 min • 34 km","Route B — 29 min • 25 km","Route C — 26 min • 29 km"'
-          s=s.replace(a,b)
+
+          old="time:['Which route would you normally choose?',[['Route A — 24 min • 34 km','fast'],['Route B — 29 min • 25 km','short']]]"
+          new="time:['Which route would you normally choose?',[['Route A — 24 min • 34 km','fast'],['Route B — 29 min • 25 km','short'],['Route C — 26 min • 29 km','balanced']]]"
+          if old not in s:
+              raise SystemExit('Expected Signal 3 source not found')
+          s=s.replace(old,new,1)
+
+          broken="function showVehicleScreen(){renderVehicles(vehicleChoices,showVehicleScreen);renderColors();show('vehicleScreen')}function showVehicleScreen(){renderColors(colorChoices,showColorScreen);show('colorScreen')}"
+          fixed="function showVehicleScreen(){renderVehicles(vehicleChoices,showVehicleScreen);renderColors(colorChoices,showVehicleScreen);show('vehicleScreen')}"
+          if broken not in s:
+              raise SystemExit('Expected duplicate vehicle function not found')
+          s=s.replace(broken,fixed,1)
+
+          marker="load();p.onboarded?showHome(true):show('welcome');"
+          if marker not in s:
+              raise SystemExit('Expected app startup marker not found')
+          tail=s.index(marker)+len(marker)
+          s=s[:tail]+'</script></body></html>'
+
           p.write_text(s)
           PY
+          grep -F "Route C — 26 min • 29 km" index.html
+          grep -F "renderColors(colorChoices,showVehicleScreen)" index.html
+          test "$(grep -o '<script>' index.html | wc -l)" -eq 1
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Add balanced Route C to Profile Signal 3" || exit 0
+          git commit -m "Fix Signal 3 and onboarding vehicle transition"
           git push
