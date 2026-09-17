@@ -1,0 +1,33 @@
+name: NaVue onboarding vehicle flow correction
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/navue-onboarding-vehicle-flow-fix.yml']
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconnect vehicle Continue to profile summary
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          old='onclick="showVoiceGuidanceScreen()">Continue</button>'
+          new='onclick="finishProfile()">Continue</button>'
+          if old not in s:
+              raise SystemExit('Expected vehicle Continue transition not found')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+      - name: Commit correction
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'Reconnect NaVue vehicle onboarding Continue flow'
+          git push
