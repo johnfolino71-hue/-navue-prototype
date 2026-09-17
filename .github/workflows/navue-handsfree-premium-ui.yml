@@ -1,0 +1,74 @@
+name: NaVue hands-free premium UI
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/navue-handsfree-premium-ui.yml']
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply approved prototype update
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('index.html')
+          s=p.read_text()
+
+          # Compact exact approved horizontal logo everywhere plain NaVue brand header appeared.
+          s=s.replace('<div class="brand">NaVue</div>','<div class="mini-brand"><img src="IMG_4005.jpeg" alt="NaVue — Drive Smarter Every Day"></div>')
+          s=s.replace('.brand{font-size:34px;font-weight:800}', '.brand{font-size:34px;font-weight:800}.mini-brand{width:132px;height:44px;overflow:hidden;display:flex;align-items:center;margin:0 0 8px}.mini-brand img{display:block;width:132px;height:auto}.topbar .mini-brand{margin:0}')
+
+          # Keep all selection cards compact/clean.
+          s=s.replace('.card{border:1px solid #dfe6e9;border-radius:15px;padding:14px 16px;margin:8px 0;background:#fff}', '.card{border:1px solid #dfe6e9;border-radius:13px;padding:11px 13px;margin:6px 0;background:#fff}.option{min-height:0}')
+          s=s.replace('.pref-option{padding:14px;', '.pref-option{padding:11px 13px;')
+          s=s.replace('.vehicle-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}', '.vehicle-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}')
+          s=s.replace('min-height:94px;padding:5px;border-radius:12px;font-size:11px', 'min-height:88px;padding:5px;border-radius:12px;font-size:11px')
+
+          # Remove voice-personality selection from onboarding. Voice Guidance + Mic ON/OFF is the only voice setup for now.
+          s=s.replace('<button class="safe-next" onclick="showVoiceScreen()">Continue</button>', '<button class="safe-next" onclick="showVoiceGuidanceScreen()">Continue</button>')
+          s=re.sub(r'<section id="voiceScreen" class="screen">.*?</section><section id="voiceGuidanceScreen"', '<section id="voiceGuidanceScreen"', s, count=1)
+          s=s.replace('<div class="pref-title">Voice</div><div id="prefVoices"></div>','')
+          s=s.replace('renderVoiceChoices(prefVoices,true)','')
+
+          # Replace Kokoro speech implementation with dependable temporary iPhone/browser system voice.
+          start=s.index('let navueAudioCtx=null,kokoroSource=null;')
+          end=s.index('function routine()', start)
+          replacement=r'''let navueAudioCtx=null;function unlockAudio(){try{let C=window.AudioContext||window.webkitAudioContext;if(!C)return null;if(!navueAudioCtx)navueAudioCtx=new C();if(navueAudioCtx.state==='suspended')navueAudioCtx.resume().catch(()=>{});return navueAudioCtx}catch(e){return null}}function unlockKokoro(){unlockAudio()}function showVoiceGuidanceScreen(){unlockAudio();onboardSpeaker.textContent=p.voice?'ON':'OFF';onboardMic.textContent=p.micEnabled?'ON':'OFF';show('voiceGuidanceScreen')}function toggleOnboardSpeaker(){p.voice=!p.voice;onboardSpeaker.textContent=p.voice?'ON':'OFF'}function toggleOnboardMic(){p.micEnabled=!p.micEnabled;onboardMic.textContent=p.micEnabled?'ON':'OFF';if(p.micEnabled){let SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(SR){try{let r=new SR;r.lang='en-CA';r.onend=()=>{};r.start();setTimeout(()=>{try{r.stop()}catch(e){}},300)}catch(e){}}}}function finishProfile(){profileHello.textContent=(p.firstName?p.firstName+', your':'Your')+' NaVue profile has started.';roadProfile.textContent=p.road;paidProfile.textContent=p.paid;priorityProfile.textContent=p.priority;vehicleProfile.textContent=(VEH.find(v=>v[1]===p.vehicle)||VEH[0])[0];show('profileStart')}function completeOnboarding(){p.onboarded=true;voiceFlow=!!p.micEnabled;save();unlockAudio();showHome(true)}function part(){let h=new Date().getHours();return h<12?'morning':h<17?'afternoon':'evening'}function greet(){return'Good '+part()+(p.firstName?', '+p.firstName:'')+'.'}function systemVoice(){let vs=speechSynthesis.getVoices();return vs.find(v=>/en-CA/i.test(v.lang)&&/samantha|siri/i.test(v.name))||vs.find(v=>/en-CA/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||vs[0]}function speak(t,force=false,style=p.voiceStyle,after){if(!p.voice&&!force){if(after)after();return}lastSpoken=t;if(rec){try{rec.onend=null;rec.stop()}catch(e){}rec=null;micState(mic,false);mic=null}try{speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(t);u.lang='en-CA';let v=systemVoice();if(v)u.voice=v;u.rate=.98;u.pitch=1;u.onend=()=>{if(after)after();else if(voiceFlow&&p.micEnabled)setTimeout(()=>rearmVoice(document.querySelector('.screen.active')?.id),180)};u.onerror=()=>{if(after)after();if(voiceFlow&&p.micEnabled)setTimeout(()=>rearmVoice(document.querySelector('.screen.active')?.id),180)};speechSynthesis.speak(u)}catch(e){if(after)after();if(voiceFlow&&p.micEnabled)setTimeout(()=>rearmVoice(document.querySelector('.screen.active')?.id),180)}}function previewVoice(){speak(greet(),true)}'''
+          s=s[:start]+replacement+s[end:]
+
+          # Remove obsolete voice-choice renderer/show screen if still present.
+          s=re.sub(r'function showVoiceScreen\(\)\{.*?\}function renderVoiceChoices\(el,prefs\)\{.*?\}\}\)', 'function showVoiceScreen(){showVoiceGuidanceScreen()}', s, count=1)
+          # Above minified pattern can vary; safe direct neutralization of calls if definitions remain.
+          s=s.replace("function showVoiceScreen(){renderVoiceChoices(voiceChoices,false);show('voiceScreen')}","function showVoiceScreen(){showVoiceGuidanceScreen()}")
+
+          # Speaker OFF must never turn microphone OFF; remove Kokoro-only stop references.
+          s=s.replace("else{if(kokoroAudio){try{kokoroAudio.pause()}catch(e){}kokoroAudio=null}if(kokoroSource){try{kokoroSource.stop()}catch(e){}kokoroSource=null}}", "else{try{speechSynthesis.cancel()}catch(e){}}")
+
+          # Hands-free conversational navigation: destination change can begin naturally while driving.
+          old="if(mode==='navigation'){if(/mute|voice off|turn voice off/.test(s)){tripVoice=false;setSpeaker();speechSynthesis.cancel();return}if(/unmute|voice on|turn voice on/.test(s)){tripVoice=true;setSpeaker();return speak('Voice guidance on',true)}if(/repeat/.test(s))return speak(lastSpoken||'Continue straight for 1.2 kilometres.',true);return setTimeout(()=>startListen('navigation',navMic,true),300)}"
+          new="if(mode==='navigation'){if(/mute|voice off|turn voice off/.test(s)){tripVoice=false;setSpeaker();speechSynthesis.cancel();return setTimeout(()=>startListen('navigation',navMic,true),250)}if(/unmute|voice on|turn voice on/.test(s)){tripVoice=true;setSpeaker();return speak('Voice guidance on',true)}if(/repeat/.test(s))return speak(lastSpoken||'Continue straight for 1.2 kilometres.',true);if(/change (my )?destination|different destination|go somewhere else|new destination|change where/i.test(s)){return speak('Where would you like to go now?',true,p.voiceStyle,()=>{show('destination');voiceStatus.textContent='Listening for your new destination…';setTimeout(()=>startListen('destination',destMic,true),180)})}if(/construction|road work|roadwork/i.test(s))return speak('I heard you. Construction reported ahead. I’ll keep listening for your next request.',true);if(/foreign object|object on the road|debris|something on the road/i.test(s))return speak('I heard you. Object reported on the road. Please drive carefully.',true);if(/how much longer|time left|how long/i.test(s))return speak((p.selectedRoute?.time||'')+' minutes remaining.',true);if(/take me home|go home/i.test(s)){p.destination='Home';return buildRoutes(true)}return setTimeout(()=>startListen('navigation',navMic,true),300)}"
+          if old not in s: raise SystemExit('navigation voice block not found')
+          s=s.replace(old,new)
+
+          # Make microphone copy explicitly persistent/hands-free.
+          s=s.replace('Talk to NaVue on demand and through your journey.','Hands-free conversation throughout your journey.')
+          s=s.replace('Tap the microphone or say Route A, B or C when NaVue is listening.','Hands-free: say Route A, B or C, or tap to select.')
+          s=s.replace('Type it or tap the microphone to speak.','Type it or speak naturally while the microphone is ON.')
+
+          # Distinct premium three-quarter vehicle artwork: six intentionally different silhouettes/details.
+          a=s.index('function vehicleDisplaySVG(type,color){')
+          b=s.index('function renderVehicles(',a)
+          veh=r'''function vehicleDisplaySVG(type,color){let c=color,glass='#b8d7e8',dark='#16232c',chrome='#dce5ea';let d={sedan:['M8 49 Q15 35 31 31 L54 18 L82 19 Q96 22 109 35 L124 42 L120 58 L22 64 L8 57Z','M36 31 L58 21 L80 22 L96 34Z'],suv:['M7 47 L18 27 L43 18 L83 17 L105 31 L124 40 L121 60 L19 65 L7 57Z','M32 29 L47 21 L80 21 L98 33Z'],sports:['M8 51 Q20 37 39 34 L60 25 L84 27 Q102 31 122 46 L117 58 L20 63 L8 57Z','M43 34 L62 28 L82 30 L96 38Z'],convertible:['M8 51 Q18 38 37 35 L61 28 L86 31 Q104 35 122 47 L117 59 L20 63 L8 57Z','M45 35 L62 30 L82 33 L90 38Z'],pickup:['M7 49 L18 31 L40 22 L72 22 L87 35 L123 36 L123 59 L79 65 L18 64 L7 57Z','M31 31 L44 25 L69 25 L81 35Z'],truck:['M5 51 L14 28 L34 17 L60 18 L75 35 L126 35 L127 61 L73 66 L18 65 L5 58Z','M25 29 L37 21 L56 22 L68 35Z']}[type]||null;let body=d[0],win=d[1];let extra=type==='convertible'?'<path d="M44 37 L88 39" stroke="#111b22" stroke-width="5"/><path d="M49 33 L58 29" stroke="#dce5ea" stroke-width="2"/>':type==='pickup'?'<path d="M88 39 L119 39 L117 54 L85 57Z" fill="#0f1a20" opacity=".34"/>':type==='truck'?'<path d="M78 39 L123 38 L124 57 L77 61Z" fill="#eef2f4" stroke="#aab7be"/><path d="M88 42 V57 M101 41 V58 M114 40 V57" stroke="#c5cdd2"/>':'';return `<svg viewBox="0 0 132 78" aria-label="${type}"><defs><linearGradient id="p-${type}" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff" stop-opacity=".55"/><stop offset=".22" stop-color="${c}"/><stop offset=".72" stop-color="${c}"/><stop offset="1" stop-color="#07131d" stop-opacity=".5"/></linearGradient></defs><ellipse cx="65" cy="69" rx="55" ry="5" fill="#000" opacity=".16"/><path d="${body}" fill="url(#p-${type})" stroke="${dark}" stroke-width="1.7"/><path d="${win}" fill="${glass}" stroke="#35505f" stroke-width="1.2"/>${extra}<path d="M15 49 Q62 55 116 48" fill="none" stroke="#fff" stroke-width="2" opacity=".4"/><ellipse cx="31" cy="61" rx="11" ry="8" fill="#0a1014"/><ellipse cx="99" cy="59" rx="11" ry="8" fill="#0a1014"/><ellipse cx="31" cy="61" rx="5" ry="4" fill="${chrome}"/><ellipse cx="99" cy="59" rx="5" ry="4" fill="${chrome}"/></svg>`}'''
+          s=s[:a]+veh+s[b:]
+
+          p.write_text(s)
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Refine NaVue hands-free voice vehicles and compact branding'
+          git push
