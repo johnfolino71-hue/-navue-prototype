@@ -1,0 +1,65 @@
+name: NaVue iPhone startup speaker activation fix
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/navue-ios-startup-speaker-fix.yml']
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repair startup audio activation only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          marker='/* NAVUE_IOS_STARTUP_AUDIO_V1 */'
+          if marker in s:
+              raise SystemExit('startup audio fix already installed')
+          # Do not alter SpeechRecognition/startListen/rearmVoice/toggleListen/micState.
+          # Do not replace speak() or vehicle/navigation logic. This only unlocks audio
+          # on the same permission/user gesture that already occurs at launch.
+          patch=r'''<script>/* NAVUE_IOS_STARTUP_AUDIO_V1 */
+          (function(){
+            let primed=false;
+            function primeNaVueAudio(){
+              if(primed)return;
+              primed=true;
+              try{if(typeof unlockAudio==='function')unlockAudio()}catch(e){}
+              try{
+                if(window.speechSynthesis){
+                  window.speechSynthesis.resume();
+                  const u=new SpeechSynthesisUtterance(' ');
+                  u.volume=0.01;u.rate=2;
+                  window.speechSynthesis.speak(u);
+                }
+              }catch(e){}
+              setTimeout(function(){
+                try{
+                  const home=document.querySelector('#home.active');
+                  if(home&&window.p&&p.onboarded&&p.voice&&typeof speak==='function'){
+                    let h=(new Date).getHours(),part=h<12?'morning':h<17?'afternoon':'evening';
+                    speak('Good '+part+(p.firstName?', '+p.firstName:'')+'. Where are you going?',true);
+                  }
+                }catch(e){}
+              },180);
+            }
+            // iOS permits audible speech after a genuine user gesture. The microphone
+            // permission flow already gives the user that gesture, so prime audio there
+            // without changing any microphone behavior.
+            document.addEventListener('touchstart',primeNaVueAudio,{once:true,passive:true,capture:true});
+            document.addEventListener('click',primeNaVueAudio,{once:true,capture:true});
+          })();
+          </script>'''
+          if '</body>' not in s: raise SystemExit('body close not found')
+          s=s.replace('</body>',patch+'</body>',1)
+          p.write_text(s)
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Prime NaVue speaker on first iPhone interaction'
+          git push
