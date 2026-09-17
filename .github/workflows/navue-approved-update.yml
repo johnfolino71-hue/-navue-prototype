@@ -1,0 +1,107 @@
+name: Apply approved NaVue refinement package
+on:
+  push:
+    paths:
+      - '.github/workflows/navue-approved-update.yml'
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply approved corrections
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+
+          # Signal 3: speed -> distance -> eco, with compact explanatory copy.
+          old="time:['Which route would you normally choose?',[['Route A — 24 min • 34 km','fast'],['Route B — 29 min • 25 km','short'],['Route C — 26 min • 29 km','balanced']]]"
+          new="time:['Which route would you normally choose?',[['Route A — 24 min • 34 km\\nFastest • More mileage','fast'],['Route B — 29 min • 25 km\\nMore time • Less mileage','short'],['Route C — 26 min • 29 km 🍃 ECO\\nBalanced • Eco route','balanced']]]"
+          assert old in s
+          s=s.replace(old,new)
+
+          # Vehicle/color continues to voice screen; wording should simply be Continue.
+          old='<button class="safe-next" onclick="showVoiceScreen()">Choose voice</button>'
+          assert old in s
+          s=s.replace(old,'<button class="safe-next" onclick="showVoiceScreen()">Continue</button>')
+
+          # Remove customer-facing prototype restart controls now that onboarding is being tested end-to-end.
+          old='<div class="pref-title">Prototype Testing</div><button class="restart" onclick="restartOnboarding()">Restart Onboarding</button>'
+          assert old in s
+          s=s.replace(old,'')
+
+          # Compact, premium selection UI across onboarding/preferences.
+          css='.vehicle-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}'
+          assert css in s
+          s=s.replace(css,'.vehicle-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}')
+          oldcss='.vehicle-personalize .vehicle-card{min-height:98px;padding:7px;border-radius:14px;font-size:12px}.vehicle-personalize .vehicle-card svg{height:62px;width:96px}'
+          assert oldcss in s
+          s=s.replace(oldcss,'.vehicle-personalize .vehicle-card{min-height:82px;padding:5px;border-radius:12px;font-size:11px;box-shadow:0 3px 12px #17212610}.vehicle-personalize .vehicle-card svg{height:49px;width:82px}')
+          oldcss2='.vehicle-card{min-height:132px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}'
+          assert oldcss2 in s
+          s=s.replace(oldcss2,'.vehicle-card{min-height:104px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;box-shadow:0 3px 12px #17212610}')
+          # Make question choice cards more refined/compact without affecting content.
+          s=s.replace('.card{border:1px solid #dfe6e9;border-radius:18px;padding:18px;margin:12px 0;background:#fff}', '.card{border:1px solid #dfe6e9;border-radius:15px;padding:14px 16px;margin:8px 0;background:#fff}')
+          # Preserve line breaks in Signal 3 explanatory text.
+          s=s.replace('.option.selected,.pref-option.selected,.vehicle-card.selected,.voice-card.selected{', '.option{white-space:pre-line;line-height:1.35}.option.selected,.pref-option.selected,.vehicle-card.selected,.voice-card.selected{')
+
+          # Audio: iOS Safari often blocks a newly-created HTMLAudioElement after async model generation.
+          # Unlock one WebAudio context synchronously from the user's tap, then decode/play Kokoro through it.
+          old="function unlockKokoro(){try{let a=new Audio();a.play().catch(()=>{})}catch(e){}getKokoro().catch(()=>{})}"
+          new="let navueAudioCtx=null,kokoroSource=null;function unlockAudio(){try{let C=window.AudioContext||window.webkitAudioContext;if(!C)return null;if(!navueAudioCtx)navueAudioCtx=new C();if(navueAudioCtx.state==='suspended')navueAudioCtx.resume().catch(()=>{});return navueAudioCtx}catch(e){console.error('Audio unlock failed',e);return null}}function unlockKokoro(){unlockAudio();getKokoro().catch(()=>{})}"
+          assert old in s
+          s=s.replace(old,new)
+
+          old="let kokoroTTS=null,kokoroLoading=null,kokoroAudio=null;const KOKORO_VOICES={female:'af_bella',male:'am_michael',navue:'af'};"
+          new="let kokoroTTS=null,kokoroLoading=null,kokoroAudio=null;const KOKORO_VOICES={female:'af_bella',male:'am_michael',navue:'af'};"
+          assert old in s
+          # Keep declaration for compatibility with existing stop controls.
+
+          start=s.index('async function speak(t,force=false,style=p.voiceStyle,after){')
+          end=s.index('async function previewVoice(style){',start)
+          replacement="""async function playKokoroBlob(blob,after){let ctx=unlockAudio();if(!ctx)throw new Error('Web Audio is unavailable');let ab=await blob.arrayBuffer();let buffer=await ctx.decodeAudioData(ab.slice(0));if(kokoroSource){try{kokoroSource.stop()}catch(e){}}return await new Promise((resolve,reject)=>{try{let src=ctx.createBufferSource();kokoroSource=src;src.buffer=buffer;src.connect(ctx.destination);src.onended=()=>{if(kokoroSource===src)kokoroSource=null;if(after)after();resolve()};src.start(0)}catch(e){reject(e)}})}async function speak(t,force=false,style=p.voiceStyle,after){if(!p.voice&&!force){if(after)after();return}lastSpoken=t;if(rec){try{rec.onend=null;rec.stop()}catch(e){}rec=null;micState(mic,false);mic=null}try{let tts=await getKokoro();let audio=await tts.generate(t,{voice:KOKORO_VOICES[style]||'af'});let blob=audio.toBlob();await playKokoroBlob(blob,()=>{if(after)after();else if(voiceFlow&&p.micEnabled)setTimeout(()=>rearmVoice(document.querySelector('.screen.active')?.id),180)})}catch(e){console.error('Real Kokoro unavailable',e);let status=document.getElementById('kokoroStatus')||document.getElementById('voiceStatus');if(status)status.textContent='Voice could not play. Please tap Preview again.';if(after&&document.getElementById('kokoroStatus')===null)after()}}"""
+          s=s[:start]+replacement+s[end:]
+
+          # Preview tap must unlock audio synchronously before any await/model generation.
+          old="async function previewVoice(style){let x=document.getElementById('kokoroStatus');if(x)x.textContent='Loading real Kokoro voice…';await speak(greet(),true,style,()=>{if(x)x.textContent='Preview finished. This is the selected Kokoro voice.'})}"
+          new="async function previewVoice(style){unlockAudio();let x=document.getElementById('kokoroStatus');if(x)x.textContent='Preparing voice…';let heard=false;await speak(greet(),true,style,()=>{heard=true;if(x)x.textContent='Voice preview played.'});if(!heard&&x&&!/could not/i.test(x.textContent))x.textContent='Voice did not play. Tap Preview again.'}"
+          assert old in s
+          s=s.replace(old,new)
+
+          # Reuse unlocked WebAudio context for UI beeps; do not create competing contexts.
+          old="function beep(f=740){try{let C=window.AudioContext||window.webkitAudioContext,a=new C,o=a.createOscillator(),g=a.createGain();o.frequency.value=f;g.gain.value=.05;o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+.08)}catch(e){}}"
+          new="function beep(f=740){try{let a=unlockAudio();if(!a)return;let o=a.createOscillator(),g=a.createGain();o.frequency.value=f;g.gain.value=.05;o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+.08)}catch(e){}}"
+          assert old in s
+          s=s.replace(old,new)
+
+          # Speaker off should stop either legacy audio or WebAudio Kokoro source.
+          s=s.replace("else if(kokoroAudio){kokoroAudio.pause();kokoroAudio=null}","else{if(kokoroAudio){try{kokoroAudio.pause()}catch(e){}kokoroAudio=null}if(kokoroSource){try{kokoroSource.stop()}catch(e){}kokoroSource=null}}")
+
+          # Give vehicle art more depth while retaining distinct vehicle types and selected color.
+          old='<svg viewBox="0 0 130 78" aria-label="${type}"><ellipse cx="65" cy="66" rx="52" ry="7" fill="#000" opacity=".13"/><g transform="skewX(-5)">${body}<ellipse cx="27" cy="59" rx="10" ry="7" fill="#111820"/><ellipse cx="91" cy="59" rx="10" ry="7" fill="#111820"/><ellipse cx="27" cy="59" rx="5" ry="4" fill="#b7c0c5"/><ellipse cx="91" cy="59" rx="5" ry="4" fill="#b7c0c5"/><path d="M20 30Q58 10 100 37" fill="none" stroke="#fff" stroke-width="3" opacity=".35"/></g></svg>'
+          new='<svg viewBox="0 0 130 78" aria-label="${type}"><defs><filter id="carShadow"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity=".28"/></filter></defs><ellipse cx="65" cy="67" rx="50" ry="6" fill="#000" opacity=".16"/><g transform="skewX(-5)" filter="url(#carShadow)">${body}<ellipse cx="27" cy="59" rx="10" ry="7" fill="#0b1115"/><ellipse cx="91" cy="59" rx="10" ry="7" fill="#0b1115"/><ellipse cx="27" cy="59" rx="5" ry="4" fill="#c9d0d4"/><ellipse cx="91" cy="59" rx="5" ry="4" fill="#c9d0d4"/><path d="M20 30Q58 10 100 37" fill="none" stroke="#fff" stroke-width="3" opacity=".42"/><path d="M17 45Q60 53 104 42" fill="none" stroke="#000" stroke-width="1" opacity=".16"/></g></svg>'
+          assert old in s
+          s=s.replace(old,new)
+
+          p.write_text(s)
+          PY
+      - name: Verify approved package
+        run: |
+          grep -q 'Route B — 29 min • 25 km\\nMore time • Less mileage' index.html
+          grep -q 'Route C — 26 min • 29 km 🍃 ECO' index.html
+          grep -q 'onclick="showVoiceScreen()">Continue</button>' index.html
+          grep -q 'playKokoroBlob' index.html
+          grep -q 'unlockAudio' index.html
+          ! grep -q '>Restart Onboarding<' index.html
+          test "$(grep -o '<script>' index.html | wc -l)" -eq 1
+      - name: Commit update and remove temporary workflow
+        run: |
+          rm .github/workflows/navue-approved-update.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html .github/workflows/navue-approved-update.yml
+          git commit -m 'Refine onboarding UI and repair Kokoro audio playback'
+          git push
