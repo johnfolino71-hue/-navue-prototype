@@ -1,0 +1,60 @@
+name: NaVue driving conversation logic
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/navue-conversation-logic.yml']
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add conversation logic without changing microphone engine
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          marker='/* NAVUE_DRIVING_CONVERSATION_V1 */'
+          if marker in s:
+              raise SystemExit('Conversation layer already installed')
+
+          # Expand only the existing navigation intent branch. Do not alter SpeechRecognition,
+          # startListen, rearmVoice, toggleListen, micState, or the repaired speak() engine.
+          s=s.replace("if(/construction|road work|roadwork/i.test(s))return speak('I heard you. Construction reported ahead. I’ll keep listening for your next request.',true);", "if(/construction|road work|roadwork/i.test(s))return speak('I heard you. There may be construction ahead. I can help you consider another route, but this prototype cannot verify or report live road conditions.',true);")
+          s=s.replace("if(/foreign object|object on the road|debris|something on the road/i.test(s))return speak('I heard you. Object reported on the road. Please drive carefully.',true);", "if(/foreign object|object on the road|debris|something on the road/i.test(s))return speak('I heard you. There may be an object or debris on the road. Please drive carefully. This prototype cannot report it to other drivers.',true);")
+
+          # Insert additional driving intents immediately before the existing construction intent.
+          anchor="if(/construction|road work|roadwork/i.test(s))"
+          if anchor not in s:
+              raise SystemExit('Navigation intent anchor not found; refusing to touch microphone code')
+          extra="""if(/police|police car|officer|speed trap/i.test(s))return speak('I heard you. Please drive safely and follow posted signs and directions. This prototype cannot verify or report police activity.',true);if(/accident|crash|collision/i.test(s))return speak('I heard you. There may be an incident ahead. I can help you consider another route, but this prototype cannot verify live traffic incidents.',true);if(/road closed|road closure|closed ahead|blocked road/i.test(s))return speak('I heard you. If the road ahead is closed or blocked, I can help you choose another route. This prototype cannot verify the closure live.',true);if(/another route|different route|alternate route|avoid this|avoid that|go around/i.test(s))return speak('I can help with another route. Would you like to return to the route choices?',true);if(/stop navigation|end (the )?trip|cancel navigation|i'?m done|finish (the )?trip/i.test(s)){window.navueEndTripPending=true;return speak('End this trip?',true)}if(window.navueEndTripPending&&/^(yes|yeah|yep|sure|do it|end it|stop)$/i.test(s.trim())){window.navueEndTripPending=false;return finishTrip()}if(window.navueEndTripPending&&/^(no|nope|keep going|continue)$/i.test(s.trim())){window.navueEndTripPending=false;return speak('Okay, continuing the trip.',true)}"""
+          s=s.replace(anchor,extra+anchor,1)
+
+          # Add a greeting bridge around the existing home function. It uses the repaired speak()
+          # and never changes microphone state. iOS may require the first user touch for audible speech,
+          # so a one-time touch fallback is included.
+          bridge=r'''<script>/* NAVUE_DRIVING_CONVERSATION_V1 */
+          (function(){
+            let greeted=false;
+            function greetingText(){try{return greet()+' Where are you going?'}catch(e){let n=(window.p&&p.firstName)?', '+p.firstName:'';return 'Good '+((new Date).getHours()<12?'morning':(new Date).getHours()<17?'afternoon':'evening')+n+'. Where are you going?'}}
+            function tryGreeting(){if(greeted)return;try{if(window.p&&p.onboarded&&p.voice){greeted=true;speak(greetingText(),true)}}catch(e){}}
+            if(typeof window.showHome==='function'){
+              const originalShowHome=window.showHome;
+              window.showHome=function(){const r=originalShowHome.apply(this,arguments);setTimeout(tryGreeting,220);return r}
+            }
+            document.addEventListener('touchstart',function(){if(document.querySelector('#home.active'))tryGreeting()},{once:true,passive:true});
+            document.addEventListener('click',function(){if(document.querySelector('#home.active'))tryGreeting()},{once:true});
+          })();
+          </script>'''
+          if '</body>' not in s:
+              raise SystemExit('body close not found')
+          s=s.replace('</body>',bridge+'</body>',1)
+          p.write_text(s)
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Connect NaVue driving conversation and spoken greeting'
+          git push
