@@ -1,0 +1,24 @@
+name: Restore onboarding testing control
+on: push
+permissions:
+  contents: write
+jobs:
+  restore:
+    if: github.event.head_commit.message == 'Restore onboarding testing control'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html'); s=p.read_text()
+          marker='<div class="pref-title">Microphone</div>'
+          control='<div class="pref-title">Prototype Testing</div><button class="restart" onclick="restartOnboarding()">Restart Onboarding</button>'
+          assert marker in s and control not in s
+          p.write_text(s.replace(marker,control+marker,1))
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add index.html
+          git commit -m "Restore Restart Onboarding for prototype testing"
+          git push
