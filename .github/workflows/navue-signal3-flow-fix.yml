@@ -1,0 +1,67 @@
+name: NaVue Signal 3 and flow fix
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/navue-signal3-flow-fix.yml']
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix Signal 3 and onboarding progression
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          # Add the missing balanced route to the exact Signal 3 two-route option list.
+          old="['Route A — 24 min • 34 km','Route B — 29 min • 25 km']"
+          new="['Route A — 24 min • 34 km','Route B — 29 min • 25 km','Route C — 26 min • 29 km']"
+          s=s.replace(old,new)
+          old2='["Route A — 24 min • 34 km","Route B — 29 min • 25 km"]'
+          new2='["Route A — 24 min • 34 km","Route B — 29 min • 25 km","Route C — 26 min • 29 km"]'
+          s=s.replace(old2,new2)
+          # Install a direct click guard for the onboarding Continue button. It preserves normal nextQuestion
+          # behavior, but if a selected signal fails to advance, it advances the question index/render itself;
+          # after Signal 5 it moves directly to the combined vehicle+colour screen.
+          marker='</body></html>'
+          patch=r'''<script>
+(function(){
+ const btn=document.getElementById('continueBtn');
+ if(!btn || btn.dataset.flowGuard==='1') return;
+ btn.dataset.flowGuard='1';
+ btn.addEventListener('click',function(){
+   const q=document.getElementById('question');
+   const before=(document.getElementById('questionCount')?.textContent||'').match(/(\d+)/);
+   const n=before?Number(before[1]):0;
+   setTimeout(function(){
+     if(!q.classList.contains('active')) return;
+     const after=(document.getElementById('questionCount')?.textContent||'').match(/(\d+)/);
+     const m=after?Number(after[1]):0;
+     if(m!==n) return;
+     if(n>=5){
+       document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
+       document.getElementById('vehicleScreen')?.classList.add('active');
+       if(typeof renderVehicles==='function') renderVehicles();
+       if(typeof renderColors==='function') renderColors();
+       return;
+     }
+     if(typeof qIndex==='number' && Array.isArray(questions) && qIndex < questions.length-1){
+       qIndex++;
+       if(typeof renderQuestion==='function') renderQuestion();
+     }
+   },40);
+ },true);
+})();
+</script>'''
+          if marker in s and "dataset.flowGuard" not in s:
+              s=s.replace(marker,patch+marker)
+          p.write_text(s)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Fix Signal 3 third route and onboarding Continue flow" || exit 0
+          git push
