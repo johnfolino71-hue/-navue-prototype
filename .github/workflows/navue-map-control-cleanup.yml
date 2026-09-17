@@ -21,49 +21,14 @@ jobs:
           marker='/* NAVUE_MAP_CONTROL_CLEANUP_V1 */'
           if marker not in s:
             patch=r'''<style>/* NAVUE_MAP_CONTROL_CLEANUP_V1 */
-/* Returning-driver map: matching circular voice controls, stacked at upper right. */
-#home.map-first #homeSpeaker,
-#home.map-first .home-speaker,
-#home.map-first .speaker{border-radius:50%!important;width:54px!important;height:54px!important;min-width:54px!important;min-height:54px!important;overflow:hidden!important;display:flex!important;align-items:center!important;justify-content:center!important}
-#home.map-first #homeMic,
-#home.map-first .home-mic,
-#home.map-first .mic{border-radius:50%!important;width:54px!important;height:54px!important;min-width:54px!important;min-height:54px!important;overflow:visible!important}
+#home.map-first #homeSpeaker,#home.map-first .home-speaker,#home.map-first .speaker{border-radius:50%!important;width:54px!important;height:54px!important;min-width:54px!important;min-height:54px!important;overflow:hidden!important;display:flex!important;align-items:center!important;justify-content:center!important}
+#home.map-first #homeMic,#home.map-first .home-mic,#home.map-first .mic{border-radius:50%!important;width:54px!important;height:54px!important;min-width:54px!important;min-height:54px!important;overflow:visible!important}
 #home.map-first .home-voice-stack{position:absolute!important;top:18px!important;right:18px!important;display:flex!important;flex-direction:column!important;gap:10px!important;z-index:20!important}
-/* Never use the oversized/cropped red-X treatment for speaker OFF. */
 #home.map-first .speaker-off-x,#home.map-first .voice-off-x{display:none!important}
-/* Remove old Home/Work quick destination chips from map-first home. */
 #home.map-first .quick-destinations,#home.map-first .home-quick,#home.map-first .map-quick-destinations{display:none!important}
 </style>
 <script>
-(function(){
-  function clean(){
-    var home=document.getElementById('home'); if(!home)return;
-    home.classList.add('map-first');
-    // Remove only the legacy Home/Work quick destination buttons on returning map.
-    home.querySelectorAll('button').forEach(function(b){
-      var t=(b.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
-      if(t==='home'||t==='work'||t==='🏠 home'||t==='💼 work') b.style.display='none';
-    });
-    var sp=document.getElementById('homeSpeaker')||home.querySelector('.home-speaker,.speaker');
-    var mic=document.getElementById('homeMic')||home.querySelector('.home-mic,.mic');
-    if(sp&&mic){
-      var stack=home.querySelector('.home-voice-stack');
-      if(!stack){stack=document.createElement('div');stack.className='home-voice-stack';home.appendChild(stack)}
-      if(sp.parentNode!==stack)stack.appendChild(sp);
-      if(mic.parentNode!==stack)stack.appendChild(mic);
-    }
-    // Speaker OFF should remain a clean round speaker control, not a clipped red X.
-    if(sp){
-      sp.style.borderRadius='50%';
-      var txt=(sp.textContent||'');
-      if(txt.indexOf('❌')>=0||txt.indexOf('❎')>=0)sp.textContent='🔊';
-    }
-    if(mic)mic.style.borderRadius='50%';
-  }
-  document.addEventListener('DOMContentLoaded',clean);
-  document.addEventListener('click',function(){setTimeout(clean,0)},true);
-  setTimeout(clean,0);
-})();
+(function(){function clean(){var home=document.getElementById('home');if(!home)return;home.classList.add('map-first');home.querySelectorAll('button').forEach(function(b){var t=(b.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();if(t==='home'||t==='work'||t==='🏠 home'||t==='💼 work')b.style.display='none'});var sp=document.getElementById('homeSpeaker')||home.querySelector('.home-speaker,.speaker');var mic=document.getElementById('homeMic')||home.querySelector('.home-mic,.mic');if(sp&&mic){var stack=home.querySelector('.home-voice-stack');if(!stack){stack=document.createElement('div');stack.className='home-voice-stack';home.appendChild(stack)}if(sp.parentNode!==stack)stack.appendChild(sp);if(mic.parentNode!==stack)stack.appendChild(mic)}if(sp){sp.style.borderRadius='50%';var txt=sp.textContent||'';if(txt.indexOf('❌')>=0||txt.indexOf('❎')>=0)sp.textContent='🔊'}if(mic)mic.style.borderRadius='50%'}document.addEventListener('DOMContentLoaded',clean);document.addEventListener('click',function(){setTimeout(clean,0)},true);setTimeout(clean,0)})();
 </script>'''
             s=s.replace('</body>',patch+'\n</body>')
             p.write_text(s)
@@ -76,3 +41,4 @@ jobs:
           git diff --cached --quiet && exit 0
           git commit -m 'Clean NaVue returning map voice controls'
           git push origin main
+# execution trigger 2026-09-17
