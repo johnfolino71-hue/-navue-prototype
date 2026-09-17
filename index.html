@@ -41,4 +41,27 @@
   document.addEventListener('touchstart',primeNaVueAudio,{once:true,passive:true,capture:true});
   document.addEventListener('click',primeNaVueAudio,{once:true,capture:true});
 })();
+</script><script>/* NAVUE_IOS_SPEAKER_TOGGLE_PARITY_V1 */
+(function(){
+  let done=false;
+  function activateLikeSpeakerToggle(){
+    if(done)return;
+    try{
+      if(!(window.p&&p.onboarded&&p.voice))return;
+      done=true;
+      // Mirror the exact proven OFF -> ON speaker path without changing mic code.
+      if(typeof toggleMainVoice==='function'){
+        toggleMainVoice();
+        setTimeout(function(){
+          try{toggleMainVoice()}catch(e){}
+        },60);
+      }
+    }catch(e){}
+  }
+  // iPhone WebKit requires a real page interaction before audible synthesis.
+  // Use the first normal app interaction to perform the same state transition
+  // Gio proved works manually. Microphone functions are intentionally untouched.
+  document.addEventListener('touchend',activateLikeSpeakerToggle,{once:true,capture:true,passive:true});
+  document.addEventListener('click',activateLikeSpeakerToggle,{once:true,capture:true});
+})();
 </script></body></html>
