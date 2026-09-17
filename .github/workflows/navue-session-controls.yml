@@ -17,44 +17,34 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
           p=Path('index.html')
           s=p.read_text()
-          # Remove speaker/microphone configuration cards from onboarding; controls are session-scoped.
           old='<div class="card setting-toggle"><div><strong>Voice Guidance / Speaker</strong><div class="small">Hear greetings and spoken directions.</div></div><button id="onboardSpeaker" onclick="toggleOnboardSpeaker()">ON</button></div><div class="card setting-toggle"><div><strong>Microphone</strong><div class="small">Hands-free conversation throughout your journey.</div></div><button id="onboardMic" onclick="toggleOnboardMic()">ON</button></div><div class="voice-note">Your iPhone will show Apple’s microphone permission when access is first requested. NaVue does not replace or imitate that permission screen.</div>'
           s=s.replace(old,'<div class="voice-note">Speaker and microphone controls are available when you start NaVue. Turn on either one when you want to use it.</div>')
-          # Do not persist session controls as profile defaults. Every fresh page/app launch begins OFF.
           marker="load();p.onboarded?showHome(true):show('welcome');"
           replacement="load();p.voice=false;p.micEnabled=false;tripVoice=false;voiceFlow=false;p.onboarded?showHome(false):show('welcome');"
-          if marker not in s:
-              raise SystemExit('startup marker not found')
+          if marker not in s: raise SystemExit('startup marker not found')
           s=s.replace(marker,replacement,1)
-          # Onboarding completion lands with both session controls OFF.
           old2="function completeOnboarding(){p.onboarded=true;voiceFlow=!!p.micEnabled;save();unlockAudio();showHome(true)}"
           new2="function completeOnboarding(){p.onboarded=true;p.voice=false;p.micEnabled=false;tripVoice=false;voiceFlow=false;save();showHome(false)}"
-          if old2 not in s:
-              raise SystemExit('completeOnboarding marker not found')
+          if old2 not in s: raise SystemExit('completeOnboarding marker not found')
           s=s.replace(old2,new2,1)
-          # Session toggles must not save ON/OFF to localStorage; they persist only in the open page session.
           old3="function toggleMainVoice(){p.voice=!p.voice;save();updateHomeSpeaker();"
-          new3="function toggleMainVoice(){p.voice=!p.voice;updateHomeSpeaker();"
-          if old3 not in s:
-              raise SystemExit('speaker toggle marker not found')
-          s=s.replace(old3,new3,1)
+          if old3 not in s: raise SystemExit('speaker toggle marker not found')
+          s=s.replace(old3,"function toggleMainVoice(){p.voice=!p.voice;updateHomeSpeaker();",1)
           old4="function toggleListen(mode,b){if(rec&&mic===b){p.micEnabled=false;voiceFlow=false;save();return stopListen()}p.micEnabled=true;voiceFlow=true;save();startListen(mode,b,false)}"
           new4="function toggleListen(mode,b){if(rec&&mic===b){p.micEnabled=false;voiceFlow=false;return stopListen()}p.micEnabled=true;voiceFlow=true;startListen(mode,b,false)}"
-          if old4 not in s:
-              raise SystemExit('mic toggle marker not found')
+          if old4 not in s: raise SystemExit('mic toggle marker not found')
           s=s.replace(old4,new4,1)
-          # Remove failed startup speaker auto-activation scripts so they cannot turn speaker on behind the driver's back.
-          import re
           s=re.sub(r'<script>/\* NAVUE_IOS_STARTUP_AUDIO_V1 \*/.*?</script>','',s,flags=re.S)
           s=re.sub(r'<script>/\* NAVUE_IOS_SPEAKER_TOGGLE_PARITY_V1 \*/.*?</script>','',s,flags=re.S)
-          # Existing greeting bridge must not auto-speak on launch; manual Speaker ON owns activation.
-          s=re.sub(r'<script>/\* NAVUE_DRIVING_CONVERSATION_V1 \*/\s*\(function\(\)\{\s*let greeted=false;.*?</script>',lambda m: re.sub(r'let greeted=false;.*?(?=</script>)','',m.group(0),flags=re.S),s,flags=re.S) if False else s)
+          # Disable only the old auto-greeting hook; retain all driving conversation intent code.
+          s=s.replace("function tryGreeting(){if(greeted)return;try{if(window.p&&p.onboarded&&p.voice){greeted=true;speak(greetingText(),true)}}catch(e){}}","function tryGreeting(){return}")
           p.write_text(s)
           PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Make NaVue speaker and microphone session controls" || exit 0
+          git commit -m "Make NaVue controls session-only and default off" || exit 0
           git push
