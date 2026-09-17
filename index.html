@@ -10,4 +10,35 @@
   document.addEventListener('touchstart',function(){if(document.querySelector('#home.active'))tryGreeting()},{once:true,passive:true});
   document.addEventListener('click',function(){if(document.querySelector('#home.active'))tryGreeting()},{once:true});
 })();
+</script><script>/* NAVUE_IOS_STARTUP_AUDIO_V1 */
+(function(){
+  let primed=false;
+  function primeNaVueAudio(){
+    if(primed)return;
+    primed=true;
+    try{if(typeof unlockAudio==='function')unlockAudio()}catch(e){}
+    try{
+      if(window.speechSynthesis){
+        window.speechSynthesis.resume();
+        const u=new SpeechSynthesisUtterance(' ');
+        u.volume=0.01;u.rate=2;
+        window.speechSynthesis.speak(u);
+      }
+    }catch(e){}
+    setTimeout(function(){
+      try{
+        const home=document.querySelector('#home.active');
+        if(home&&window.p&&p.onboarded&&p.voice&&typeof speak==='function'){
+          let h=(new Date).getHours(),part=h<12?'morning':h<17?'afternoon':'evening';
+          speak('Good '+part+(p.firstName?', '+p.firstName:'')+'. Where are you going?',true);
+        }
+      }catch(e){}
+    },180);
+  }
+  // iOS permits audible speech after a genuine user gesture. The microphone
+  // permission flow already gives the user that gesture, so prime audio there
+  // without changing any microphone behavior.
+  document.addEventListener('touchstart',primeNaVueAudio,{once:true,passive:true,capture:true});
+  document.addEventListener('click',primeNaVueAudio,{once:true,capture:true});
+})();
 </script></body></html>
