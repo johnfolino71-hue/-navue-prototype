@@ -471,4 +471,28 @@
  document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('#vehicleScreen .safe-next');if(b)goFuel(e)},true);
  setTimeout(bind,0);setTimeout(bind,500);
 })();
+</script><script>/* NAVUE_FUEL_ONBOARDING_COMPLETE_V4 */
+(function(){
+ function setFuelExamples(){
+  var a=document.getElementById('cityFuel'),b=document.getElementById('highwayFuel'),p=document.getElementById('fuelPrice');
+  if(a)a.placeholder='EX: 13.9';if(b)b.placeholder='EX: 8.8';if(p)p.placeholder='EX: 1.84';
+ }
+ function finishFuel(e){
+  if(e){e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();}
+  var u=document.getElementById('fuelUnits'),c=document.getElementById('cityFuel'),h=document.getElementById('highwayFuel'),fp=document.getElementById('fuelPrice');
+  p.fuelUnits=u?u.value:'metric';p.cityFuel=c?c.value.trim():'';p.highwayFuel=h?h.value.trim():'';p.fuelPrice=fp?fp.value.trim():'';save();
+  window.__navueFuelStepSeen=false;
+  if(typeof finishProfile==='function')finishProfile();
+  return false;
+ }
+ function bind(){
+  setFuelExamples();
+  var b=document.querySelector('#fuelScreen button');
+  if(!b)return;b.setAttribute('onclick','return false');b.onclick=finishFuel;
+  if(!b.dataset.fuelFinishV4){b.dataset.fuelFinishV4='1';b.addEventListener('click',finishFuel,true);}
+ }
+ document.addEventListener('DOMContentLoaded',bind);
+ document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('#fuelScreen button');if(b)finishFuel(e)},true);
+ setTimeout(bind,0);setTimeout(bind,500);
+})();
 </script></body></html>
