@@ -250,4 +250,51 @@ html,body{overscroll-behavior-y:none}
  document.addEventListener('DOMContentLoaded',bindGear);
  setTimeout(bindGear,0);
 })();
+</script><style>/* NAVUE_SETTINGS_ROUTING_FINAL_V2 */
+/* One consistent Settings control beside the NaVue logo; voice controls are untouched. */
+#home .topbar>.top-actions .gear,
+#destination .topbar>.gear,
+#routes .topbar>.gear{
+ position:fixed!important;
+ top:max(16px,env(safe-area-inset-top))!important;
+ left:142px!important;
+ right:auto!important;
+ width:46px!important;
+ height:46px!important;
+ margin:0!important;
+ padding:0!important;
+ border-radius:14px!important;
+ z-index:1000!important;
+ pointer-events:auto!important;
+ touch-action:manipulation!important
+}
+</style><script>/* NAVUE_SETTINGS_ROUTING_FINAL_V2 */
+(function(){
+ function goSettings(){
+   var active=document.querySelector('.screen.active');
+   window.navueSettingsReturn=(active&&active.id)||'home';
+   if(window.navueSettingsReturn==='preferences')return;
+   try{stopListen()}catch(e){}
+   try{renderPreferences()}catch(e){}
+   if(typeof show==='function')show('preferences');
+ }
+ function bind(){
+   document.querySelectorAll('button.gear').forEach(function(b){
+     b.onclick=null;
+     b.addEventListener('click',function(e){e.preventDefault();e.stopImmediatePropagation();goSettings()},true);
+   });
+   var manual=document.querySelector('#navueManualSheet [data-a="settings"]');
+   if(manual&&!manual.dataset.navueSettingsBound){
+     manual.dataset.navueSettingsBound='1';
+     manual.addEventListener('click',function(e){
+       e.preventDefault();e.stopImmediatePropagation();
+       var sh=document.getElementById('navueManualSheet');if(sh)sh.classList.remove('open');
+       goSettings();
+     },true);
+   }
+ }
+ window.openPreferences=goSettings;
+ document.addEventListener('DOMContentLoaded',bind);
+ setTimeout(bind,0);
+})();
 </script></body></html>
