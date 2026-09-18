@@ -551,4 +551,48 @@
  };
  installRoutingQuestion();
 })();
+</script><script>/* NAVUE_GLOBAL_UNITS_LOCK_V1 */
+(function(){
+ function us(){return (p.fuelUnits||'metric')==='us'}
+ function miles(km,d){var n=km*0.621371;return (d==null?(n>=10?0:1):d)===0?Math.round(n):n.toFixed(d==null?1:d)}
+ window.navueDistanceText=function(km){return us()?miles(km)+' mi':km+' km'};
+ window.navueSpokenDistance=function(km){return us()?miles(km,1)+' miles':km+' kilometres'};
+ function syncTurn(){
+  var el=document.querySelector('#navigation .turn-card div:last-child');if(el)el.textContent=us()?'0.7 mi':'1.2 km';
+ }
+ var prevChoose=window.chooseRoute;if(typeof prevChoose==='function')window.chooseRoute=function(r){
+   var out=prevChoose.apply(this,arguments);
+   if(window.navKm)navKm.textContent=navueDistanceText(r.km);
+   syncTurn();
+   if(tripVoice){
+    try{speechSynthesis.cancel()}catch(e){}
+    speak('Route '+r.id+' selected. Continue straight for '+(us()?'0.7 miles':'1.2 kilometres')+'.',false,p.voiceStyle,function(){if(arguments.length||voiceFlow)setTimeout(function(){startListen('navigation',navMic,true)},200)})
+   }
+   return out
+ };
+ var prevBuild=window.buildRoutes;if(typeof prevBuild==='function')window.buildRoutes=function(){
+   var out=prevBuild.apply(this,arguments);
+   setTimeout(function(){
+    var cards=document.querySelectorAll('#routeCards .card');
+    cards.forEach(function(card,i){var r=window.currentRoutes&&currentRoutes[i];if(!r)return;
+      var main=card.querySelector('.route-main');if(main)main.textContent=r.time+' min • '+navueDistanceText(r.km)+' • '+r.cost;
+      var trade=card.querySelector('.trade');if(trade&&us())trade.textContent=trade.textContent.replace(/(\d+(?:\.\d+)?) km/g,function(_,n){return miles(parseFloat(n))+' mi'});
+      var fuel=card.querySelector('.route-fuel'),e=window.navueFuelEstimate&&navueFuelEstimate(r.km);if(fuel&&e){
+       var qty=us()?(e.litres/3.78541).toFixed(1)+' gal':e.litres.toFixed(1)+' L';
+       fuel.textContent='Estimated fuel: '+qty+(e.cost!=null?' • Estimated fuel cost: +e.cost.toFixed(2):'');
+      }
+    })
+   },40);return out
+ };
+ var prevAlt=window.openAlternateRoutes;if(typeof prevAlt==='function')window.openAlternateRoutes=function(){
+   var out=prevAlt.apply(this,arguments);setTimeout(function(){
+    document.querySelectorAll('#routeCards .card').forEach(function(card,i){var r=window.currentRoutes&&currentRoutes[i];if(!r)return;var main=card.querySelector('.route-main');if(main)main.textContent=r.time+' min • '+navueDistanceText(r.km)+' • '+r.cost})
+   },50);return out
+ };
+ var prevHandle=window.handleVoice;if(typeof prevHandle==='function')window.handleVoice=function(mode,text){
+   if(mode==='navigation'&&/repeat/i.test(String(text||''))&&!lastSpoken){return speak('Continue straight for '+(us()?'0.7 miles':'1.2 kilometres')+'.',true)}
+   return prevHandle.apply(this,arguments)
+ };
+ document.addEventListener('DOMContentLoaded',syncTurn);setTimeout(syncTurn,0);
+})();
 </script></body></html>
