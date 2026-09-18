@@ -88,14 +88,13 @@
 .mic:not(.navue-mic-enabled):after{content:'OFF'!important;color:#607078!important}
 #home #homeSpeaker.voice-on,#navigation #speakerBtn.voice-on,.navue-session-speaker.voice-on{background:var(--navue-blue)!important;color:#fff!important}
 #home #homeSpeaker:not(.voice-on),#navigation #speakerBtn:not(.voice-on),.navue-session-speaker:not(.voice-on){background:var(--navue-off)!important;color:var(--navue-ink)!important}
-</style></style><style>/* NAVUE_SETTINGS_GEAR_CANONICAL_V9 */
-/* Canonical Settings visual rule only. Do not alter Settings, speaker or microphone behavior. */
-#home .topbar>.top-actions .gear,
-#destination .topbar>.gear,
-#routes .topbar>.gear{
- position:fixed!important;
- top:84px!important;
- left:282px!important;
+</style></style><style>/* NAVUE_DESTINATION_GEAR_APPROVED_V11 */
+/* Destination/Where To only: reuse the visually successful rejected-build gear layout. */
+#destination .topbar{position:relative!important}
+#destination .topbar>.gear{
+ position:absolute!important;
+ top:0!important;
+ left:150px!important;
  right:auto!important;
  width:46px!important;
  height:46px!important;
