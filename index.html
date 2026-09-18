@@ -495,4 +495,12 @@
  document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('#fuelScreen button');if(b)finishFuel(e)},true);
  setTimeout(bind,0);setTimeout(bind,500);
 })();
+</script><script>/* NAVUE_FUEL_SETTINGS_EXAMPLES_V1 */
+(function(){
+ function apply(){
+  var c=document.getElementById('prefCityFuel'),h=document.getElementById('prefHighwayFuel'),p=document.getElementById('prefFuelPrice');
+  if(c)c.placeholder='EX: 13.9';if(h)h.placeholder='EX: 8.8';if(p)p.placeholder='EX: 1.84';
+ }
+ document.addEventListener('DOMContentLoaded',apply);setTimeout(apply,0);setTimeout(apply,500);
+})();
 </script></body></html>
