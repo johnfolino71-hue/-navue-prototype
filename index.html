@@ -503,4 +503,52 @@
  }
  document.addEventListener('DOMContentLoaded',apply);setTimeout(apply,0);setTimeout(apply,500);
 })();
+</script><style>/* NAVUE_ONBOARDING_FINALIZATION_V5 */
+#welcome .logo-wrap{background:#fff!important}
+#welcome .hero-logo{mix-blend-mode:multiply;filter:contrast(1.03) brightness(1.02)}
+.profile-fuel-summary{margin-top:6px}
+</style><script>
+(function(){
+ function unitIsUS(){return (p.fuelUnits||'metric')==='us'}
+ function fmtDist(km){return unitIsUS()?(km*0.621371).toFixed(0)+' mi':km+' km'}
+ function installRoutingQuestion(){
+   if(!window.Q||!Q.time)return;
+   Q.time[1]=[
+    ['Route A — 24 min • '+fmtDist(34)+'\nFastest • Longer distance','fast'],
+    ['Route B — 26 min • '+fmtDist(29)+' 🍃 ECO\nBalanced • Eco route','balanced'],
+    ['Route C — 29 min • '+fmtDist(25)+'\nMore time • Shorter distance','short']
+   ];
+ }
+ function ensureSummary(){
+   var card=document.querySelector('#profileStart .card');if(!card)return;
+   var old=document.getElementById('fuelProfileRow');if(old)old.remove();
+   var row=document.createElement('div');row.id='fuelProfileRow';row.className='profile-row profile-fuel-summary';
+   var us=unitIsUS(),city=p.cityFuel||'',hwy=p.highwayFuel||'',price=p.fuelPrice||'';
+   var bits=[];if(city)bits.push('City '+city+(us?' MPG':' L/100 km'));if(hwy)bits.push('Hwy '+hwy+(us?' MPG':' L/100 km'));if(price)bits.push((us?':')+price+(us?'/gal':'/L'));
+   row.innerHTML='<span>Fuel & cost</span><strong>'+ (bits.length?bits.join(' • '):'Not entered') +'</strong>';card.appendChild(row);
+ }
+ var oldAsk=window.ask;if(typeof oldAsk==='function')window.ask=function(k){if(k==='time')installRoutingQuestion();return oldAsk.apply(this,arguments)};
+ var oldFinish=window.finishProfile;if(typeof oldFinish==='function')window.finishProfile=function(){var r=oldFinish.apply(this,arguments);setTimeout(ensureSummary,0);return r};
+ var oldBuild=window.buildRoutes;if(typeof oldBuild==='function')window.buildRoutes=function(){
+   var r=oldBuild.apply(this,arguments);
+   setTimeout(function(){
+    if(!unitIsUS())return;
+    var cards=document.querySelectorAll('#routeCards .card');
+    cards.forEach(function(card,i){var rt=window.currentRoutes&&currentRoutes[i];if(!rt)return;
+      var main=card.querySelector('.route-main');if(main)main.textContent=rt.time+' min • '+(rt.km*0.621371).toFixed(0)+' mi • '+rt.cost;
+      var trade=card.querySelector('.trade');if(trade)trade.textContent=trade.textContent.replace(/(\d+(?:\.\d+)?) km/g,function(_,n){return (parseFloat(n)*0.621371).toFixed(0)+' mi'});
+      var fuel=card.querySelector('.route-fuel');var est=window.navueFuelEstimate&&navueFuelEstimate(rt.km);if(fuel&&est){var gal=est.litres/3.78541;fuel.textContent='Estimated fuel: '+gal.toFixed(1)+' gal'+(est.cost!=null?' • Estimated fuel cost: +est.cost.toFixed(2):'')}
+    });
+   },20);return r
+ };
+ var oldChoose=window.chooseRoute;if(typeof oldChoose==='function')window.chooseRoute=function(r){
+   var out=oldChoose.apply(this,arguments);
+   if(unitIsUS()){
+    if(window.navKm)navKm.textContent=(r.km*0.621371).toFixed(0)+' mi';
+    if(window.navueFuelEstimate){/* route fuel remains based on stored US MPG */}
+   }
+   return out
+ };
+ installRoutingQuestion();
+})();
 </script></body></html>
