@@ -88,13 +88,12 @@
 .mic:not(.navue-mic-enabled):after{content:'OFF'!important;color:#607078!important}
 #home #homeSpeaker.voice-on,#navigation #speakerBtn.voice-on,.navue-session-speaker.voice-on{background:var(--navue-blue)!important;color:#fff!important}
 #home #homeSpeaker:not(.voice-on),#navigation #speakerBtn:not(.voice-on),.navue-session-speaker:not(.voice-on){background:var(--navue-off)!important;color:var(--navue-ink)!important}
-</style></style><style>/* NAVUE_DESTINATION_GEAR_APPROVED_V11 */
-/* Destination/Where To only: reuse the visually successful rejected-build gear layout. */
-#destination .topbar{position:relative!important}
+</style></style><style>/* NAVUE_DESTINATION_GEAR_MATCH_HOME_ROUTES_V12 */
+/* Destination/Where To only: match the existing Home and Routes gear position. */
 #destination .topbar>.gear{
- position:absolute!important;
- top:0!important;
- left:150px!important;
+ position:fixed!important;
+ top:max(16px, env(safe-area-inset-top))!important;
+ left:142px!important;
  right:auto!important;
  width:46px!important;
  height:46px!important;
@@ -102,16 +101,8 @@
  min-height:46px!important;
  margin:0!important;
  padding:0!important;
- border:1px solid #e0e5e8!important;
- border-radius:50%!important;
- background:#eef1f3!important;
- color:#25313a!important;
- box-shadow:0 3px 12px #0002!important;
- box-sizing:border-box!important;
- overflow:hidden!important;
- -webkit-appearance:none!important;
- appearance:none!important;
- z-index:1000!important;
+ border-radius:14px!important;
+ z-index:120!important;
  pointer-events:auto!important;
  touch-action:manipulation!important;
 }
