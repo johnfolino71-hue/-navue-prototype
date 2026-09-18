@@ -451,4 +451,24 @@
  document.addEventListener('DOMContentLoaded',function(){ensureUI();bindSavedEntryPoints();forceFuelOnboarding()});
  setTimeout(function(){ensureUI();bindSavedEntryPoints();forceFuelOnboarding();renderRouteBookmarks()},0);
 })();
+</script><script>/* NAVUE_VEHICLE_CONTINUE_FUEL_HARD_FIX_V3 */
+(function(){
+ function goFuel(e){
+   if(e){e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();}
+   window.__navueFuelStepSeen=true;
+   if(typeof window.showFuelScreen==='function'){window.showFuelScreen();return false;}
+   if(typeof show==='function'){show('fuelScreen');return false;}
+   return false;
+ }
+ function bind(){
+   var b=document.querySelector('#vehicleScreen .safe-next');
+   if(!b)return;
+   b.setAttribute('onclick','return false');
+   b.onclick=goFuel;
+   if(!b.dataset.navueFuelHardFix){b.dataset.navueFuelHardFix='1';b.addEventListener('click',goFuel,true);}
+ }
+ document.addEventListener('DOMContentLoaded',bind);
+ document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('#vehicleScreen .safe-next');if(b)goFuel(e)},true);
+ setTimeout(bind,0);setTimeout(bind,500);
+})();
 </script></body></html>
