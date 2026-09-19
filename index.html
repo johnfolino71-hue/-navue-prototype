@@ -1227,114 +1227,11 @@ Prototype road split is temporary demo data until live route-segment classificat
 #navigation .turn-card .small{font-size:13px!important;line-height:1.2!important}
 #navigation .turn-card strong{font-size:22px!important;line-height:1.2!important}
 #navigation .turn-card>div:last-child{font-size:18px!important;line-height:1.25!important}
-</style><script>/* NAVUE_APPROVED_REFINEMENTS_V7_JS */
-(function(){
- function isEco(r){return !!r&&(r.badges||[]).some(function(b){return /ECO/i.test(String(b))})}
- function routeType(r){
-   if(isEco(r))return 'eco';
-   var b=(r&&r.badges||[]).join(' '),n=String(r&&r.name||'');
-   if(/FASTEST/i.test(b)||/fastest/i.test(n))return 'fastest';
-   return 'middle';
- }
- function rerankAndPaint(){
-   if(typeof currentRoutes==='undefined'||!Array.isArray(currentRoutes)||!currentRoutes.length)return;
-   currentRoutes.sort(function(a,b){return b.m-a.m});
-   currentRoutes.forEach(function(r,i){r.id=String.fromCharCode(65+i)});
-   var cards=[].slice.call(document.querySelectorAll('#routeCards .card'));
-   if(cards.length!==currentRoutes.length)return;
-   cards.forEach(function(card,i){
-     var r=currentRoutes[i],letter=card.querySelector('.navue-route-letter');
-     if(!letter){letter=document.createElement('span');card.appendChild(letter)}
-     letter.textContent=r.id;letter.className='navue-route-letter '+routeType(r);
-     var navPick=card.querySelector('.badge');
-     card.querySelectorAll('.badge').forEach(function(b){if(/NAVUE PICK/i.test(b.textContent||''))b.remove()});
-     if(i===0){var h=card.querySelector('.route-head');if(h){var pck=document.createElement('span');pck.className='badge';pck.textContent='NAVUE PICK';h.insertAdjacentElement('afterend',pck)}}
-   });
-   if(typeof window.renderRouteBookmarks==='function')window.renderRouteBookmarks();
- }
- var oldBuild=window.buildRoutes;
- if(typeof oldBuild==='function')window.buildRoutes=function(){
-   var r=oldBuild.apply(this,arguments);setTimeout(rerankAndPaint,220);return r;
- };
- var oldAlt=window.openAlternateRoutes;
- if(typeof oldAlt==='function')window.openAlternateRoutes=function(){
-   var r=oldAlt.apply(this,arguments);setTimeout(rerankAndPaint,220);return r;
- };
- var obs=new MutationObserver(function(){if(document.querySelector('#routes.active'))setTimeout(rerankAndPaint,80)});
- document.addEventListener('DOMContentLoaded',function(){var b=document.getElementById('routeCards');if(b)obs.observe(b,{childList:true,subtree:true})});
- setTimeout(function(){var b=document.getElementById('routeCards');if(b)obs.observe(b,{childList:true,subtree:true});rerankAndPaint()},100);
-})();
-</script><style>/* NAVUE_ROUTE_INTERACTION_HOME_ALIGNMENT_V8 */
+</style><style>/* NAVUE_ROUTE_INTERACTION_HOME_ALIGNMENT_V8 */
 /* Approved home alignment: preserve current locked Home position only. */
 #home>.searchrow{top:calc(max(16px,env(safe-area-inset-top)) + 56px)!important}
 #home .navue-quick-row{top:calc(max(16px,env(safe-area-inset-top)) + 108px)!important}
-</style><script>/* NAVUE_ROUTE_INTERACTION_REGRESSION_RESOLUTION_V11 */
-(function(){
- function norm(v){return String(v||'').trim().toLowerCase()}
- function savedForDestination(){
-   var n=norm(p.destination),list=p.savedPlaces||[];
-   return list.find(function(s){return norm(s.address)===n})||list.find(function(s){return norm(s.name)===n})||null;
- }
- function isDefault(s){return !!s&&/^(home|work)$/i.test(String(s.name||'').trim())}
- function routeType(r){
-   if((r.badges||[]).some(function(b){return /ECO/i.test(String(b))}))return 'eco';
-   if(/FASTEST/i.test((r.badges||[]).join(' '))||/fastest/i.test(String(r.name||'')))return 'fastest';
-   return 'middle';
- }
- function render(){
-   if(!Array.isArray(currentRoutes)||!currentRoutes.length)return;
-   currentRoutes.sort(function(a,b){return b.m-a.m});
-   currentRoutes.forEach(function(r,i){r.id=String.fromCharCode(65+i)});
-   var cards=[].slice.call(document.querySelectorAll('#routeCards .card'));
-   if(cards.length!==currentRoutes.length)return;
-   var saved=savedForDestination();
-   if(isDefault(saved)){
-     saved.routeId=currentRoutes[0].id;saved.routeName=currentRoutes[0].name;save();
-   }
-   var preferred=saved&&String(saved.routeId||'').toUpperCase()||'';
-   cards.forEach(function(card,i){
-     var r=currentRoutes[i];
-     var letter=card.querySelector('.navue-route-letter');
-     if(!letter){letter=document.createElement('span');card.appendChild(letter)}
-     letter.textContent=r.id;letter.className='navue-route-letter '+routeType(r);
-     card.querySelectorAll('.badge').forEach(function(b){if(/NAVUE PICK/i.test(b.textContent||''))b.remove()});
-     if(i===0){var h=card.querySelector('.route-head');if(h){var pick=document.createElement('span');pick.className='badge';pick.textContent='NAVUE PICK';h.insertAdjacentElement('afterend',pick)}}
-     var b=card.querySelector('.route-save-bookmark');
-     if(b){
-       b.classList.toggle('saved',String(r.id).toUpperCase()===preferred);
-       b.onclick=function(e){
-         e.preventDefault();e.stopPropagation();
-         if(isDefault(saved)){render();return}
-         if(preferred===String(r.id).toUpperCase()){
-           if(saved){saved.routeId='';saved.routeName='';save()}
-           render();if(typeof renderRecent==='function')renderRecent();return;
-         }
-         if(saved){
-           saved.routeId=r.id;saved.routeName=r.name;save();render();
-           if(typeof renderRecent==='function')renderRecent();
-         }else if(typeof openRouteSave==='function'){
-           openRouteSave(p.destination,r);
-         }
-       };
-     }
-     card.onclick=function(e){
-       if(e.target&&e.target.closest&&e.target.closest('.route-save-bookmark'))return;
-       chooseRoute(r,false);
-     };
-   });
- }
- function repairModal(){
-   var input=document.getElementById('navueSaveName'),btn=document.getElementById('navueSaveConfirm');
-   if(input){input.disabled=false;input.readOnly=false;input.style.pointerEvents='auto'}
-   if(btn)btn.style.pointerEvents='auto';
- }
- var build=window.buildRoutes;if(typeof build==='function')window.buildRoutes=function(){var out=build.apply(this,arguments);setTimeout(render,240);return out};
- var alt=window.openAlternateRoutes;if(typeof alt==='function')window.openAlternateRoutes=function(){var out=alt.apply(this,arguments);setTimeout(render,240);return out};
- var open=window.openRouteSave;if(typeof open==='function')window.openRouteSave=function(){var out=open.apply(this,arguments);setTimeout(repairModal,0);return out};
- document.addEventListener('DOMContentLoaded',function(){setTimeout(render,300);repairModal()});
- setTimeout(function(){render();repairModal()},400);
-})();
-</script><style>/* NAVUE_APPROVED_LIGHT_BLUE_PAGE_SHADING_V10 */
+</style><style>/* NAVUE_APPROVED_LIGHT_BLUE_PAGE_SHADING_V10 */
 /* Approved graphic reference: soft light-blue context/header areas only. */
 :root{--navue-header-soft:#e8f4ff}
 /* Home: shade through quick buttons; map begins immediately below. */
@@ -1352,4 +1249,7 @@ Prototype road split is temporary demo data until live route-segment classificat
 /* Live navigation: light-blue direction/context strip only; map remains dominant. */
 #navigation.active:before{content:'';position:absolute;left:0;right:0;top:0;height:118px;background:var(--navue-header-soft);z-index:2;pointer-events:none}
 #navigation .turn-card,#navigation #speakerBtn,#navigation #navMic{z-index:40!important}
-</style></body></html>
+</style><script>/* NAVUE_SINGLE_ROUTE_AUTHORITY_RESTORE_V12 */
+/* Interaction authority intentionally restored to the previously verified V5/V6 route + bookmark flow.
+   Later duplicate route interaction controllers removed; approved visual CSS remains untouched. */
+</script></body></html>
