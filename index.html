@@ -622,7 +622,7 @@ html,body{background:#fff!important}
 (function(){
  function applyApprovedRouteCardVisual(){
   var cards=[].slice.call(document.querySelectorAll('#routeCards .card'));
-  var routes=window.currentRoutes||[];
+  var routes=(typeof currentRoutes!=='undefined'&&Array.isArray(currentRoutes))?currentRoutes:[];
   if(!cards.length||!routes.length)return;
   var sorted=routes.slice().sort(function(a,b){return a.time-b.time});
   var fastest=sorted[0]&&sorted[0].id, middle=sorted[1]&&sorted[1].id;
