@@ -645,4 +645,39 @@ html,body{background:#fff!important}
  setTimeout(function(){var box=document.getElementById('routeCards');if(box)obs.observe(box,{childList:true});applyApprovedRouteCardVisual()},0);
  window.applyApprovedRouteCardVisual=applyApprovedRouteCardVisual;
 })();
+</script><style>/* NAVUE_ROUTE_RANKING_READABILITY_BOOKMARK_V2 */
+#routeCards .card{padding:16px 16px 42px 64px!important}
+#routeCards .navue-route-letter{left:14px!important;top:16px!important;width:38px!important;height:38px!important;font-size:20px!important}
+#routeCards .route-head strong{font-size:18px!important;line-height:1.22!important}
+#routeCards .match{font-size:18px!important;line-height:1.22!important}
+#routeCards .eta{font-size:17px!important;line-height:1.3!important}
+#routeCards .route-main{font-size:23px!important;line-height:1.25!important}
+#routeCards .trade{font-size:17px!important;line-height:1.3!important}
+#routeCards .badge{font-size:13px!important}
+#routeCards .route-save-bookmark{display:block!important;visibility:visible!important;opacity:1!important;right:10px!important;bottom:8px!important;width:24px!important;height:28px!important}
+</style><script>
+(function(){
+ var baseBuild=window.buildRoutes;
+ if(typeof baseBuild==='function')window.buildRoutes=function(){
+   var r=baseBuild.apply(this,arguments);
+   if(typeof currentRoutes!=='undefined'&&Array.isArray(currentRoutes)&&currentRoutes.length){
+     currentRoutes.sort(function(a,b){return b.m-a.m});
+     currentRoutes.forEach(function(x,i){x.id=String.fromCharCode(65+i)});
+     var pick=currentRoutes[0],box=document.getElementById('routeCards');
+     if(box){
+       box.innerHTML='';
+       currentRoutes.forEach(function(x){
+         var d=document.createElement('div');d.className='card';
+         d.innerHTML='<div class="route-head"><strong>'+x.name+'</strong><span class="match">'+x.m+'% Match</span></div>'+(x===pick?'<span class="badge">NAVUE PICK</span>':'')+x.badges.map(function(b){return '<span class="badge '+(b.indexOf('ECO')>=0?'eco':'')+'">'+b+'</span>'}).join('')+'<div class="eta">ETA '+eta(x.time)+'</div><div class="route-main">'+x.time+' min • '+x.km+' km • '+x.cost+'</div><div class="trade">'+x.trade+'</div>';
+         d.onclick=function(){chooseRoute(x,false)};box.appendChild(d);
+       });
+     }
+   }
+   setTimeout(function(){
+     if(typeof window.applyApprovedRouteCardVisual==='function')window.applyApprovedRouteCardVisual();
+     if(typeof window.renderRouteBookmarks==='function')window.renderRouteBookmarks();
+   },0);
+   return r;
+ };
+})();
 </script></body></html>
