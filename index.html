@@ -1215,4 +1215,53 @@ Prototype road split is temporary demo data until live route-segment classificat
    return r;
  };
 })();
+</script><style>/* NAVUE_APPROVED_REFINEMENTS_V7 */
+/* Approved home control group: preserve width/alignment, move upward as a unit. */
+#home>.searchrow{
+ top:calc(max(16px,env(safe-area-inset-top)) + 76px)!important;
+}
+#home .navue-quick-row{
+ top:calc(max(16px,env(safe-area-inset-top)) + 128px)!important;
+}
+/* Approved moderate live-direction readability increase. */
+#navigation .turn-card .small{font-size:13px!important;line-height:1.2!important}
+#navigation .turn-card strong{font-size:22px!important;line-height:1.2!important}
+#navigation .turn-card>div:last-child{font-size:18px!important;line-height:1.25!important}
+</style><script>/* NAVUE_APPROVED_REFINEMENTS_V7_JS */
+(function(){
+ function isEco(r){return !!r&&(r.badges||[]).some(function(b){return /ECO/i.test(String(b))})}
+ function routeType(r){
+   if(isEco(r))return 'eco';
+   var b=(r&&r.badges||[]).join(' '),n=String(r&&r.name||'');
+   if(/FASTEST/i.test(b)||/fastest/i.test(n))return 'fastest';
+   return 'middle';
+ }
+ function rerankAndPaint(){
+   if(typeof currentRoutes==='undefined'||!Array.isArray(currentRoutes)||!currentRoutes.length)return;
+   currentRoutes.sort(function(a,b){return b.m-a.m});
+   currentRoutes.forEach(function(r,i){r.id=String.fromCharCode(65+i)});
+   var cards=[].slice.call(document.querySelectorAll('#routeCards .card'));
+   if(cards.length!==currentRoutes.length)return;
+   cards.forEach(function(card,i){
+     var r=currentRoutes[i],letter=card.querySelector('.navue-route-letter');
+     if(!letter){letter=document.createElement('span');card.appendChild(letter)}
+     letter.textContent=r.id;letter.className='navue-route-letter '+routeType(r);
+     var navPick=card.querySelector('.badge');
+     card.querySelectorAll('.badge').forEach(function(b){if(/NAVUE PICK/i.test(b.textContent||''))b.remove()});
+     if(i===0){var h=card.querySelector('.route-head');if(h){var pck=document.createElement('span');pck.className='badge';pck.textContent='NAVUE PICK';h.insertAdjacentElement('afterend',pck)}}
+   });
+   if(typeof window.renderRouteBookmarks==='function')window.renderRouteBookmarks();
+ }
+ var oldBuild=window.buildRoutes;
+ if(typeof oldBuild==='function')window.buildRoutes=function(){
+   var r=oldBuild.apply(this,arguments);setTimeout(rerankAndPaint,220);return r;
+ };
+ var oldAlt=window.openAlternateRoutes;
+ if(typeof oldAlt==='function')window.openAlternateRoutes=function(){
+   var r=oldAlt.apply(this,arguments);setTimeout(rerankAndPaint,220);return r;
+ };
+ var obs=new MutationObserver(function(){if(document.querySelector('#routes.active'))setTimeout(rerankAndPaint,80)});
+ document.addEventListener('DOMContentLoaded',function(){var b=document.getElementById('routeCards');if(b)obs.observe(b,{childList:true,subtree:true})});
+ setTimeout(function(){var b=document.getElementById('routeCards');if(b)obs.observe(b,{childList:true,subtree:true});rerankAndPaint()},100);
+})();
 </script></body></html>
