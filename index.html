@@ -765,4 +765,28 @@ Prototype road split is temporary demo data until live route-segment classificat
 }
 #routeCards .route-save-bookmark.saved:after{content:none!important}
 #routeCards .route-save-bookmark.saved:before{background:#1769e0!important}
+</style><style>/* NAVUE_BOOKMARK_SAME_SILHOUETTE_V3 */
+#routeCards .route-save-bookmark:before{
+ content:''!important;
+ display:block!important;
+ width:18px!important;height:24px!important;
+ box-sizing:border-box!important;
+ clip-path:polygon(0 0,100% 0,100% 100%,50% 76%,0 100%)!important;
+ background:#1769e0!important;
+ border:0!important;
+}
+#routeCards .route-save-bookmark:not(.saved):before{
+ background:#1769e0!important;
+}
+#routeCards .route-save-bookmark:not(.saved):after{
+ content:''!important;
+ position:absolute!important;
+ left:50%!important;top:2px!important;
+ width:14px!important;height:18px!important;
+ transform:translateX(-50%)!important;
+ background:#fff!important;
+ clip-path:polygon(0 0,100% 0,100% 100%,50% 72%,0 100%)!important;
+ border:0!important;
+}
+#routeCards .route-save-bookmark.saved:after{content:none!important}
 </style></body></html>
