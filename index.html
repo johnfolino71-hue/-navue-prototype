@@ -745,4 +745,24 @@ Prototype road split is temporary demo data until live route-segment classificat
  setTimeout(function(){var box=document.getElementById('routeCards');if(box)obs.observe(box,{childList:true});apply()},0);
  window.applyNaVueRouteFuelCost=apply;
 })();
-</script></body></html>
+</script><style>/* NAVUE_BOOKMARK_OUTLINE_FULL_SHAPE_V2 */
+#routeCards .route-save-bookmark:before{
+ box-sizing:border-box!important;
+ width:18px!important;height:24px!important;
+ border:2px solid #1769e0!important;
+ background:#fff!important;
+ clip-path:polygon(0 0,100% 0,100% 100%,50% 76%,0 100%)!important;
+}
+#routeCards .route-save-bookmark:not(.saved):after{
+ content:''!important;position:absolute!important;
+ left:50%!important;bottom:4px!important;
+ width:10px!important;height:8px!important;
+ background:#fff!important;
+ transform:translateX(-50%) rotate(45deg)!important;
+ border-right:2px solid #1769e0!important;
+ border-bottom:2px solid #1769e0!important;
+ box-sizing:border-box!important;
+}
+#routeCards .route-save-bookmark.saved:after{content:none!important}
+#routeCards .route-save-bookmark.saved:before{background:#1769e0!important}
+</style></body></html>
