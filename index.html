@@ -1265,113 +1265,74 @@ Prototype road split is temporary demo data until live route-segment classificat
  setTimeout(function(){var b=document.getElementById('routeCards');if(b)obs.observe(b,{childList:true,subtree:true});rerankAndPaint()},100);
 })();
 </script><style>/* NAVUE_ROUTE_INTERACTION_HOME_ALIGNMENT_V8 */
-/* Approved home alignment: address-bar bottom aligns with microphone bottom. */
+/* Approved home alignment: preserve current locked Home position only. */
 #home>.searchrow{top:calc(max(16px,env(safe-area-inset-top)) + 56px)!important}
 #home .navue-quick-row{top:calc(max(16px,env(safe-area-inset-top)) + 108px)!important}
-</style><script>/* NAVUE_ROUTE_INTERACTION_HOME_ALIGNMENT_V8_JS */
+</style><script>/* NAVUE_ROUTE_INTERACTION_REGRESSION_RESOLUTION_V11 */
 (function(){
  function norm(v){return String(v||'').trim().toLowerCase()}
- function isDefault(s){return !!s&&/^(home|work)$/i.test(String(s.name||'').trim())}
  function savedForDestination(){
    var n=norm(p.destination),list=p.savedPlaces||[];
    return list.find(function(s){return norm(s.address)===n})||list.find(function(s){return norm(s.name)===n})||null;
  }
- function ensureSingleDestinationRecord(route){
-   p.savedPlaces=p.savedPlaces||[];
-   var s=savedForDestination();
-   if(s){s.routeId=route.id;s.routeName=route.name;save();return s}
-   var rec={name:'',address:p.destination,routeId:route.id,routeName:route.name};
-   p.savedPlaces.push(rec);save();return rec;
+ function isDefault(s){return !!s&&/^(home|work)$/i.test(String(s.name||'').trim())}
+ function routeType(r){
+   if((r.badges||[]).some(function(b){return /ECO/i.test(String(b))}))return 'eco';
+   if(/FASTEST/i.test((r.badges||[]).join(' '))||/fastest/i.test(String(r.name||'')))return 'fastest';
+   return 'middle';
  }
- function clearPreferred(){
-   var s=savedForDestination();if(!s)return;
-   if(isDefault(s)){s.routeId='';s.routeName='';save();return}
-   s.routeId='';s.routeName='';save();
- }
- function preferredId(){
-   var s=savedForDestination();return s&&String(s.routeId||'').toUpperCase()||'';
- }
- function paint(){
-   var routes=(typeof currentRoutes!=='undefined'&&Array.isArray(currentRoutes))?currentRoutes:[];
+ function render(){
+   if(!Array.isArray(currentRoutes)||!currentRoutes.length)return;
+   currentRoutes.sort(function(a,b){return b.m-a.m});
+   currentRoutes.forEach(function(r,i){r.id=String.fromCharCode(65+i)});
    var cards=[].slice.call(document.querySelectorAll('#routeCards .card'));
-   if(!routes.length||cards.length!==routes.length)return;
-   var s=savedForDestination(),pid=preferredId();
-   if(isDefault(s)&&!pid){pid=routes[0].id;s.routeId=pid;s.routeName=routes[0].name;save()}
+   if(cards.length!==currentRoutes.length)return;
+   var saved=savedForDestination();
+   if(isDefault(saved)){
+     saved.routeId=currentRoutes[0].id;saved.routeName=currentRoutes[0].name;save();
+   }
+   var preferred=saved&&String(saved.routeId||'').toUpperCase()||'';
    cards.forEach(function(card,i){
-     var r=routes[i],b=card.querySelector('.route-save-bookmark');if(!b)return;
-     b.classList.toggle('saved',String(r.id).toUpperCase()===pid);
-     b.dataset.routeInteractionV8='1';
-     b.onclick=function(e){
-       e.preventDefault();e.stopPropagation();
-       var current=preferredId();
-       if(current===String(r.id).toUpperCase())clearPreferred();else ensureSingleDestinationRecord(r);
-       paint();
-       if(typeof renderRecent==='function')renderRecent();
-       if(document.querySelector('#savedRoutesPage.active')&&typeof renderSavedRoutesPage==='function')renderSavedRoutesPage();
-     };
+     var r=currentRoutes[i];
+     var letter=card.querySelector('.navue-route-letter');
+     if(!letter){letter=document.createElement('span');card.appendChild(letter)}
+     letter.textContent=r.id;letter.className='navue-route-letter '+routeType(r);
+     card.querySelectorAll('.badge').forEach(function(b){if(/NAVUE PICK/i.test(b.textContent||''))b.remove()});
+     if(i===0){var h=card.querySelector('.route-head');if(h){var pick=document.createElement('span');pick.className='badge';pick.textContent='NAVUE PICK';h.insertAdjacentElement('afterend',pick)}}
+     var b=card.querySelector('.route-save-bookmark');
+     if(b){
+       b.classList.toggle('saved',String(r.id).toUpperCase()===preferred);
+       b.onclick=function(e){
+         e.preventDefault();e.stopPropagation();
+         if(isDefault(saved)){render();return}
+         if(preferred===String(r.id).toUpperCase()){
+           if(saved){saved.routeId='';saved.routeName='';save()}
+           render();if(typeof renderRecent==='function')renderRecent();return;
+         }
+         if(saved){
+           saved.routeId=r.id;saved.routeName=r.name;save();render();
+           if(typeof renderRecent==='function')renderRecent();
+         }else if(typeof openRouteSave==='function'){
+           openRouteSave(p.destination,r);
+         }
+       };
+     }
      card.onclick=function(e){
        if(e.target&&e.target.closest&&e.target.closest('.route-save-bookmark'))return;
        chooseRoute(r,false);
      };
    });
  }
- function bind(){setTimeout(paint,20)}
- var b=window.buildRoutes;if(typeof b==='function')window.buildRoutes=function(){var out=b.apply(this,arguments);setTimeout(paint,260);return out};
- var a=window.openAlternateRoutes;if(typeof a==='function')window.openAlternateRoutes=function(){var out=a.apply(this,arguments);setTimeout(paint,260);return out};
- var rb=window.renderRouteBookmarks;if(typeof rb==='function')window.renderRouteBookmarks=function(){var out=rb.apply(this,arguments);setTimeout(paint,30);return out};
- document.addEventListener('DOMContentLoaded',bind);
- document.addEventListener('click',function(e){
-   var card=e.target&&e.target.closest&&e.target.closest('#routeCards .card');
-   if(card)setTimeout(paint,0);
- },true);
- setTimeout(paint,350);
-})();
-</script><style>/* NAVUE_INTERACTION_RESTORE_MIC_LABEL_FIX_V9 */
-/* Approved: mic state is communicated by color only; preserve all positions. */
-.mic.navue-mic-enabled:after,.mic:not(.navue-mic-enabled):after{content:''!important;display:none!important}
-</style><script>/* NAVUE_INTERACTION_RESTORE_MIC_LABEL_FIX_V9_JS */
-(function(){
- function norm(v){return String(v||'').trim().toLowerCase()}
- function activeSaved(){
-   var n=norm(p.destination),list=p.savedPlaces||[];
-   return list.find(function(s){return norm(s.address)===n})||list.find(function(s){return norm(s.name)===n})||null;
+ function repairModal(){
+   var input=document.getElementById('navueSaveName'),btn=document.getElementById('navueSaveConfirm');
+   if(input){input.disabled=false;input.readOnly=false;input.style.pointerEvents='auto'}
+   if(btn)btn.style.pointerEvents='auto';
  }
- function routeAt(card){
-   var cards=[].slice.call(document.querySelectorAll('#routeCards .card')),i=cards.indexOf(card);
-   return i>=0&&Array.isArray(currentRoutes)?currentRoutes[i]:null;
- }
- function bindRouteCards(){
-   [].slice.call(document.querySelectorAll('#routeCards .card')).forEach(function(card){
-     var r=routeAt(card);if(!r)return;
-     card.onclick=function(e){
-       if(e.target&&e.target.closest&&e.target.closest('.route-save-bookmark'))return;
-       chooseRoute(r,false);
-     };
-   });
- }
- function bindModal(){
-   var m=document.getElementById('navueSaveModal'),input=document.getElementById('navueSaveName'),saveBtn=document.getElementById('navueSaveConfirm');
-   if(!m||!input||!saveBtn)return;
-   input.disabled=false;input.readOnly=false;input.style.pointerEvents='auto';
-   input.onclick=function(e){e.stopPropagation()};
-   input.onpointerdown=function(e){e.stopPropagation()};
-   input.ontouchstart=function(e){e.stopPropagation()};
-   saveBtn.style.pointerEvents='auto';
- }
- function refresh(){bindRouteCards();bindModal()}
- var oldOpen=window.openRouteSave;
- if(typeof oldOpen==='function')window.openRouteSave=function(){
-   var out=oldOpen.apply(this,arguments);setTimeout(bindModal,0);setTimeout(bindModal,80);return out;
- };
- var oldBuild=window.buildRoutes;
- if(typeof oldBuild==='function')window.buildRoutes=function(){var out=oldBuild.apply(this,arguments);setTimeout(refresh,320);return out};
- var oldAlt=window.openAlternateRoutes;
- if(typeof oldAlt==='function')window.openAlternateRoutes=function(){var out=oldAlt.apply(this,arguments);setTimeout(refresh,320);return out};
- document.addEventListener('DOMContentLoaded',refresh);
- document.addEventListener('click',function(e){
-   if(e.target&&e.target.closest&&e.target.closest('#routeCards'))setTimeout(bindRouteCards,0);
- },true);
- setTimeout(refresh,400);
+ var build=window.buildRoutes;if(typeof build==='function')window.buildRoutes=function(){var out=build.apply(this,arguments);setTimeout(render,240);return out};
+ var alt=window.openAlternateRoutes;if(typeof alt==='function')window.openAlternateRoutes=function(){var out=alt.apply(this,arguments);setTimeout(render,240);return out};
+ var open=window.openRouteSave;if(typeof open==='function')window.openRouteSave=function(){var out=open.apply(this,arguments);setTimeout(repairModal,0);return out};
+ document.addEventListener('DOMContentLoaded',function(){setTimeout(render,300);repairModal()});
+ setTimeout(function(){render();repairModal()},400);
 })();
 </script><style>/* NAVUE_APPROVED_LIGHT_BLUE_PAGE_SHADING_V10 */
 /* Approved graphic reference: soft light-blue context/header areas only. */
