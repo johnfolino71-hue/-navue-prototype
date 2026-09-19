@@ -1039,4 +1039,101 @@ Prototype road split is temporary demo data until live route-segment classificat
  var oldRB=window.renderRouteBookmarks;if(typeof oldRB==='function')window.renderRouteBookmarks=function(){var r=oldRB.apply(this,arguments);setTimeout(bindBookmarkToggle,0);return r};
  document.addEventListener('DOMContentLoaded',refresh);setTimeout(refresh,100);
 })();
+</script><style>/* NAVUE_MORNING_CORRECTIONS_V5 */
+#routeCards .route-extra-cost{display:none!important}
+#navigation #navDestination .navue-nav-destination{display:inline-flex!important;align-items:flex-start!important;gap:7px!important}
+#navigation #navDestination .navue-nav-destination>span:last-child{display:flex!important;flex-direction:column!important;align-items:flex-start!important}
+#navigation #navDestination .navue-nav-name,#navigation #navDestination .navue-nav-address{display:block!important}
+</style><script>/* NAVUE_MORNING_CORRECTIONS_V5_JS */
+(function(){
+ function norm(v){return String(v||'').trim().toLowerCase()}
+ function esc(v){return String(v||'').replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]})}
+ function isDefaultRec(s){return !!s&&/^(home|work)$/i.test(String(s.name||'').trim())}
+ function realAddress(s){var a=String(s&&s.address||'').trim();return /^(home|work)$/i.test(a)?'':a}
+ function exactSaved(v){
+   var n=norm(v),list=p.savedPlaces||[];
+   return list.find(function(s){return norm(s.address)===n})||list.find(function(s){return norm(s.name)===n})||null;
+ }
+ function activeDefault(){
+   var s=exactSaved(p.destination);return isDefaultRec(s)?s:null;
+ }
+ function cleanSaved(){
+   p.savedPlaces=p.savedPlaces||[];
+   var seenDefault={};
+   p.savedPlaces=p.savedPlaces.filter(function(s){
+     if(!isDefaultRec(s))return true;
+     var k=norm(s.name);if(seenDefault[k])return false;seenDefault[k]=true;return true;
+   });
+ }
+ function cleanRecent(){
+   cleanSaved();var out=[],seen={};
+   (p.recent||[]).forEach(function(raw){
+     raw=String(raw||'').trim();if(!raw)return;
+     var s=exactSaved(raw),a=s&&realAddress(s),key=norm(a||raw);
+     if(!key||seen[key])return;seen[key]=1;out.push(a||raw);
+   });
+   p.recent=out.slice(0,20);save();
+ }
+ function renderRecentV5(){
+   cleanRecent();var box=document.getElementById('recentBox');if(!box)return;box.innerHTML='';
+   p.recent.forEach(function(raw){
+     var s=exactSaved(raw),a=s&&realAddress(s),label=s&&s.name?String(s.name).trim():raw;
+     var d=document.createElement('div');d.className='card navue-recent-row';
+     var sub=a&&norm(label)!==norm(a)?a:'';
+     d.innerHTML='<strong>↻ '+esc(label)+'</strong>'+(sub?'<div class="small">'+esc(sub)+'</div>':'')+(s?'<span class="saved-bookmark"></span>':'');
+     d.onclick=function(){p.destination=a||raw;save();buildRoutes(false)};box.appendChild(d);
+   });
+ }
+ window.renderRecent=renderRecentV5;
+ function removeDuplicateToll(){
+   document.querySelectorAll('#routeCards .route-extra-cost').forEach(function(x){x.remove()});
+   document.querySelectorAll('#routeCards .badge').forEach(function(b){if(/\$\s*6\s*TOLL/i.test(b.textContent||''))b.textContent='💰 +$6 TOLL'});
+ }
+ function setDefaultPick(){
+   var s=activeDefault();if(!s||!Array.isArray(currentRoutes)||!currentRoutes.length)return;
+   var pick=currentRoutes.reduce(function(a,b){return b.m>a.m?b:a});
+   s.routeId=pick.id;s.routeName=pick.name;save();
+ }
+ function bookmarkState(route){
+   var def=activeDefault();if(def){
+     var pick=currentRoutes.reduce(function(a,b){return b.m>a.m?b:a});
+     return route.id===pick.id;
+   }
+   return (p.savedPlaces||[]).some(function(s){return norm(s.address)===norm(p.destination)&&String(s.routeId||'').toUpperCase()===String(route.id||'').toUpperCase()});
+ }
+ function bindBookmarks(){
+   setDefaultPick();
+   [].slice.call(document.querySelectorAll('#routeCards .card')).forEach(function(card,i){
+     var route=currentRoutes[i],b=card.querySelector('.route-save-bookmark');if(!route||!b)return;
+     b.classList.toggle('saved',bookmarkState(route));
+     b.onclick=function(e){
+       e.preventDefault();e.stopPropagation();
+       if(activeDefault()){setDefaultPick();bindBookmarks();return}
+       var idx=(p.savedPlaces||[]).findIndex(function(s){return norm(s.address)===norm(p.destination)&&String(s.routeId||'').toUpperCase()===String(route.id||'').toUpperCase()});
+       if(idx>=0){p.savedPlaces.splice(idx,1);save();b.classList.remove('saved');renderRecentV5();if(document.querySelector('#savedRoutesPage.active')&&typeof renderSavedRoutesPage==='function')renderSavedRoutesPage()}
+       else if(typeof openRouteSave==='function')openRouteSave(p.destination,route);
+     };
+   });
+ }
+ function renderNavV5(){
+   var el=document.getElementById('navDestination');if(!el)return;
+   var s=exactSaved(p.destination),a=s&&realAddress(s);
+   if(s){
+     var name=String(s.name||'').trim(),label=name||a||String(p.destination||'');
+     el.innerHTML='<span class="navue-nav-destination"><span class="saved-bookmark"></span><span><span class="navue-nav-name">'+esc(label)+'</span>'+(name&&a&&norm(name)!==norm(a)?'<span class="navue-nav-address">'+esc(a)+'</span>':'')+'</span></span>';
+   }else el.textContent=String(p.destination||'');
+ }
+ function refresh(){
+   cleanRecent();removeDuplicateToll();setDefaultPick();bindBookmarks();
+   if(document.querySelector('#navigation.active'))renderNavV5();
+ }
+ var oldBuild=window.buildRoutes;if(typeof oldBuild==='function')window.buildRoutes=function(){var r=oldBuild.apply(this,arguments);setTimeout(refresh,180);return r};
+ var oldAlt=window.openAlternateRoutes;if(typeof oldAlt==='function')window.openAlternateRoutes=function(){var r=oldAlt.apply(this,arguments);setTimeout(refresh,180);return r};
+ var oldChoose=window.chooseRoute;if(typeof oldChoose==='function')window.chooseRoute=function(){var r=oldChoose.apply(this,arguments);setTimeout(renderNavV5,30);return r};
+ var oldRB=window.renderRouteBookmarks;if(typeof oldRB==='function')window.renderRouteBookmarks=function(){var r=oldRB.apply(this,arguments);setTimeout(bindBookmarks,10);return r};
+ var oldOpenDest=window.openDestination;if(typeof oldOpenDest==='function')window.openDestination=function(){cleanRecent();var r=oldOpenDest.apply(this,arguments);setTimeout(renderRecentV5,0);return r};
+ var obs=new MutationObserver(function(){if(document.querySelector('#routes.active'))setTimeout(function(){removeDuplicateToll();bindBookmarks()},30)});
+ document.addEventListener('DOMContentLoaded',function(){cleanRecent();renderRecentV5();refresh();var rc=document.getElementById('routeCards');if(rc)obs.observe(rc,{childList:true,subtree:true})});
+ setTimeout(function(){cleanRecent();refresh();var rc=document.getElementById('routeCards');if(rc)obs.observe(rc,{childList:true,subtree:true})},100);
+})();
 </script></body></html>
