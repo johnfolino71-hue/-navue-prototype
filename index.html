@@ -1326,4 +1326,51 @@ Prototype road split is temporary demo data until live route-segment classificat
  },true);
  setTimeout(paint,350);
 })();
+</script><style>/* NAVUE_INTERACTION_RESTORE_MIC_LABEL_FIX_V9 */
+/* Approved: mic state is communicated by color only; preserve all positions. */
+.mic.navue-mic-enabled:after,.mic:not(.navue-mic-enabled):after{content:''!important;display:none!important}
+</style><script>/* NAVUE_INTERACTION_RESTORE_MIC_LABEL_FIX_V9_JS */
+(function(){
+ function norm(v){return String(v||'').trim().toLowerCase()}
+ function activeSaved(){
+   var n=norm(p.destination),list=p.savedPlaces||[];
+   return list.find(function(s){return norm(s.address)===n})||list.find(function(s){return norm(s.name)===n})||null;
+ }
+ function routeAt(card){
+   var cards=[].slice.call(document.querySelectorAll('#routeCards .card')),i=cards.indexOf(card);
+   return i>=0&&Array.isArray(currentRoutes)?currentRoutes[i]:null;
+ }
+ function bindRouteCards(){
+   [].slice.call(document.querySelectorAll('#routeCards .card')).forEach(function(card){
+     var r=routeAt(card);if(!r)return;
+     card.onclick=function(e){
+       if(e.target&&e.target.closest&&e.target.closest('.route-save-bookmark'))return;
+       chooseRoute(r,false);
+     };
+   });
+ }
+ function bindModal(){
+   var m=document.getElementById('navueSaveModal'),input=document.getElementById('navueSaveName'),saveBtn=document.getElementById('navueSaveConfirm');
+   if(!m||!input||!saveBtn)return;
+   input.disabled=false;input.readOnly=false;input.style.pointerEvents='auto';
+   input.onclick=function(e){e.stopPropagation()};
+   input.onpointerdown=function(e){e.stopPropagation()};
+   input.ontouchstart=function(e){e.stopPropagation()};
+   saveBtn.style.pointerEvents='auto';
+ }
+ function refresh(){bindRouteCards();bindModal()}
+ var oldOpen=window.openRouteSave;
+ if(typeof oldOpen==='function')window.openRouteSave=function(){
+   var out=oldOpen.apply(this,arguments);setTimeout(bindModal,0);setTimeout(bindModal,80);return out;
+ };
+ var oldBuild=window.buildRoutes;
+ if(typeof oldBuild==='function')window.buildRoutes=function(){var out=oldBuild.apply(this,arguments);setTimeout(refresh,320);return out};
+ var oldAlt=window.openAlternateRoutes;
+ if(typeof oldAlt==='function')window.openAlternateRoutes=function(){var out=oldAlt.apply(this,arguments);setTimeout(refresh,320);return out};
+ document.addEventListener('DOMContentLoaded',refresh);
+ document.addEventListener('click',function(e){
+   if(e.target&&e.target.closest&&e.target.closest('#routeCards'))setTimeout(bindRouteCards,0);
+ },true);
+ setTimeout(refresh,400);
+})();
 </script></body></html>
