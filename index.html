@@ -441,7 +441,7 @@ html,body,.app,#welcome,#welcome.active{background:#fff!important}
  };
  window.renderRouteBookmarks=function(){
    var cards=[].slice.call(document.querySelectorAll('#routeCards .card'));cards.forEach(function(card,i){
-     var r=window.currentRoutes&&currentRoutes[i];if(!r)return;var b=card.querySelector('.route-save-bookmark');
+     var r=(typeof currentRoutes!=='undefined'&&Array.isArray(currentRoutes))?currentRoutes[i]:null;if(!r)return;var b=card.querySelector('.route-save-bookmark');
      if(!b){b=document.createElement('button');b.type='button';b.className='route-save-bookmark';b.setAttribute('aria-label','Save Route '+r.id);card.appendChild(b)}
      var idx=findSaved(p.destination,r);b.classList.toggle('saved',idx>=0);
      b.onclick=function(e){e.preventDefault();e.stopPropagation();openRouteSave(p.destination,r,idx>=0?idx:undefined)};
