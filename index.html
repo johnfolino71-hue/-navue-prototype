@@ -1252,4 +1252,52 @@ Prototype road split is temporary demo data until live route-segment classificat
 </style><script>/* NAVUE_SINGLE_ROUTE_AUTHORITY_RESTORE_V12 */
 /* Interaction authority intentionally restored to the previously verified V5/V6 route + bookmark flow.
    Later duplicate route interaction controllers removed; approved visual CSS remains untouched. */
+</script><script>/* NAVUE_BOOKMARK_EXCLUSIVE_TOGGLE_DEFAULT_ADDRESS_V13 */
+(function(){
+ function norm(v){return String(v||'').trim().toLowerCase()}
+ function isDefault(s){return !!s&&/^(home|work)$/i.test(String(s.name||'').trim())}
+ function destinationIndex(){
+   var n=norm(p.destination),list=p.savedPlaces||[];
+   return list.findIndex(function(s){return norm(s.address)===n||norm(s.name)===n});
+ }
+ function refreshAll(){
+   if(typeof window.renderRouteBookmarks==='function')window.renderRouteBookmarks();
+   if(typeof window.renderRecent==='function')window.renderRecent();
+   if(document.querySelector('#savedRoutesPage.active')&&typeof window.renderSavedRoutesPage==='function')window.renderSavedRoutesPage();
+ }
+ function bindExclusive(){
+   if(!Array.isArray(currentRoutes))return;
+   var idx=destinationIndex(),rec=idx>=0?(p.savedPlaces||[])[idx]:null;
+   [].slice.call(document.querySelectorAll('#routeCards .card')).forEach(function(card,i){
+     var route=currentRoutes[i],b=card.querySelector('.route-save-bookmark');if(!route||!b)return;
+     var solid=!!rec&&String(rec.routeId||'').toUpperCase()===String(route.id||'').toUpperCase();
+     b.classList.toggle('saved',solid);
+     b.onclick=function(e){
+       e.preventDefault();e.stopPropagation();
+       idx=destinationIndex();rec=idx>=0?(p.savedPlaces||[])[idx]:null;
+       if(isDefault(rec)){var pick=currentRoutes.reduce(function(a,x){return x.m>a.m?x:a});rec.routeId=pick.id;rec.routeName=pick.name;save();bindExclusive();return}
+       if(rec){
+         if(String(rec.routeId||'').toUpperCase()===String(route.id||'').toUpperCase()){rec.routeId='';rec.routeName='';save();refreshAll();setTimeout(bindExclusive,20);return}
+         rec.routeId=route.id;rec.routeName=route.name;save();refreshAll();setTimeout(bindExclusive,20);return;
+       }
+       if(typeof window.openRouteSave==='function')window.openRouteSave(p.destination,route);
+     };
+   });
+ }
+ var oldRB=window.renderRouteBookmarks;
+ if(typeof oldRB==='function')window.renderRouteBookmarks=function(){var r=oldRB.apply(this,arguments);setTimeout(bindExclusive,20);return r};
+ var oldOpen=window.openRouteSave;
+ if(typeof oldOpen==='function')window.openRouteSave=function(address,route,index){
+   var existing=(p.savedPlaces||[]).findIndex(function(s){return norm(s.address)===norm(address)});
+   var r=oldOpen.call(this,address,route,existing>=0?existing:index);
+   var input=document.getElementById('navueSaveName');
+   if(input){input.placeholder='Optional name — or simply save this address';input.disabled=false;input.readOnly=false}
+   var title=document.getElementById('navueSaveTitle');if(title&&existing<0)title.textContent='Save this address';
+   var addr=document.getElementById('navueSaveAddress');if(addr)addr.textContent=address+(route&&route.id?' • Route '+route.id:'');
+   return r;
+ };
+ var oldBuild=window.buildRoutes;if(typeof oldBuild==='function')window.buildRoutes=function(){var r=oldBuild.apply(this,arguments);setTimeout(bindExclusive,220);return r};
+ document.addEventListener('DOMContentLoaded',function(){setTimeout(bindExclusive,300)});
+ setTimeout(bindExclusive,400);
+})();
 </script></body></html>
