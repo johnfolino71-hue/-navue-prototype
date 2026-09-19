@@ -682,4 +682,67 @@ html,body{background:#fff!important}
 })();
 </script><style>/* NAVUE_BOOKMARK_RAISE_FULL_VISIBLE_V1 */
 #routeCards .route-save-bookmark{bottom:18px!important}
-</style></body></html>
+</style><style>/* NAVUE_ROUTE_FUEL_COST_FORMULA_LOCK_V1 */
+#routeCards .route-extra-cost{font-size:15px;font-weight:800;margin-top:5px}
+</style><script>/* NAVUE_ROUTE_FUEL_COST_FORMULA_LOCK_V1
+Metric formula:
+fuel litres = (local km × city L/100km ÷ 100) + (highway km × highway L/100km ÷ 100)
+fuel cost = fuel litres × price per litre
+US formula:
+fuel gallons = (local miles ÷ city MPG) + (highway miles ÷ highway MPG)
+fuel cost = fuel gallons × price per gallon
+Prototype road split is temporary demo data until live route-segment classification is connected.
+*/
+(function(){
+ function num(v){v=parseFloat(v);return isFinite(v)&&v>0?v:null}
+ function splitFor(r){
+  var n=String((r&&r.name)||'').toLowerCase(),b=(r&&r.badges)||[];
+  if(b.some(function(x){return String(x).indexOf('ECO')>=0}))return {h:.45,l:.55};
+  if(n.indexOf('highway')>=0)return {h:.82,l:.18};
+  if(n.indexOf('fastest')>=0)return {h:.72,l:.28};
+  return {h:.65,l:.35};
+ }
+ window.navueRouteFuelCost=function(r){
+  if(!r)return null;
+  var city=num(p.cityFuel),hwy=num(p.highwayFuel),price=num(p.fuelPrice);
+  if(!city&&!hwy)return null;
+  if(!city)city=hwy;if(!hwy)hwy=city;
+  var s=splitFor(r),cost=null,qty=0;
+  if((p.fuelUnits||'metric')==='us'){
+   var miles=r.km*0.621371,gal=(miles*s.l/city)+(miles*s.h/hwy);qty=gal;cost=price?gal*price:null;
+  }else{
+   var localKm=r.km*s.l,highwayKm=r.km*s.h,litres=(localKm*city/100)+(highwayKm*hwy/100);qty=litres;cost=price?litres*price:null;
+  }
+  return {cost:cost,qty:qty,highwayShare:s.h,localShare:s.l};
+ };
+ function tollText(r){
+  var bs=(r&&r.badges)||[],m=null;
+  bs.some(function(x){var z=String(x).match(/\$\s*(\d+(?:\.\d+)?).*?(TOLL|FERRY)|(TOLL|FERRY).*?\$\s*(\d+(?:\.\d+)?)/i);if(z){m={kind:(z[2]||z[3]||'TOLL').toUpperCase(),amount:parseFloat(z[1]||z[4])};return true}return false});
+  return m;
+ }
+ function apply(){
+  var cards=document.querySelectorAll('#routeCards .card');
+  cards.forEach(function(card,i){
+   var r=(typeof currentRoutes!=='undefined'&&Array.isArray(currentRoutes))?currentRoutes[i]:null;if(!r)return;
+   var e=window.navueRouteFuelCost(r),main=card.querySelector('.route-main');
+   var dist=(typeof window.navueDistanceText==='function')?navueDistanceText(r.km):r.km+' km';
+   if(main){
+    var fuel=e&&e.cost!=null?'~$'+e.cost.toFixed(2)+' fuel':'Fuel estimate unavailable';
+    main.textContent=r.time+' min • '+dist+' • '+fuel;
+   }
+   card.querySelectorAll('.route-extra-cost').forEach(function(x){x.remove()});
+   var t=tollText(r);if(t){
+    var x=document.createElement('div');x.className='route-extra-cost';x.textContent=t.kind+'  +$'+t.amount.toFixed(2);
+    var trade=card.querySelector('.trade');if(trade)trade.insertAdjacentElement('afterend',x);else card.appendChild(x);
+   }
+  });
+  if(typeof window.renderRouteBookmarks==='function')window.renderRouteBookmarks();
+ }
+ var b=window.buildRoutes;if(typeof b==='function')window.buildRoutes=function(){var o=b.apply(this,arguments);setTimeout(apply,90);return o};
+ var a=window.openAlternateRoutes;if(typeof a==='function')window.openAlternateRoutes=function(){var o=a.apply(this,arguments);setTimeout(apply,90);return o};
+ var obs=new MutationObserver(function(){if(document.querySelector('#routes.active'))setTimeout(apply,120)});
+ document.addEventListener('DOMContentLoaded',function(){var box=document.getElementById('routeCards');if(box)obs.observe(box,{childList:true})});
+ setTimeout(function(){var box=document.getElementById('routeCards');if(box)obs.observe(box,{childList:true});apply()},0);
+ window.applyNaVueRouteFuelCost=apply;
+})();
+</script></body></html>
