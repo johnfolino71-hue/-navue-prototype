@@ -819,4 +819,42 @@ Prototype road split is temporary demo data until live route-segment classificat
 #routeCards .route-save-bookmark.saved{
  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='28' viewBox='0 0 22 28'%3E%3Cpath d='M3 2 H19 V25 L11 19 L3 25 Z' fill='%231769e0'/%3E%3C/svg%3E")!important;
 }
-</style></body></html>
+</style><style>/* NAVUE_SAVED_COMPACT_TAP_SWIPE_LOCK_V1 */
+.navue-saved-page .saved-route-card{position:relative;overflow:hidden;padding:0!important;margin:8px 0!important}
+.navue-saved-page .saved-compact-row{position:relative;z-index:2;background:#fff;padding:12px 44px 12px 44px;min-height:54px;transition:transform .18s ease;cursor:pointer}
+.navue-saved-page .saved-compact-row.selected{background:#eaf3ff}
+.navue-saved-page .saved-compact-row .saved-bookmark{position:absolute;left:14px;top:16px}
+.navue-saved-page .saved-compact-name{display:block;font-weight:800;font-size:16px;line-height:1.2}
+.navue-saved-page .saved-compact-address{display:block;font-size:13px;line-height:1.25;color:#66737d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.navue-saved-page .saved-compact-row.unnamed .saved-compact-address{font-size:15px;color:#172126;margin-top:5px}
+.navue-saved-page .saved-delete-action{position:absolute;z-index:1;right:0;top:0;bottom:0;width:86px;border:0;border-radius:0;background:#d93025;color:#fff;font-weight:800;margin:0;padding:0}
+</style><script>/* NAVUE_SAVED_COMPACT_TAP_SWIPE_LOCK_V1_JS */
+(function(){
+ function esc(s){return String(s||'').replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]})}
+ function streetNum(s){var m=String(s||'').trim().match(/^(\d+)/);return m?parseInt(m[1],10):Number.MAX_SAFE_INTEGER}
+ window.renderSavedRoutesPage=function(){
+  if(typeof ensureUI==='function')ensureUI();
+  var box=document.getElementById('savedRoutesList'),source=p.savedPlaces||[];if(!box)return;box.innerHTML='';
+  if(!source.length){box.innerHTML='<div class="notice">No saved places or routes yet.</div>';return}
+  var a=source.map(function(s){return s}).sort(function(x,y){
+   var xn=String(x.name||'').trim(),yn=String(y.name||'').trim();
+   if(xn&&yn)return xn.localeCompare(yn,undefined,{sensitivity:'base'});
+   if(xn)return -1;if(yn)return 1;
+   var d=streetNum(x.address)-streetNum(y.address);return d||String(x.address||'').localeCompare(String(y.address||''),undefined,{numeric:true,sensitivity:'base'});
+  });
+  a.forEach(function(s){
+   var original=source.indexOf(s),named=!!String(s.name||'').trim(),card=document.createElement('div');card.className='card saved-route-card';
+   card.innerHTML='<button type="button" class="saved-delete-action" aria-label="Delete saved place">Delete</button><div class="saved-compact-row '+(named?'':'unnamed')+'" role="button" tabindex="0"><span class="saved-bookmark"></span>'+(named?'<span class="saved-compact-name">'+esc(s.name)+'</span>':'')+'<span class="saved-compact-address">'+esc(s.address)+'</span></div>';
+   var row=card.querySelector('.saved-compact-row'),del=card.querySelector('.saved-delete-action'),startX=0,dx=0,moved=false;
+   function use(){row.classList.add('selected');p.destination=s.address;save();setTimeout(function(){buildRoutes(false)},120)}
+   row.onclick=function(){if(moved){moved=false;return}use()};
+   row.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();use()}};
+   row.addEventListener('touchstart',function(e){startX=e.touches[0].clientX;dx=0;moved=false},{passive:true});
+   row.addEventListener('touchmove',function(e){dx=e.touches[0].clientX-startX;if(Math.abs(dx)>8)moved=true;var x=Math.max(-86,Math.min(86,dx));row.style.transform='translateX('+x+'px)'},{passive:true});
+   row.addEventListener('touchend',function(){if(Math.abs(dx)>35){row.style.transform='translateX('+(dx<0?-86:86)+'px)'}else row.style.transform='translateX(0)';setTimeout(function(){moved=false},80)});
+   del.onclick=function(e){e.stopPropagation();var idx=p.savedPlaces.indexOf(s);if(idx>=0)p.savedPlaces.splice(idx,1);save();if(typeof renderRouteBookmarks==='function')renderRouteBookmarks();renderSavedRoutesPage()};
+   box.appendChild(card);
+  });
+ };
+})();
+</script></body></html>
