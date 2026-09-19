@@ -912,4 +912,86 @@ Prototype road split is temporary demo data until live route-segment classificat
  };
  document.addEventListener('click',function(e){document.querySelectorAll('#savedRoutesList .saved-compact-row').forEach(function(r){if(!r.parentElement.contains(e.target))r.style.transform='translateX(0)'})});
 })();
+</script><style>/* NAVUE_APPROVED_REFINEMENT_PACKAGE_V3 */
+#routeCards .route-main{font-weight:400!important;white-space:nowrap!important;font-size:17px!important;letter-spacing:-.15px!important}
+#routeCards .navue-toll-extra{display:none!important}
+.navue-defaults{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:12px 0 14px}
+.navue-default-box{background:#fff;border:1px solid #e0e6e9;border-radius:14px;padding:12px;cursor:pointer}
+.navue-default-box strong{display:block;font-size:16px}
+.navue-default-box .small{margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.navue-default-modal{display:none;position:fixed;inset:0;z-index:1200;background:#0006;align-items:center;justify-content:center;padding:20px}
+.navue-default-modal.open{display:flex}
+.navue-default-dialog{width:min(420px,100%);background:#fff;border-radius:20px;padding:18px;box-shadow:0 12px 40px #0004}
+#navigation .navue-nav-destination{display:flex;align-items:flex-start;gap:7px}
+#navigation .navue-nav-name{font-weight:800}
+#navigation .navue-nav-address{font-size:12px;color:#66737d;margin-top:1px}
+#navigation .navue-nav-destination .saved-bookmark{flex:0 0 auto;margin-top:1px}
+</style><script>/* NAVUE_APPROVED_REFINEMENT_PACKAGE_V3_JS */
+(function(){
+ function norm(s){return String(s||'').trim().toLowerCase()}
+ function esc(s){return String(s||'').replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]})}
+ function isDefault(s){return s&&/^(home|work)$/i.test(String(s.name||''))}
+ function savedFor(v){return (p.savedPlaces||[]).find(function(s){return norm(s.address)===norm(v)||norm(s.name)===norm(v)})||null}
+ function defaultRec(name){return (p.savedPlaces||[]).find(function(s){return norm(s.name)===norm(name)})||null}
+ function actualAddress(s){return s&&s.address&&!/^(home|work)$/i.test(String(s.address).trim())?String(s.address).trim():''}
+ function ensureDefaultUI(){
+   if(typeof ensureUI==='function')ensureUI();
+   var page=document.getElementById('savedRoutesPage'),list=document.getElementById('savedRoutesList');if(!page||!list)return;
+   var defs=document.getElementById('navueDefaults');
+   if(!defs){defs=document.createElement('div');defs.id='navueDefaults';defs.className='navue-defaults';list.parentNode.insertBefore(defs,list)}
+   defs.innerHTML=['Home','Work'].map(function(n){var r=defaultRec(n),a=actualAddress(r);return '<div class="navue-default-box" data-default="'+n+'"><strong>'+n+'</strong><div class="small">'+esc(a||'Set address')+'</div></div>'}).join('');
+   defs.querySelectorAll('.navue-default-box').forEach(function(b){b.onclick=function(){openDefault(b.dataset.default)}});
+   if(!document.getElementById('navueDefaultModal')){
+     var m=document.createElement('div');m.id='navueDefaultModal';m.className='navue-default-modal';
+     m.innerHTML='<div class="navue-default-dialog"><h3 id="navueDefaultTitle"></h3><input id="navueDefaultAddress" class="search" placeholder="Enter address"><div class="dialog-actions"><button type="button" id="navueDefaultSave">Save</button><button type="button" class="secondary" id="navueDefaultCancel">Cancel</button></div></div>';
+     document.body.appendChild(m);document.getElementById('navueDefaultCancel').onclick=function(){m.classList.remove('open')};
+   }
+ }
+ function openDefault(name){
+   ensureDefaultUI();var m=document.getElementById('navueDefaultModal'),r=defaultRec(name);
+   m.dataset.name=name;document.getElementById('navueDefaultTitle').textContent=name;
+   document.getElementById('navueDefaultAddress').value=actualAddress(r);
+   document.getElementById('navueDefaultSave').onclick=function(){
+     var a=document.getElementById('navueDefaultAddress').value.trim();if(!a)return;
+     p.savedPlaces=p.savedPlaces||[];var x=p.savedPlaces.findIndex(function(s){return norm(s.name)===norm(name)});
+     var rec={name:name,address:a,routeId:x>=0?p.savedPlaces[x].routeId||'':'',routeName:x>=0?p.savedPlaces[x].routeName||'':''};
+     if(x>=0)p.savedPlaces[x]=rec;else p.savedPlaces.unshift(rec);save();m.classList.remove('open');ensureDefaultUI();if(typeof renderSavedRoutesPage==='function')renderSavedRoutesPage();if(typeof renderRecent==='function')renderRecent()
+   };m.classList.add('open');setTimeout(function(){document.getElementById('navueDefaultAddress').focus()},50)
+ }
+ function identity(raw){var s=savedFor(raw);return s?{name:String(s.name||'').trim(),address:actualAddress(s)||String(raw||''),saved:true}:{name:'',address:String(raw||''),saved:false}}
+ function renderNavIdentity(){
+   var el=document.getElementById('navDestination');if(!el)return;var a=identity(p.destination);
+   if(a.saved){el.innerHTML='<span class="navue-nav-destination"><span class="saved-bookmark"></span><span><span class="navue-nav-name">'+esc(a.name||a.address)+'</span>'+(a.name&&norm(a.name)!==norm(a.address)?'<span class="navue-nav-address">'+esc(a.address)+'</span>':'')+'</span></span>'}else el.textContent=a.address
+ }
+ function refineRoutes(){
+   document.querySelectorAll('#routeCards .badge').forEach(function(b){if(/\$6\s*TOLL/i.test(b.textContent)){b.textContent='💰 +$6 TOLL'}});
+   document.querySelectorAll('#routeCards *').forEach(function(el){if(/^\s*TOLL\s*\+\s*\$\s*6(?:\.00)?\s*$/i.test(el.textContent||''))el.classList.add('navue-toll-extra')});
+ }
+ var priorRenderSaved=window.renderSavedRoutesPage;
+ if(typeof priorRenderSaved==='function')window.renderSavedRoutesPage=function(){
+   priorRenderSaved.apply(this,arguments);ensureDefaultUI();
+   var list=document.getElementById('savedRoutesList');if(!list)return;
+   Array.from(list.querySelectorAll('.saved-route-card')).forEach(function(card){
+     var row=card.querySelector('.saved-compact-row'),name=row&&row.querySelector('.saved-compact-name');
+     if(name&&/^(home|work)$/i.test(name.textContent.trim()))card.remove();
+   });
+ };
+ var priorOpenSaved=window.openSavedRoutesPage;
+ if(typeof priorOpenSaved==='function')window.openSavedRoutesPage=function(){var r=priorOpenSaved.apply(this,arguments);ensureDefaultUI();return r};
+ var priorBuild=window.buildRoutes;
+ if(typeof priorBuild==='function')window.buildRoutes=function(){var r=priorBuild.apply(this,arguments);setTimeout(function(){refineRoutes()},0);return r};
+ var priorChoose=window.chooseRoute;
+ if(typeof priorChoose==='function')window.chooseRoute=function(){var r=priorChoose.apply(this,arguments);setTimeout(renderNavIdentity,0);return r};
+ var priorRecent=window.renderRecent;
+ if(typeof priorRecent==='function')window.renderRecent=function(){
+   priorRecent.apply(this,arguments);
+   var box=document.getElementById('recentBox');if(!box)return;
+   Array.from(box.querySelectorAll('.navue-recent-row')).forEach(function(row){
+     var txt=row.querySelector('strong'),s=txt&&savedFor(txt.textContent.replace(/^↻\s*/,''));if(s&&s.name&&actualAddress(s)&&!row.querySelector('.small')){var d=document.createElement('div');d.className='small';d.textContent=actualAddress(s);txt.after(d)}
+   });
+ };
+ document.addEventListener('click',function(e){
+   var box=e.target.closest&&e.target.closest('.navue-default-box');if(box){e.preventDefault();e.stopPropagation();openDefault(box.dataset.default)}
+ });
+})();
 </script></body></html>
