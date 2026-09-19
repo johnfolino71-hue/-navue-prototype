@@ -1373,4 +1373,22 @@ Prototype road split is temporary demo data until live route-segment classificat
  },true);
  setTimeout(refresh,400);
 })();
-</script></body></html>
+</script><style>/* NAVUE_APPROVED_LIGHT_BLUE_PAGE_SHADING_V10 */
+/* Approved graphic reference: soft light-blue context/header areas only. */
+:root{--navue-header-soft:#e8f4ff}
+/* Home: shade through quick buttons; map begins immediately below. */
+#home.active{background:linear-gradient(to bottom,var(--navue-header-soft) 0,var(--navue-header-soft) 252px,transparent 252px)!important}
+/* Where To: shade through Home / Work / Saved; list/content begins below. */
+#destination.active{background:linear-gradient(to bottom,var(--navue-header-soft) 0,var(--navue-header-soft) 292px,#fff 292px)!important}
+/* Route choice: shade through destination context only; destination card stays white. */
+#routes.active{background:linear-gradient(to bottom,var(--navue-header-soft) 0,var(--navue-header-soft) 222px,#fff 222px)!important}
+#routes>h2+#routeDestination,
+#routes>h2+.card{background:#fff!important}
+/* Saved: shade the header/default Home + Work area; saved list stays white. */
+#savedRoutesPage.active{background:linear-gradient(to bottom,var(--navue-header-soft) 0,var(--navue-header-soft) 250px,#fff 250px)!important}
+/* Settings/Driving Preferences: shade through title/header, controls remain white. */
+#preferences.active{background:linear-gradient(to bottom,var(--navue-header-soft) 0,var(--navue-header-soft) 150px,#fff 150px)!important}
+/* Live navigation: light-blue direction/context strip only; map remains dominant. */
+#navigation.active:before{content:'';position:absolute;left:0;right:0;top:0;height:118px;background:var(--navue-header-soft);z-index:2;pointer-events:none}
+#navigation .turn-card,#navigation #speakerBtn,#navigation #navMic{z-index:40!important}
+</style></body></html>
