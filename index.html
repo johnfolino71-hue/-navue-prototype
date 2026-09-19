@@ -609,4 +609,40 @@ html,body{background:#fff!important}
 #welcome{background:#fff!important;min-height:100dvh!important}
 #welcome::before{content:"";position:fixed;z-index:-1;top:0;left:0;right:0;height:max(180px,env(safe-area-inset-top));background:#fff!important}
 #welcome .logo-wrap{background:#fff!important}
-</style></body></html>
+</style><style>/* NAVUE_ROUTE_CARDS_APPROVED_VISUAL_V1 */
+#routeCards .card{position:relative!important;padding:13px 14px 38px 58px!important;min-height:0}
+#routeCards .route-head{display:flex!important;align-items:flex-start!important;justify-content:space-between!important;gap:10px}
+#routeCards .navue-route-letter{position:absolute;left:14px;top:14px;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;line-height:1}
+#routeCards .navue-route-letter.fastest{background:#1769e0;color:#fff}
+#routeCards .navue-route-letter.middle{background:#f5c21b;color:#172126}
+#routeCards .navue-route-letter.eco{background:#35b968;color:#fff}
+#routeCards .route-save-bookmark{right:9px!important;bottom:7px!important;width:24px!important;height:28px!important}
+#routeCards .route-save-bookmark:before{width:14px!important;height:19px!important;border-width:2px!important}
+</style><script>
+(function(){
+ function applyApprovedRouteCardVisual(){
+  var cards=[].slice.call(document.querySelectorAll('#routeCards .card'));
+  var routes=window.currentRoutes||[];
+  if(!cards.length||!routes.length)return;
+  var sorted=routes.slice().sort(function(a,b){return a.time-b.time});
+  var fastest=sorted[0]&&sorted[0].id, middle=sorted[1]&&sorted[1].id;
+  var eco=(routes.find(function(r){return (r.badges||[]).some(function(b){return String(b).indexOf('ECO')>=0})})||{}).id;
+  cards.forEach(function(card,i){
+   var r=routes[i];if(!r)return;
+   var head=card.querySelector('.route-head'),strong=head&&head.querySelector('strong');
+   if(strong)strong.textContent=r.name;
+   var badge=card.querySelector('.navue-route-letter');
+   if(!badge){badge=document.createElement('span');badge.className='navue-route-letter';card.appendChild(badge)}
+   badge.textContent=r.id;badge.className='navue-route-letter '+(r.id===eco?'eco':r.id===fastest?'fastest':r.id===middle?'middle':'middle');
+  });
+  if(typeof window.renderRouteBookmarks==='function')window.renderRouteBookmarks();
+ }
+ document.addEventListener('click',function(e){
+  if(e.target&&e.target.closest&&e.target.closest('#destination button'))setTimeout(applyApprovedRouteCardVisual,30);
+ });
+ var obs=new MutationObserver(function(){if(document.querySelector('#routes.active'))setTimeout(applyApprovedRouteCardVisual,0)});
+ document.addEventListener('DOMContentLoaded',function(){var box=document.getElementById('routeCards');if(box)obs.observe(box,{childList:true})});
+ setTimeout(function(){var box=document.getElementById('routeCards');if(box)obs.observe(box,{childList:true});applyApprovedRouteCardVisual()},0);
+ window.applyApprovedRouteCardVisual=applyApprovedRouteCardVisual;
+})();
+</script></body></html>
