@@ -1136,4 +1136,83 @@ Prototype road split is temporary demo data until live route-segment classificat
  document.addEventListener('DOMContentLoaded',function(){cleanRecent();renderRecentV5();refresh();var rc=document.getElementById('routeCards');if(rc)obs.observe(rc,{childList:true,subtree:true})});
  setTimeout(function(){cleanRecent();refresh();var rc=document.getElementById('routeCards');if(rc)obs.observe(rc,{childList:true,subtree:true})},100);
 })();
+</script><style>/* NAVUE_APPROVED_HOME_LAYOUT_BACK_V6 */
+#home>#homeGreeting{display:none!important}
+#home>.searchrow{
+ top:calc(max(16px,env(safe-area-inset-top)) + 112px)!important;
+ bottom:auto!important;
+ left:14px!important;
+ right:82px!important;
+ height:46px!important;
+}
+#home>.searchrow .search{
+ height:46px!important;
+ min-height:46px!important;
+ padding:9px 14px!important;
+ font-size:16px!important;
+ border-radius:14px!important;
+}
+#home .navue-quick-row{
+ position:absolute!important;
+ top:calc(max(16px,env(safe-area-inset-top)) + 164px)!important;
+ bottom:auto!important;
+ left:14px!important;
+ right:auto!important;
+ display:flex!important;
+ gap:6px!important;
+ width:auto!important;
+ z-index:5!important;
+}
+#home .navue-quick-row button{
+ width:auto!important;
+ min-width:76px!important;
+ padding:8px 12px!important;
+ font-size:13px!important;
+ border-radius:12px!important;
+}
+#home .navue-quick-row button:last-child{min-width:82px!important}
+</style><script>/* NAVUE_APPROVED_HOME_LAYOUT_BACK_V6_JS */
+(function(){
+ var internalNav=false,handlingPop=false,lastScreen=null;
+ function activeId(){var a=document.querySelector('.screen.active');return a&&a.id||''}
+ function pushScreen(id){
+   if(handlingPop||internalNav||!id)return;
+   try{
+     var st=history.state||{};
+     if(st.navueScreen===id)return;
+     history.pushState({navueScreen:id},'',location.href);
+   }catch(e){}
+ }
+ var oldShow=window.show;
+ if(typeof oldShow==='function')window.show=function(id){
+   var before=activeId(),r=oldShow.apply(this,arguments);
+   lastScreen=id;
+   if(before&&before!==id)pushScreen(id);
+   return r;
+ };
+ window.addEventListener('popstate',function(e){
+   var target=e.state&&e.state.navueScreen;
+   if(!target||!document.getElementById(target))return;
+   handlingPop=true;
+   try{oldShow.call(window,target);lastScreen=target}finally{setTimeout(function(){handlingPop=false},0)}
+ });
+ document.addEventListener('DOMContentLoaded',function(){
+   var id=activeId();lastScreen=id;
+   try{
+     if(id&&(!history.state||!history.state.navueScreen))history.replaceState({navueScreen:id},'',location.href);
+   }catch(e){}
+ });
+ var oldHome=window.showHome;
+ if(typeof oldHome==='function')window.showHome=function(announce){
+   var r=oldHome.apply(this,arguments);
+   var g=document.getElementById('homeGreeting');if(g){g.textContent='';g.style.display='none'}
+   return r;
+ };
+ var oldMain=window.toggleMainVoice;
+ if(typeof oldMain==='function')window.toggleMainVoice=function(){
+   var was=!!p.voice,r=oldMain.apply(this,arguments);
+   var g=document.getElementById('homeGreeting');if(g){g.textContent='';g.style.display='none'}
+   return r;
+ };
+})();
 </script></body></html>
