@@ -1439,4 +1439,29 @@ Prototype road split is temporary demo data until live route-segment classificat
  document.addEventListener('DOMContentLoaded',function(){setTimeout(function(){bindRecentUnsave();bindSavedUnsave()},700)});
  setTimeout(function(){bindRecentUnsave();bindSavedUnsave()},800);
 })();
+</script><script>/* NAVUE_FEATURE_DIRECT_UNSAVE_CORRECTION_V17 */
+(function(){
+ function norm(v){return String(v||'').trim().toLowerCase()}
+ function removeByIdentity(address,name){
+   var a=norm(address),n=norm(name),list=p.savedPlaces||[];
+   var i=list.findIndex(function(s){return (a&&norm(s.address)===a)||(n&&norm(s.name)===n)});
+   if(i<0)return false;
+   if(/^(home|work)$/i.test(String(list[i].name||'').trim()))return false;
+   list.splice(i,1);save();return true;
+ }
+ document.addEventListener('click',function(e){
+   var mark=e.target&&e.target.closest&&e.target.closest('.saved-bookmark');if(!mark)return;
+   var recent=mark.closest('.navue-recent-row');
+   var saved=mark.closest('.saved-route-card');
+   if(!recent&&!saved)return;
+   e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();
+   var row=recent||saved,strong=row.querySelector('strong'),sub=row.querySelector('.small');
+   var label=strong?String(strong.textContent||'').replace(/^\s*↻\s*/,'').trim():'';
+   var address=sub?String(sub.textContent||'').trim():label;
+   if(!removeByIdentity(address,label))return false;
+   if(saved&&typeof window.renderSavedRoutesPage==='function')window.renderSavedRoutesPage();
+   if(typeof window.renderRecent==='function')window.renderRecent();
+   return false;
+ },true);
+})();
 </script></body></html>
