@@ -1385,4 +1385,58 @@ Prototype road split is temporary demo data until live route-segment classificat
  var oldRB=window.renderRouteBookmarks;if(typeof oldRB==='function')window.renderRouteBookmarks=function(){var r=oldRB.apply(this,arguments);setTimeout(restorePreferred,80);return r};
  document.addEventListener('DOMContentLoaded',function(){setTimeout(restorePreferred,650)});
 })();
+</script><script>/* NAVUE_FEATURE_DIRECT_UNSAVE_FROM_RECENT_SAVED_V16 */
+(function(){
+ function norm(v){return String(v||'').trim().toLowerCase()}
+ function savedIndex(address,name){
+   var a=norm(address),n=norm(name),list=p.savedPlaces||[];
+   return list.findIndex(function(s){return (a&&norm(s.address)===a)||(n&&norm(s.name)===n)});
+ }
+ function removeSaved(address,name){
+   var i=savedIndex(address,name);if(i<0)return false;
+   var rec=p.savedPlaces[i];
+   if(/^(home|work)$/i.test(String(rec.name||'').trim()))return false;
+   p.savedPlaces.splice(i,1);save();return true;
+ }
+ function bindRecentUnsave(){
+   var box=document.getElementById('recentBox');if(!box)return;
+   [].slice.call(box.querySelectorAll('.navue-recent-row')).forEach(function(row){
+     var mark=row.querySelector('.saved-bookmark');if(!mark)return;
+     mark.style.cursor='pointer';mark.setAttribute('role','button');mark.setAttribute('aria-label','Remove from Saved');
+     mark.onclick=function(e){
+       e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();
+       var strong=row.querySelector('strong'),sub=row.querySelector('.small');
+       var label=strong?String(strong.textContent||'').replace(/^\s*↻\s*/,'').trim():'';
+       var address=sub?String(sub.textContent||'').trim():label;
+       if(removeSaved(address,label)){
+         if(typeof window.renderRecent==='function')window.renderRecent();
+         if(document.querySelector('#savedRoutesPage.active')&&typeof window.renderSavedRoutesPage==='function')window.renderSavedRoutesPage();
+       }
+       return false;
+     };
+   });
+ }
+ var rr=window.renderRecent;if(typeof rr==='function')window.renderRecent=function(){var r=rr.apply(this,arguments);setTimeout(bindRecentUnsave,0);return r};
+ function bindSavedUnsave(){
+   var box=document.getElementById('savedRoutesList');if(!box)return;
+   [].slice.call(box.querySelectorAll('.saved-route-card')).forEach(function(card){
+     var mark=card.querySelector('.saved-bookmark');if(!mark)return;
+     mark.style.cursor='pointer';mark.setAttribute('role','button');mark.setAttribute('aria-label','Remove from Saved');
+     mark.onclick=function(e){
+       e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();
+       var strong=card.querySelector('strong'),sub=card.querySelector('.small');
+       var label=strong?String(strong.textContent||'').trim():'';
+       var address=sub?String(sub.textContent||'').trim():label;
+       if(removeSaved(address,label)){
+         if(typeof window.renderSavedRoutesPage==='function')window.renderSavedRoutesPage();
+         if(typeof window.renderRecent==='function')window.renderRecent();
+       }
+       return false;
+     };
+   });
+ }
+ var rs=window.renderSavedRoutesPage;if(typeof rs==='function')window.renderSavedRoutesPage=function(){var r=rs.apply(this,arguments);setTimeout(bindSavedUnsave,0);return r};
+ document.addEventListener('DOMContentLoaded',function(){setTimeout(function(){bindRecentUnsave();bindSavedUnsave()},700)});
+ setTimeout(function(){bindRecentUnsave();bindSavedUnsave()},800);
+})();
 </script></body></html>
