@@ -1464,4 +1464,33 @@ Prototype road split is temporary demo data until live route-segment classificat
    return false;
  },true);
 })();
+</script><script>/* NAVUE_SAVED_PAGE_DIRECT_UNSAVE_FINAL_V18 */
+(function(){
+ function norm(v){return String(v||'').trim().toLowerCase()}
+ function unsaveSavedCard(card){
+   if(!card)return false;
+   var strong=card.querySelector('strong'),sub=card.querySelector('.small');
+   var label=strong?String(strong.textContent||'').trim():'';
+   var address=sub?String(sub.textContent||'').trim():label;
+   var a=norm(address),n=norm(label),list=p.savedPlaces||[];
+   var i=list.findIndex(function(s){return (a&&norm(s.address)===a)||(n&&norm(s.name)===n)});
+   if(i<0||/^(home|work)$/i.test(String(list[i].name||'').trim()))return false;
+   list.splice(i,1);save();
+   if(typeof window.renderSavedRoutesPage==='function')window.renderSavedRoutesPage();
+   if(typeof window.renderRecent==='function')window.renderRecent();
+   return true;
+ }
+ document.addEventListener('pointerup',function(e){
+   var mark=e.target&&e.target.closest&&e.target.closest('#savedRoutesList .saved-route-card .saved-bookmark');
+   if(!mark)return;
+   e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();
+   unsaveSavedCard(mark.closest('.saved-route-card'));
+ },true);
+ document.addEventListener('click',function(e){
+   var mark=e.target&&e.target.closest&&e.target.closest('#savedRoutesList .saved-route-card .saved-bookmark');
+   if(!mark)return;
+   e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();
+   unsaveSavedCard(mark.closest('.saved-route-card'));
+ },true);
+})();
 </script></body></html>
