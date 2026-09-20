@@ -1493,4 +1493,59 @@ Prototype road split is temporary demo data until live route-segment classificat
    unsaveSavedCard(mark.closest('.saved-route-card'));
  },true);
 })();
+</script><style>/* NAVUE_SAVED_PAGE_REAL_BUTTON_V19 */
+#savedRoutesList .saved-route-card .navue-saved-remove{
+ display:inline-block!important;
+ width:34px!important;
+ min-width:34px!important;
+ height:38px!important;
+ margin:-10px 6px -10px -8px!important;
+ padding:10px 8px!important;
+ vertical-align:-11px!important;
+ border:0!important;
+ border-radius:9px!important;
+ background:transparent!important;
+ box-shadow:none!important;
+ color:#1769e0!important;
+ cursor:pointer!important;
+ touch-action:manipulation!important;
+ -webkit-tap-highlight-color:transparent!important;
+}
+#savedRoutesList .saved-route-card .navue-saved-remove:before{
+ content:'';display:block;width:13px;height:17px;background:#1769e0;
+ clip-path:polygon(0 0,100% 0,100% 100%,50% 72%,0 100%);
+}
+</style><script>/* NAVUE_SAVED_PAGE_REAL_BUTTON_V19 */
+(function(){
+ function bindSavedButtons(){
+   var box=document.getElementById('savedRoutesList');if(!box)return;
+   [].slice.call(box.querySelectorAll('.saved-route-card')).forEach(function(card,index){
+     var old=card.querySelector('.saved-bookmark');
+     if(!old||card.querySelector('.navue-saved-remove'))return;
+     var button=document.createElement('button');
+     button.type='button';
+     button.className='navue-saved-remove';
+     button.setAttribute('aria-label','Remove from Saved Places');
+     button.dataset.savedIndex=String(index);
+     old.replaceWith(button);
+     button.addEventListener('click',function(e){
+       e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();
+       var i=Number(button.dataset.savedIndex),list=p.savedPlaces||[];
+       if(!Number.isInteger(i)||i<0||i>=list.length)return false;
+       list.splice(i,1);save();
+       if(typeof window.renderSavedRoutesPage==='function')window.renderSavedRoutesPage();
+       if(typeof window.renderRecent==='function')window.renderRecent();
+       return false;
+     });
+   });
+ }
+ var prior=window.renderSavedRoutesPage;
+ if(typeof prior==='function')window.renderSavedRoutesPage=function(){
+   var result=prior.apply(this,arguments);
+   bindSavedButtons();
+   return result;
+ };
+ document.addEventListener('DOMContentLoaded',function(){setTimeout(bindSavedButtons,0)});
+ setTimeout(bindSavedButtons,900);
+})();
 </script></body></html>
