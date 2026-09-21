@@ -861,6 +861,9 @@ Prototype road split is temporary demo data until live route-segment classificat
 </script><style>/* NAVUE_SAVED_RECENT_ACTIVE_DEFAULTS_LOCK_V2 */
 #recentBox .navue-recent-row{position:relative;padding-right:44px!important}
 #recentBox .navue-recent-row .saved-bookmark{position:absolute;right:14px;top:50%;transform:translateY(-50%)}
+#recentBox .navue-recent-row{padding-right:58px!important;min-height:48px}
+#recentBox .navue-recent-remove{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:44px;height:44px;margin:0;padding:13px 15px;border:0;border-radius:8px;background:transparent;box-shadow:none;touch-action:manipulation;cursor:pointer}
+#recentBox .navue-recent-remove:before{content:'';display:block;width:14px;height:18px;background:#1769e0;clip-path:polygon(0 0,100% 0,100% 100%,50% 72%,0 100%)}
 #routeDestination .navue-active-name{display:block;font-size:17px;font-weight:800}
 #routeDestination .navue-active-address{display:block;font-size:13px;font-weight:500;color:#66737d;margin-top:2px}
 #routeDestination .saved-bookmark{margin-left:7px}
@@ -1086,7 +1089,16 @@ Prototype road split is temporary demo data until live route-segment classificat
      var label=name||raw;
      var d=document.createElement('div');d.className='card navue-recent-row';
      var sub=a&&norm(label)!==norm(a)?a:'';
-     d.innerHTML='<strong>↻ '+esc(label)+'</strong>'+(sub?'<div class="small">'+esc(sub)+'</div>':'')+(s?'<span class="saved-bookmark"></span>':'');
+     d.innerHTML='<strong>↻ '+esc(label)+'</strong>'+(sub?'<div class="small">'+esc(sub)+'</div>':'')+(s?'<button type="button" class="navue-recent-remove" aria-label="Remove from Saved Places"></button>':'');
+     var remove=d.querySelector('.navue-recent-remove');
+     if(remove)remove.onclick=function(e){
+       e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();
+       var list=p.savedPlaces||[],i=list.indexOf(s);
+       if(i<0||isDefaultRec(s))return;
+       list.splice(i,1);save();
+       renderRecentV5();
+       if(document.querySelector('#savedRoutesPage.active')&&typeof window.renderSavedRoutesPage==='function')window.renderSavedRoutesPage();
+     };
      d.onclick=function(){p.destination=a||raw;save();buildRoutes(false)};box.appendChild(d);
    });
    p.recentLabels=labels;save();
