@@ -1616,7 +1616,29 @@ Prototype road split is temporary demo data until live route-segment classificat
 })();
 </script>
 <style>/* NAVUE_APPROVED_HOME_ARRIVED_SHADING_V24 */
-#home.active::before{content:'';position:absolute;top:0;left:0;right:0;height:252px;background:var(--navue-header-soft,#e8f4ff);z-index:1;pointer-events:none}
-#profile.active{background:linear-gradient(to bottom,var(--navue-header-soft,#e8f4ff) 0,var(--navue-header-soft,#e8f4ff) 222px,#fff 222px)!important}
+#home.active::before{content:'';position:absolute;top:0;left:0;right:0;height:var(--navue-home-shade-height,180px);background:var(--navue-header-soft,#e8f4ff);z-index:1;pointer-events:none}
+#profile.active{background:linear-gradient(to bottom,var(--navue-header-soft,#e8f4ff) 0,var(--navue-header-soft,#e8f4ff) var(--navue-arrived-shade-height,222px),#fff var(--navue-arrived-shade-height,222px))!important}
 </style>
+<script>/* NAVUE_APPROVED_SHADE_EDGE_ALIGNMENT_V25 */
+(function(){
+ var home=document.getElementById('home'),arrived=document.getElementById('profile');
+ if(!home||!arrived)return;
+ function place(page,target,property){
+   if(!target)return;
+   var pageBox=page.getBoundingClientRect(),targetBox=target.getBoundingClientRect();
+   page.style.setProperty(property,Math.ceil(targetBox.bottom-pageBox.top+8)+'px');
+ }
+ function align(){
+   place(home,home.querySelector('.navue-quick-row'),'--navue-home-shade-height');
+   place(arrived,arrived.querySelector('button'),'--navue-arrived-shade-height');
+ }
+ window.addEventListener('resize',align);
+ if(typeof ResizeObserver==='function'){
+   var observer=new ResizeObserver(align),homeButtons=home.querySelector('.navue-quick-row'),driveAgain=arrived.querySelector('button');
+   if(homeButtons)observer.observe(homeButtons);if(driveAgain)observer.observe(driveAgain);
+ }
+ document.addEventListener('DOMContentLoaded',function(){requestAnimationFrame(align)});
+ requestAnimationFrame(align);
+})();
+</script>
 </body></html>
