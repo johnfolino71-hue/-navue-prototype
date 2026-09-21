@@ -727,7 +727,7 @@ Prototype road split is temporary demo data until live route-segment classificat
    var e=window.navueRouteFuelCost(r),main=card.querySelector('.route-main');
    var dist=(typeof window.navueDistanceText==='function')?navueDistanceText(r.km):r.km+' km';
    if(main){
-    var fuel=e&&e.cost!=null?'~$'+e.cost.toFixed(2)+' fuel':'Fuel estimate unavailable';
+    var fuel=e&&e.cost!=null?'$'+e.cost.toFixed(2)+' fuel':'Fuel estimate unavailable';
     main.textContent=r.time+' min • '+dist+' • '+fuel;
    }
    card.querySelectorAll('.route-extra-cost').forEach(function(x){x.remove()});
@@ -1568,6 +1568,7 @@ Prototype road split is temporary demo data until live route-segment classificat
 </script><style>/* NAVUE_APPROVED_DESTINATION_LAYOUT_MIC_LABELS_V22 */
 .mic::after{display:none!important}
 #destination #findRoutesBtn{display:block;margin:9px 0 0;padding:0;box-sizing:border-box;max-width:100%}
+#destination #destinationInput{height:44px;padding-top:10px;padding-bottom:10px;box-sizing:border-box}
 #destination.active{background:linear-gradient(to bottom,var(--navue-header-soft) 0,var(--navue-header-soft) 356px,#fff 356px)!important}
 </style><script>/* NAVUE_APPROVED_DESTINATION_LAYOUT_V22 */
 (function(){
@@ -1584,5 +1585,33 @@ Prototype road split is temporary demo data until live route-segment classificat
  if(typeof ResizeObserver==='function'){var observer=new ResizeObserver(sizeButton);observer.observe(input)}
  window.addEventListener('resize',sizeButton);
  sizeButton();
+})();
+</script><script>/* NAVUE_APPROVED_ROUTE_HEIGHT_FIVE_PERCENT_V23 */
+(function(){
+ var box=document.getElementById('routeCards'),page=document.getElementById('routes');
+ if(!box||!page)return;
+ var originals=new WeakMap(),pending=false,lastWidth=0;
+ function slim(){
+   pending=false;if(!box.getBoundingClientRect().width)return;
+   box.querySelectorAll('.card').forEach(function(card){
+     var original=originals.get(card);
+     if(!original){original=['padding-top','padding-bottom'].map(function(key){return [key,card.style.getPropertyValue(key),card.style.getPropertyPriority(key)]});originals.set(card,original)}
+     original.forEach(function(value){if(value[1])card.style.setProperty(value[0],value[1],value[2]);else card.style.removeProperty(value[0])});
+     var css=getComputedStyle(card),top=parseFloat(css.paddingTop)||0,bottom=parseFloat(css.paddingBottom)||0;
+     var reduction=card.getBoundingClientRect().height*0.05;
+     // Preserve the bookmark's bottom space; reduce empty padding only.
+     var bottomReduction=Math.min(reduction/2,Math.max(0,bottom-36));
+     var topReduction=Math.min(top,reduction-bottomReduction);
+     card.style.setProperty('padding-top',(top-topReduction)+'px','important');
+     card.style.setProperty('padding-bottom',(bottom-bottomReduction)+'px','important');
+   });
+ }
+ function schedule(){if(!pending){pending=true;requestAnimationFrame(slim)}}
+ new MutationObserver(schedule).observe(box,{childList:true,subtree:true,characterData:true});
+ new MutationObserver(schedule).observe(page,{attributes:true,attributeFilter:['class']});
+ if(typeof ResizeObserver==='function')new ResizeObserver(function(entries){var width=entries[0].contentRect.width;if(width!==lastWidth){lastWidth=width;schedule()}}).observe(box);
+ window.addEventListener('resize',schedule);
+ if(document.fonts&&document.fonts.ready)document.fonts.ready.then(schedule);
+ schedule();
 })();
 </script></body></html>
