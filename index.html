@@ -1080,12 +1080,9 @@ Prototype road split is temporary demo data until live route-segment classificat
  }
  function renderRecentV5(){
    cleanRecent();var box=document.getElementById('recentBox');if(!box)return;box.innerHTML='';
-   var priorLabels=Array.isArray(p.recentLabels)?p.recentLabels:[],labels=[];
    p.recent.forEach(function(raw){
      var s=exactSaved(raw),a=s&&realAddress(s)||raw;
-     var remembered=priorLabels.find(function(r){return norm(r.address)===norm(a)});
-     var name=s?String(s.name||'').trim():remembered&&remembered.name||'';
-     if(name)labels.push({address:a,name:name});
+     var name=s?String(s.name||'').trim():'';
      var label=name||raw;
      var d=document.createElement('div');d.className='card navue-recent-row';
      var sub=a&&norm(label)!==norm(a)?a:'';
@@ -1101,7 +1098,7 @@ Prototype road split is temporary demo data until live route-segment classificat
      };
      d.onclick=function(){p.destination=a||raw;save();buildRoutes(false)};box.appendChild(d);
    });
-   p.recentLabels=labels;save();
+   delete p.recentLabels;save();
  }
  window.renderRecent=renderRecentV5;
  function removeDuplicateToll(){
@@ -1567,5 +1564,25 @@ Prototype road split is temporary demo data until live route-segment classificat
  };
  document.addEventListener('DOMContentLoaded',function(){setTimeout(bindSavedButtons,0)});
  setTimeout(bindSavedButtons,900);
+})();
+</script><style>/* NAVUE_APPROVED_DESTINATION_LAYOUT_MIC_LABELS_V22 */
+.mic::after{display:none!important}
+#destination #findRoutesBtn{display:block;margin:9px 0 0;padding:0;box-sizing:border-box;max-width:100%}
+#destination.active{background:linear-gradient(to bottom,var(--navue-header-soft) 0,var(--navue-header-soft) 356px,#fff 356px)!important}
+</style><script>/* NAVUE_APPROVED_DESTINATION_LAYOUT_V22 */
+(function(){
+ var page=document.getElementById('destination'),input=document.getElementById('destinationInput'),button=document.getElementById('findRoutesBtn');
+ if(!page||!input||!button)return;
+ var row=page.querySelector('.searchrow'),quick=page.querySelector('.navue-quick-row');
+ if(!row)return;
+ row.insertAdjacentElement('afterend',button);
+ if(quick)button.insertAdjacentElement('afterend',quick);
+ function sizeButton(){
+   var bounds=input.getBoundingClientRect();
+   if(bounds.width>0&&bounds.height>0){button.style.width=bounds.width+'px';button.style.height=bounds.height+'px'}
+ }
+ if(typeof ResizeObserver==='function'){var observer=new ResizeObserver(sizeButton);observer.observe(input)}
+ window.addEventListener('resize',sizeButton);
+ sizeButton();
 })();
 </script></body></html>
