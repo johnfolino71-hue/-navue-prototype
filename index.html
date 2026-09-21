@@ -1726,4 +1726,109 @@ Prototype road split is temporary demo data until live route-segment classificat
 })();
 </script>
 
+<style>/* NAVUE_BUILD_3A_SETTINGS_ARRIVED_CONTROLS_V2 */
+#preferences,#profile{position:relative}
+#preferences>.navue-session-controls,#profile>.navue-session-controls{
+ top:max(18px,env(safe-area-inset-top))!important;
+ right:14px!important;
+}
+</style>
+<script>/* NAVUE_BUILD_3A_SETTINGS_ARRIVED_CONTROLS_V2 */
+(function(){
+ function install(screenId){
+  var screen=document.getElementById(screenId);if(!screen||screen.querySelector(':scope > .navue-session-controls'))return;
+  var controls=document.createElement('div');controls.className='navue-session-controls';
+  var speaker=document.createElement('button');speaker.type='button';speaker.className='navue-session-speaker';speaker.textContent='🔊';speaker.setAttribute('aria-label','Speaker');
+  var microphone=document.createElement('button');microphone.type='button';microphone.className='mic navue-session-mic';microphone.setAttribute('aria-label','Microphone');microphone.innerHTML=typeof MIC!=='undefined'?MIC:'';
+  speaker.onclick=function(){
+   p.voice=!p.voice;tripVoice=p.voice;
+   try{save()}catch(e){}
+   try{updateHomeSpeaker()}catch(e){}
+   try{setSpeaker()}catch(e){}
+   speaker.classList.toggle('voice-on',!!p.voice);
+   if(p.voice&&typeof speak==='function')speak('Voice guidance on.',true)
+   else try{speechSynthesis.cancel()}catch(e){}
+   setTimeout(sync,0)
+  };
+  microphone.onclick=function(){toggleListen(screenId,microphone)};
+  controls.appendChild(speaker);controls.appendChild(microphone);screen.appendChild(controls)
+ }
+ function sync(){
+  ['preferences','profile'].forEach(install);
+  document.querySelectorAll('#preferences>.navue-session-controls .navue-session-speaker,#profile>.navue-session-controls .navue-session-speaker').forEach(function(button){button.classList.toggle('voice-on',!!p.voice);button.setAttribute('aria-pressed',p.voice?'true':'false')});
+  document.querySelectorAll('#preferences>.navue-session-controls .mic,#profile>.navue-session-controls .mic').forEach(function(button){button.classList.toggle('navue-mic-enabled',!!p.micEnabled);button.classList.toggle('listening',!!p.micEnabled);button.setAttribute('aria-pressed',p.micEnabled?'true':'false')})
+ }
+ var priorRearm=window.rearmVoice;
+ window.rearmVoice=function(id){
+  if(id==='preferences'||id==='profile'){
+   var button=document.querySelector('#'+id+'>.navue-session-controls .mic');
+   if(button&&!rec&&p.micEnabled)return startListen(id,button,true)
+  }
+  if(typeof priorRearm==='function')return priorRearm.apply(this,arguments)
+ };
+ var priorShow=window.show;
+ window.show=function(){var result=priorShow.apply(this,arguments);setTimeout(sync,0);return result};
+ document.addEventListener('DOMContentLoaded',sync);setTimeout(sync,0)
+})();
+</script>
+
+<script>/* NAVUE_BUILD_3A_APPROVED_PAGE_AND_ROUTE_V3 */
+(function(){
+ var pageStack=[],movingBack=false,priorShow=window.show,priorHandle=window.handleVoice;
+ function clean(value){return String(value||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim()}
+ function currentPage(){var el=document.querySelector('.screen.active');return el?el.id:''}
+ function say(message){var on=currentPage()==='navigation'?!!tripVoice:!!p.voice;if(on&&typeof speak==='function')speak(message,true)}
+ window.show=function(id){
+  var current=currentPage();
+  if(!movingBack&&current&&current!==id){if(pageStack[pageStack.length-1]!==current)pageStack.push(current);if(pageStack.length>20)pageStack.shift()}
+  var result=priorShow.apply(this,arguments);movingBack=false;return result
+ };
+ function goBackOnePage(){
+  var current=currentPage(),target='';
+  while(pageStack.length&&!target){var candidate=pageStack.pop();if(candidate&&candidate!==current&&document.getElementById(candidate))target=candidate}
+  if(!target){
+   if(current==='routes'||current==='ambiguity'||current==='savedRoutesPage')target='destination';
+   else if(current==='destination'||current==='profile'||current==='preferences')target='home'
+  }
+  if(target){movingBack=true;window.navueEndTripPending=false;if(typeof stopListen==='function')stopListen(false);show(target)}
+  else say('There is no previous page.')
+ }
+ function routeId(text){
+  var short=clean(text).match(/^(?:route\s*)?([abc])$/);if(short)return short[1].toUpperCase();
+  if(typeof routeFromSpeech==='function')return routeFromSpeech(text);
+  var found=clean(text).match(/\broute\s*([abc])\b/);return found?found[1].toUpperCase():null
+ }
+ function savedRouteIndex(route){
+  var address=clean(p.destination),id=String(route.id||'').toUpperCase();
+  return (p.savedPlaces||[]).findIndex(function(item){return clean(item.address)===address&&String(item.routeId||'').toUpperCase()===id})
+ }
+ function bookmarkRoute(route){
+  p.savedPlaces=p.savedPlaces||[];
+  if(savedRouteIndex(route)>=0){say('Route '+route.id+' is already bookmarked.');return}
+  var samePlace=p.savedPlaces.find(function(item){return clean(item.address)===clean(p.destination)&&item.name});
+  p.savedPlaces.unshift({address:p.destination,name:samePlace?samePlace.name:'',routeId:route.id,routeName:route.name||''});
+  try{save()}catch(e){}
+  try{renderRouteBookmarks()}catch(e){}
+  if(document.querySelector('#savedRoutesPage.active'))try{renderSavedRoutesPage()}catch(e){}
+  say('Route '+route.id+' bookmarked.')
+ }
+ function isBack(text){return /^(go )?back$|^go back (one )?(page|screen)$|^previous (page|screen)$|^return to (the )?previous (page|screen)$/.test(clean(text))}
+ window.handleVoice=function(text,mode){
+  var value=clean(text);
+  if(isBack(value)){goBackOnePage();return}
+  if(mode==='routes'){
+   var id=routeId(value),route=(window.currentRoutes||currentRoutes||[]).find(function(item){return item.id===id});
+   if(route&&/\b(bookmark|save)\b/.test(value)){bookmarkRoute(route);return}
+   if(route&&/^(?:route\s*)?[abc]$/.test(value)){chooseRoute(route,true);return}
+  }
+  if(mode==='preferences'||mode==='profile'){
+   if(typeof window.navueInterpret3A==='function'&&window.navueInterpret3A(text,mode))return;
+   say('Please use a NaVue command, or say go back.');return
+  }
+  return priorHandle.apply(this,arguments)
+ };
+ window.navueGoBackOnePage=goBackOnePage;
+})();
+</script>
+
 </body></html>
