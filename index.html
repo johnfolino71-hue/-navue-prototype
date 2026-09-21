@@ -1077,13 +1077,19 @@ Prototype road split is temporary demo data until live route-segment classificat
  }
  function renderRecentV5(){
    cleanRecent();var box=document.getElementById('recentBox');if(!box)return;box.innerHTML='';
+   var priorLabels=Array.isArray(p.recentLabels)?p.recentLabels:[],labels=[];
    p.recent.forEach(function(raw){
-     var s=exactSaved(raw),a=s&&realAddress(s),label=s&&s.name?String(s.name).trim():raw;
+     var s=exactSaved(raw),a=s&&realAddress(s)||raw;
+     var remembered=priorLabels.find(function(r){return norm(r.address)===norm(a)});
+     var name=s?String(s.name||'').trim():remembered&&remembered.name||'';
+     if(name)labels.push({address:a,name:name});
+     var label=name||raw;
      var d=document.createElement('div');d.className='card navue-recent-row';
      var sub=a&&norm(label)!==norm(a)?a:'';
      d.innerHTML='<strong>↻ '+esc(label)+'</strong>'+(sub?'<div class="small">'+esc(sub)+'</div>':'')+(s?'<span class="saved-bookmark"></span>':'');
      d.onclick=function(){p.destination=a||raw;save();buildRoutes(false)};box.appendChild(d);
    });
+   p.recentLabels=labels;save();
  }
  window.renderRecent=renderRecentV5;
  function removeDuplicateToll(){
