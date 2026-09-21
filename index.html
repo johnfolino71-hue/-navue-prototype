@@ -844,6 +844,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   });
   a.forEach(function(s){
    var original=source.indexOf(s),named=!!String(s.name||'').trim(),card=document.createElement('div');card.className='card saved-route-card';
+   card.navueSavedRecord=s;
    card.innerHTML='<button type="button" class="saved-delete-action" aria-label="Delete saved place">Delete</button><div class="saved-compact-row '+(named?'':'unnamed')+'" role="button" tabindex="0"><span class="saved-bookmark"></span>'+(named?'<span class="saved-compact-name">'+esc(s.name)+'</span>':'')+'<span class="saved-compact-address">'+esc(s.address)+'</span></div>';
    var row=card.querySelector('.saved-compact-row'),del=card.querySelector('.saved-delete-action'),startX=0,dx=0,moved=false;
    function use(){row.classList.add('selected');p.destination=s.address;save();setTimeout(function(){buildRoutes(false)},120)}
@@ -1515,9 +1516,8 @@ Prototype road split is temporary demo data until live route-segment classificat
  content:'';display:block;width:13px;height:17px;background:#1769e0;
  clip-path:polygon(0 0,100% 0,100% 100%,50% 72%,0 100%);
 }
-</style><script>/* NAVUE_SAVED_PAGE_EXACT_IDENTITY_V20 */
+</style><script>/* NAVUE_SAVED_PAGE_EXACT_RECORD_V21 */
 (function(){
- function norm(v){return String(v||'').trim().toLowerCase()}
  function bindSavedButtons(){
    var box=document.getElementById('savedRoutesList');if(!box)return;
    [].slice.call(box.querySelectorAll('.saved-route-card')).forEach(function(card,index){
@@ -1527,20 +1527,18 @@ Prototype road split is temporary demo data until live route-segment classificat
      button.type='button';
      button.className='navue-saved-remove';
      button.setAttribute('aria-label','Remove from Saved Places');
-     var strong=card.querySelector('strong'),sub=card.querySelector('.small');
-     button.dataset.savedAddress=sub?String(sub.textContent||'').trim():'';
-     button.dataset.savedName=strong?String(strong.textContent||'').trim():'';
+     var record=card.navueSavedRecord;
      old.replaceWith(button);
      button.addEventListener('click',function(e){
        e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();
-       var a=norm(button.dataset.savedAddress),n=norm(button.dataset.savedName),list=p.savedPlaces||[];
-       var i=list.findIndex(function(s){return (a&&norm(s.address)===a)||(!a&&n&&norm(s.name)===n)});
+       var list=p.savedPlaces||[],i=list.indexOf(record);
        if(i<0)return false;
        list.splice(i,1);save();
        if(typeof window.renderSavedRoutesPage==='function')window.renderSavedRoutesPage();
        if(typeof window.renderRecent==='function')window.renderRecent();
        return false;
      });
+     button.addEventListener('keydown',function(e){e.stopPropagation()});
    });
  }
  var prior=window.renderSavedRoutesPage;
