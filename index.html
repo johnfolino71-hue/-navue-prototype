@@ -1641,4 +1641,89 @@ Prototype road split is temporary demo data until live route-segment classificat
  requestAnimationFrame(align);
 })();
 </script>
+<script>/* NAVUE_BUILD_3A_CONVERSATIONAL_CORE_V1 */
+(function(){
+ var previousHandle=window.handleVoice;
+ var context={control:'',lastIntent:'',pending:''};
+ function clean(value){return String(value||'').toLowerCase().replace(/[’']/g,'').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim()}
+ function activeScreen(){var el=document.querySelector('.screen.active');return el?el.id:''}
+ function speakerEnabled(){return activeScreen()==='navigation'?!!tripVoice:!!p.voice}
+ function syncControls(){
+  try{updateHomeSpeaker()}catch(e){}
+  try{setSpeaker()}catch(e){}
+  document.querySelectorAll('#homeSpeaker,#speakerBtn,.navue-session-speaker').forEach(function(button){button.classList.toggle('voice-on',speakerEnabled());button.setAttribute('aria-pressed',speakerEnabled()?'true':'false')});
+  document.querySelectorAll('.home-map-mic,.navue-session-mic,.nav-mic').forEach(function(button){button.classList.toggle('navue-mic-enabled',!!p.micEnabled);button.classList.toggle('listening',!!p.micEnabled);button.setAttribute('aria-pressed',p.micEnabled?'true':'false')});
+ }
+ function remember(intent,control){context.lastIntent=intent||context.lastIntent;if(control)context.control=control;window.navueConversationContext=context}
+ function answer(message,after){
+  if(speakerEnabled()&&typeof speak==='function')return speak(message,true,p.voiceStyle,after);
+  var status=document.getElementById('voiceStatus')||document.getElementById('ambiguityStatus');
+  if(status)status.textContent=message;
+  if(after)after()
+ }
+ function setSpeakerState(on){
+  p.voice=!!on;tripVoice=!!on;
+  if(!on){try{speechSynthesis.cancel()}catch(e){}}
+  try{save()}catch(e){}
+  syncControls();remember(on?'speaker-on':'speaker-off','speaker');
+  if(on)answer('Voice guidance on.')
+ }
+ function setAlertsOnly(){p.voiceMode='alerts';p.voice=true;tripVoice=true;try{save()}catch(e){}syncControls();remember('alerts-only','speaker');answer('Alerts only mode on.')}
+ function setFullGuidance(){p.voiceMode='full';p.voice=true;tripVoice=true;try{save()}catch(e){}syncControls();remember('full-guidance','speaker');answer('Full voice guidance on.')}
+ function setMicOff(){
+  p.micEnabled=false;voiceFlow=false;
+  try{stopListen(false)}catch(e){}
+  try{save()}catch(e){}
+  syncControls();remember('microphone-off','microphone')
+ }
+ function turnMicOff(){if(speakerEnabled())answer('Microphone off.',function(){setMicOff()});else setMicOff()}
+ function openSettings(){remember('open-settings');try{openPreferences()}catch(e){if(typeof show==='function')show('preferences')}}
+ function goBack(){
+  var id=activeScreen();remember('go-back');
+  if(id==='navigation'){context.pending='end-trip';window.navueEndTripPending=true;return answer('Do you want to end this trip?')}
+  if(id==='preferences')return typeof show==='function'&&show(window.navueSettingsReturn||prefReturn||'home');
+  if(id==='routes'||id==='ambiguity'||id==='savedRoutesPage')return typeof show==='function'&&show('destination');
+  if(id==='destination'||id==='profile')return typeof showHome==='function'&&showHome(false);
+  if(id!=='home'&&typeof showHome==='function')showHome(false)
+ }
+ function driveAgain(){remember('drive-again');if(typeof showHome==='function')showHome(false)}
+ function unsafeRequest(text){return /(evade|avoid|lose|outrun|hide from).*(police|officer)|(?:police|officer).*(evade|avoid|lose|outrun)|how fast can i go|ignore (the )?speed limit/.test(text)}
+ function weatherRequest(text){return /\b(weather|temperature|forecast|rain|snow|wind|humid|hot|cold)\b/.test(text)}
+ function drivingScope(text){return /\b(navue|navigate|navigation|route|road|street|highway|freeway|traffic|drive|driving|destination|turn|lane|eta|arrive|arrival|toll|ferry|parking|parked|gas|fuel|charger|charging|speed|limit|home|work|saved|recent|microphone|mic|speaker|voice|settings|map|stop|trip|weather|temperature)\b/.test(text)}
+ function unrelatedQuestion(text){return /^(who|what|when|where|why|how|tell me|give me|play|write|calculate|whats|what is|can you)\b/.test(text)&&!drivingScope(text)}
+ function unclearReference(text){return /^(turn|switch|shut|power) (it|that) (on|off)$/.test(text)||/^(go|take me) there$/.test(text)||/^(do|choose|pick) it$/.test(text)}
+ function handleGlobal(raw,mode){
+  var text=clean(raw);if(!text)return true;
+  if(unsafeRequest(text)){remember('safety-response');answer('I can help you drive safely, but I can’t help evade police or ignore road laws.');return true}
+  if(/\b(alerts only|only alerts|mute directions but keep alerts|turn off directions keep alerts)\b/.test(text)){setAlertsOnly();return true}
+  if(/\b(full|normal|all) (voice )?guidance\b|\bturn directions back on\b/.test(text)){setFullGuidance();return true}
+  var micOff=/\b(turn|switch|shut|power|disable) (the )?(microphone|mic) off\b|\b(turn|switch|shut|power) off (the )?(microphone|mic)\b|\bstop listening\b|\bmicrophone off\b|\bmic off\b/.test(text);
+  var speakerOff=/\b(turn|switch|shut|power|disable) (the )?(speaker|voice|audio|guidance) off\b|\b(turn|switch|shut|power) off (the )?(speaker|voice|audio|guidance)\b|\b(mute|silence)(?: (?:the )?(?:speaker|voice|audio|guidance))?\b|\bspeaker off\b|\bvoice off\b/.test(text);
+  if(micOff&&speakerOff){setSpeakerState(false);setMicOff();return true}
+  if(micOff){turnMicOff();return true}
+  if(speakerOff){setSpeakerState(false);return true}
+  if(/\b(turn|switch|power|enable) (the )?(speaker|voice|audio|guidance) on\b|\b(turn|switch|power) on (the )?(speaker|voice|audio|guidance)\b|\bunmute\b|\bspeaker on\b|\bvoice on\b/.test(text)){setSpeakerState(true);return true}
+  if(/\b(open|show|go to|take me to) (the )?(settings|preferences)\b/.test(text)){openSettings();return true}
+  if(/^(go )?back$|^previous (page|screen)$|^return$/.test(text)){goBack();return true}
+  if(/\bdrive again\b|\bstart another (drive|trip|route)\b/.test(text)){driveAgain();return true}
+  if(/^(repeat|say that again|say it again|repeat that|what did you say)$/.test(text)){remember('repeat');answer(lastSpoken||'There is nothing to repeat yet.');return true}
+  if(/^(cancel|cancel that|never mind|nevermind)$/.test(text)){
+   if(window.navueEndTripPending||context.pending){window.navueEndTripPending=false;context.pending='';answer('Okay, continuing.');return true}
+   goBack();return true
+  }
+  if(unclearReference(text)){
+   if(/(on|off)$/.test(text)&&context.control){if(context.control==='speaker')setSpeakerState(/on$/.test(text));else if(/off$/.test(text))turnMicOff();else answer('The microphone must be turned on by tapping it.');return true}
+   remember('clarification');answer(/there$/.test(text)?'Which destination do you mean?':'Please tell me exactly what you want me to change.');return true
+  }
+  if(weatherRequest(text)){remember('live-information');answer('Live weather is not connected yet, so I won’t guess.');return true}
+  if(unrelatedQuestion(text)){remember('unrelated');answer('I’m focused on helping with your drive, navigation, and NaVue controls.');return true}
+  return false
+ }
+ window.navueInterpret3A=function(text,mode){return handleGlobal(text,mode||activeScreen())};
+ window.handleVoice=function(text,mode){if(handleGlobal(text,mode))return;return previousHandle.apply(this,arguments)};
+ if(!p.voiceMode)p.voiceMode='full';
+ document.addEventListener('DOMContentLoaded',syncControls);setTimeout(syncControls,0)
+})();
+</script>
+
 </body></html>
