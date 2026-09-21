@@ -1493,7 +1493,7 @@ Prototype road split is temporary demo data until live route-segment classificat
    unsaveSavedCard(mark.closest('.saved-route-card'));
  },true);
 })();
-</script><style>/* NAVUE_SAVED_PAGE_REAL_BUTTON_V19 */
+</script><style>/* NAVUE_SAVED_PAGE_EXACT_IDENTITY_V20 */
 #savedRoutesList .saved-route-card .navue-saved-remove{
  display:inline-block!important;
  width:34px!important;
@@ -1515,8 +1515,9 @@ Prototype road split is temporary demo data until live route-segment classificat
  content:'';display:block;width:13px;height:17px;background:#1769e0;
  clip-path:polygon(0 0,100% 0,100% 100%,50% 72%,0 100%);
 }
-</style><script>/* NAVUE_SAVED_PAGE_REAL_BUTTON_V19 */
+</style><script>/* NAVUE_SAVED_PAGE_EXACT_IDENTITY_V20 */
 (function(){
+ function norm(v){return String(v||'').trim().toLowerCase()}
  function bindSavedButtons(){
    var box=document.getElementById('savedRoutesList');if(!box)return;
    [].slice.call(box.querySelectorAll('.saved-route-card')).forEach(function(card,index){
@@ -1526,12 +1527,15 @@ Prototype road split is temporary demo data until live route-segment classificat
      button.type='button';
      button.className='navue-saved-remove';
      button.setAttribute('aria-label','Remove from Saved Places');
-     button.dataset.savedIndex=String(index);
+     var strong=card.querySelector('strong'),sub=card.querySelector('.small');
+     button.dataset.savedAddress=sub?String(sub.textContent||'').trim():'';
+     button.dataset.savedName=strong?String(strong.textContent||'').trim():'';
      old.replaceWith(button);
      button.addEventListener('click',function(e){
        e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();
-       var i=Number(button.dataset.savedIndex),list=p.savedPlaces||[];
-       if(!Number.isInteger(i)||i<0||i>=list.length)return false;
+       var a=norm(button.dataset.savedAddress),n=norm(button.dataset.savedName),list=p.savedPlaces||[];
+       var i=list.findIndex(function(s){return (a&&norm(s.address)===a)||(!a&&n&&norm(s.name)===n)});
+       if(i<0)return false;
        list.splice(i,1);save();
        if(typeof window.renderSavedRoutesPage==='function')window.renderSavedRoutesPage();
        if(typeof window.renderRecent==='function')window.renderRecent();
