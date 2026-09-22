@@ -147,7 +147,7 @@ function navueRouteAllowed(r){
 }
 function navueFilterRoutes(routes){return routes.filter(navueRouteAllowed)}
 
-// Exception consent exists only in memory for one requested reroute and selection.
+// Keep the requested alternate list while revisiting it; approval is single-use.
 var navueAlternateContext=null,navueApprovedException=null;
 function navueRestrictionReasons(r){
  var f=r.roadFacts||{},reasons=[];
@@ -166,7 +166,7 @@ function navuePrepareAlternates(routes,requested){
    extra.badges=extra.badges.concat(['OPTIONAL — OUTSIDE YOUR PREFERENCES']);
    extra.trade='Exception: '+navueRestrictionReasons(extra).join(' and ')+'. Confirmation required.';
    eligible.push(extra);
-   navueAlternateContext={destination:p.destination,base:p.selectedRoute,extra:extra};
+   navueAlternateContext={destination:p.destination,road:p.road,paid:p.paid,routes:eligible,extra:extra};
   }
  }
  eligible.forEach((r,i)=>r.id=String.fromCharCode(65+i));
@@ -174,7 +174,7 @@ function navuePrepareAlternates(routes,requested){
 }
 function navueExceptionEligible(r){
  var c=navueAlternateContext;
- return !!(c&&c.extra===r&&c.destination===p.destination&&c.base===p.selectedRoute&&
+ return !!(c&&c.extra===r&&c.destination===p.destination&&c.road===p.road&&c.paid===p.paid&&c.routes===currentRoutes&&
   currentRoutes.includes(r)&&currentRoutes.some(navueRouteAllowed)&&navueKnownRoadFacts(r));
 }
 function navueSelectionAllowed(r){return navueRouteAllowed(r)||(navueApprovedException===r&&navueExceptionEligible(r))}
@@ -1267,7 +1267,7 @@ Prototype road split is temporary demo data until live route-segment classificat
    var target=e.state&&e.state.navueScreen;
    if(!target||!document.getElementById(target))return;
    handlingPop=true;
-   try{oldShow.call(window,target);lastScreen=target}finally{setTimeout(function(){handlingPop=false},0)}
+   try{window.show(target);lastScreen=target}finally{setTimeout(function(){handlingPop=false},0)}
  });
  document.addEventListener('DOMContentLoaded',function(){
    var id=activeId();lastScreen=id;
@@ -2114,7 +2114,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(!yes){tell('Cancelled. Your current route and preferences are unchanged. '+navueRoutePrompt());return}
   if(!navueExceptionEligible(item.route)){tell('That option is no longer available. Please request alternatives again.');return}
   navueApprovedException=item.route;
-  try{return choose.call(window,item.route,item.byVoice)}finally{navueApprovedException=null;navueAlternateContext=null}
+  try{return choose.call(window,item.route,item.byVoice)}finally{navueApprovedException=null}
  }
  window.chooseRoute=function(route,byVoice){
   clear();
@@ -2137,7 +2137,8 @@ Prototype road split is temporary demo data until live route-segment classificat
   return priorVoice.apply(this,arguments);
  };
  window.show=function(id){
-  if(id!=='routes'){clear();navueAlternateContext=null;navueApprovedException=null}
+  if(id!=='routes'){clear();navueApprovedException=null}
+  if(id!=='routes'&&id!=='navigation')navueAlternateContext=null;
   return priorShow.apply(this,arguments);
  };
  var savePrefs=window.savePreferences;
