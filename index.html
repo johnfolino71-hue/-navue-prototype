@@ -1900,6 +1900,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   speaker.onclick=function(){p.voice=!p.voice;tripVoice=p.voice;save();speaker.classList.toggle('voice-on',p.voice);speaker.setAttribute('aria-pressed',String(p.voice));if(p.voice)reply('Voice guidance on.');else try{speechSynthesis.cancel()}catch(e){}};
   micButton.onclick=function(){toggleListen('savedRoutesPage',micButton)};host.appendChild(controls)
  }
+ window.navueClearDestinationContext=function(){reset()};
  window.show=function(id){if(id!==page()){choice=null;streetNumber='';window.navueEndTripPending=false}var r=priorShow.apply(this,arguments);if(id==='savedRoutesPage')savedControls();return r};
  window.rearmVoice=function(id){if(id==='savedRoutesPage'){savedControls();var b=document.querySelector('#savedRoutesPage .navue-session-mic');if(b&&!rec&&p.micEnabled)return startListen(id,b,true)}return priorRearm.apply(this,arguments)};
  window.handleVoice=function(raw,mode){
@@ -1937,13 +1938,13 @@ Prototype road split is temporary demo data until live route-segment classificat
    if(!q)return;
    if(explicit||/\d/.test(q)){
     if(active!=='destination')openDestination();
-    destinationInput.value=q;destinationChanged();resolveDestination();return
+    window.navueSubmitDestination(q,true);return
    }
   }
   // Avoid older substring matching that treats "Home Depot" or "Work Street" as Home/Work.
   if(active==='home'||active==='destination'){
    if(typeof window.navueInterpret3A==='function'&&window.navueInterpret3A(raw,mode))return;
-   if(active!=='destination')openDestination();destinationInput.value=q;destinationChanged();resolveDestination();return
+   if(active!=='destination')openDestination();window.navueSubmitDestination(q,true);return
   }
   return priorHandle.apply(this,arguments)
  };
@@ -1982,6 +1983,62 @@ Prototype road split is temporary demo data until live route-segment classificat
    if(errored)errored.call(session,e)
   };
   return result
+ };
+})();
+</script>
+<script>/* NAVUE_DESTINATION_ENTRY_V1 */
+(function(){
+ var priorHandle=window.handleVoice,priorShow=window.show,priorResolve=window.resolveDestination,priorAdd=window.addRecent;
+ var candidate='';
+ function norm(v){return String(v||'').toLowerCase().replace(/[’']/g,'').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim()}
+ function command(v){return norm(v).replace(/^(?:can you|could you|would you)\s+/,'').replace(/^please\s+/,'').replace(/\s+please$/,'')}
+ function active(){var e=document.querySelector('.screen.active');return e?e.id:''}
+ function savedCommand(t){return /^(?:(?:open|show)(?: me)?|go to|take me to)?\s*(?:my |the )?(?:saved|save|safe)(?: the)? (?:places|pages|locations|addresses)$/.test(command(t))||command(t)==='saved'}
+ function unrelated(q){
+  var t=norm(q);return !t||savedCommand(t)||/\b(?:i|im|we|you|he|she|they|because|think|said|saying|want|need|correction|cancel|microphone|speaker|listening)\b/.test(t)||/^(?:please|hello|hi|thanks|thank you|good morning|good evening|stop|end|finish|repeat|go back|turn|tell|what|why|how|can|could|would|should|dont|do not|open|show)\b/.test(t)||t.split(' ').length>12
+ }
+ function address(q){return /^\d+[a-z]?(?:[-/]\d+[a-z]?)?\s+[a-z0-9]/i.test(q.trim())&&/[a-z]/i.test(q.trim().replace(/^\S+\s+/,''))&&!unrelated(q)}
+ function feedback(t){
+  var host=document.getElementById(active()),el=document.getElementById('navueDestinationFeedback');
+  if(!el){el=document.createElement('div');el.id='navueDestinationFeedback';el.className='notice';el.setAttribute('role','status')}
+  el.textContent=t;if(host)host.appendChild(el);
+  if((active()==='navigation'?tripVoice:p.voice)&&typeof speak==='function')speak(t,true)
+ }
+ function clearInput(){destinationInput.value='';destinationChanged()}
+ function known(q){
+  var t=norm(q),saved=(p.savedPlaces||[]).filter(function(r){return norm(r.name)===t||norm(r.address)===t});
+  var addresses=Array.from(new Set(saved.map(function(r){return r.address})));if(addresses.length===1)return addresses[0];
+  return (p.recent||[]).find(function(r){return norm(r)===t&&!unrelated(r)})||null
+ }
+ function use(q,byVoice,isKnown){candidate='';destinationInput.value=q;destinationChanged();if(isKnown)selectDest(q,byVoice);else priorResolve()}
+ window.navueSubmitDestination=function(raw,byVoice){
+  var q=String(raw||'').trim();candidate='';
+  if(savedCommand(q)){clearInput();openSavedRoutesPage();return}
+  var old=known(q);if(old){use(old,byVoice,true);return}
+  clearInput();
+  if(unrelated(q)){feedback('Please give me an address or a place name.');return}
+  if(address(q)){use(q,byVoice,false);return}
+  // Without a place directory, never assume unfamiliar words are a destination.
+  candidate=q;feedback('Is '+q+' the name of a place? Say yes, or say correction.')
+ };
+ window.resolveDestination=function(){return window.navueSubmitDestination(destinationInput.value,!!voiceFlow)};
+ window.show=function(id){if(id!==active())candidate='';return priorShow.apply(this,arguments)};
+ window.addRecent=function(v){if(!savedCommand(v)&&!unrelated(v))return priorAdd.apply(this,arguments)};
+ window.handleVoice=function(raw,mode){
+  var t=command(raw),page=active();
+  if(/^(correction|correct that|wrong address|wrong destination|thats wrong)$/.test(t)){
+   if(/^(home|destination|ambiguity|routes|savedRoutesPage)$/.test(page)){candidate='';if(window.navueClearDestinationContext)window.navueClearDestinationContext();openDestination();clearInput();feedback('Okay, what’s the new address or place?');return}
+   feedback('Do you want to change your destination? Say change my destination.');return
+  }
+  if(savedCommand(t)){candidate='';clearInput();openSavedRoutesPage();return}
+  if(candidate&&page==='destination'){
+   if(/^(yes|yes please|yeah|yep|correct|thats right)$/.test(t)){var q=candidate;use(q,true,false);return}
+   if(/^(no|nope|cancel|never mind|nevermind)$/.test(t)){candidate='';clearInput();feedback('Okay, what’s the new address or place?');return}
+   // Other commands still work while an unfamiliar place is awaiting confirmation.
+   if(/\b(?:settings|speaker|microphone|mic|mute|unmute)\b/.test(t)||/^(go )?back$/.test(t)){candidate='';return priorHandle.apply(this,arguments)}
+   feedback('Say yes if that is a place name, or say correction.');return
+  }
+  return priorHandle.apply(this,arguments)
  };
 })();
 </script>
