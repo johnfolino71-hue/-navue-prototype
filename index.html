@@ -1884,6 +1884,11 @@ Prototype road split is temporary demo data until live route-segment classificat
   return false
  }
  function routeChoice(t){
+  // Speech recognizers often transcribe isolated letters as these words.
+  var spoken=t.replace(/^(?:the )?(?:letter|option)\s+/,'').replace(/\s+please$/,'');
+  if(/^(a|ay|aye|eh|hey)$/.test(spoken))return 'A';
+  if(/^(b|be|bee)$/.test(spoken))return 'B';
+  if(/^(c|see|sea)$/.test(spoken))return 'C';
   var m=t.match(/^(?:(?:take|choose|select|pick|use|i want|i would like)(?: the)?\s+)?(?:route\s+)?(a|b|c|first|second|third|one|two|three|1|2|3)(?:\s+(?:one|route))?(?:\s+please)?$/);
   if(!m)m=t.match(/^the (first|second|third) one$/);
   if(!m)return null;var k=m[1];return /^(a|first|one|1)$/.test(k)?'A':/^(b|second|two|2)$/.test(k)?'B':'C'
