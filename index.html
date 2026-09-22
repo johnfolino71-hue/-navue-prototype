@@ -2112,7 +2112,7 @@ Prototype road split is temporary demo data until live route-segment classificat
  function clear(){pending=null;var box=document.getElementById('navueExceptionConsent');if(box)box.remove()}
  function tell(message){
   var hint=document.querySelector('#routes .route-voice .small');if(hint)hint.textContent=message;
-  speak(message,true,p.voiceStyle,function(){if(p.micEnabled)rearmVoice('routes')});
+  speak(message,false,p.voiceStyle,function(){if(p.micEnabled)rearmVoice('routes')});
  }
  function confirmChoice(yes){
   var item=pending;clear();if(!item)return;
