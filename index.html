@@ -160,6 +160,8 @@ function navueKnownRoadFacts(r){return ['highways','tolls','paidFerries'].every(
 function navuePrepareAlternates(routes,requested){
  navueAlternateContext=null;
  var eligible=navueFilterRoutes(routes).sort((a,b)=>b.m-a.m);
+ var hasExtra=requested&&routes.some(r=>!navueRouteAllowed(r)&&navueKnownRoadFacts(r));
+ eligible=eligible.slice(0,hasExtra?2:3);
  if(requested&&eligible.length){
   var extra=routes.filter(r=>!navueRouteAllowed(r)&&navueKnownRoadFacts(r)).sort((a,b)=>b.m-a.m)[0];
   if(extra){
@@ -241,11 +243,7 @@ function buildRoutes(converse=false){navueAlternateContext=null;navueApprovedExc
    var requested=document.querySelector('.screen.active')?.id==='navigation'&&!!p.selectedRoute;
    var base=p.selectedRoute||{time:30,km:25};
    var local=['avoid','local'].includes(p.road),noPaid=p.paid==='no';
-   currentRoutes=[
-    {id:'A',name:'Local roads alternative',roadFacts:{highways:false,tolls:false,paidFerries:false},m:Math.min(97,(scores()[0]||80)+3),badges:local?['🌳 LOCAL']:['🍃 ECO'],time:Math.max(8,base.time+4),km:Math.max(5,base.km-2),cost:'$0',trade:local?'Matches your usual road preference':'Balanced for your learned preferences'},
-    {id:'B',name:'Highway alternative',roadFacts:{highways:true,tolls:false,paidFerries:false},m:Math.min(96,(scores()[1]||78)+1),badges:['🛣️ HIGHWAY','🚫 NO TOLL'],time:Math.max(8,base.time+1),km:Math.max(5,base.km+2),cost:'$0',trade:'Different highway route to the same destination'},
-    {id:'C',name:'Paid highway alternative',roadFacts:{highways:true,tolls:true,paidFerries:false},m:75,badges:['🛣️ HIGHWAY','💰 $6 TOLL'],time:Math.max(8,base.time-2),km:Math.max(5,base.km+3),cost:'$6',trade:'Paid alternative to the same destination'}
-   ];
+   currentRoutes=window.navue3cAlternateCandidates?navue3cAlternateCandidates(base):[];
    currentRoutes=navuePrepareAlternates(currentRoutes,requested);
    routeDestination.textContent=p.destination;routeCards.innerHTML='';
    currentRoutes.forEach(function(r){var d=document.createElement('div');d.className='card';d.innerHTML='<div class="route-head"><strong>Route '+r.id+' — '+r.name+'</strong><span class="match">'+r.m+'% Match</span></div>'+r.badges.map(function(x){return '<span class="badge">'+x+'</span>'}).join('')+'<div class="eta">ETA '+eta(r.time)+'</div><div class="route-main">'+r.time+' min • '+r.km+' km • '+r.cost+'</div><div class="trade">'+r.trade+'</div>';d.onclick=function(){chooseRoute(r,false)};routeCards.appendChild(d)});
@@ -2154,5 +2152,248 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(document.querySelector('.screen.active')?.id==='routes')buildRoutes(false);
   return result;
  };
+})();
+</script><style>/* NAVUE_BUILD_3C_SIMULATION_STYLE_V1 */
+#navigation .c3-demo{position:absolute;top:145px;left:12px;right:12px;z-index:35;padding:6px 9px;background:#e8f1ff;border-radius:10px;color:#164779;font-size:11px;font-weight:750;text-align:center}
+#navigation .c3-speed{position:absolute;top:180px;left:12px;z-index:35;background:white;border-radius:10px;padding:8px 10px;font-size:13px;font-weight:750}
+#navigation .c3-over{color:#b72020}
+#navigation .c3-status{position:absolute;top:222px;left:12px;right:12px;z-index:35;background:#fff;padding:8px 10px;border-radius:12px;font-size:13px;max-height:66px;overflow:auto}
+#navigation .c3-speed-alert{position:absolute;top:222px;left:12px;right:12px;z-index:70;background:#fff0f0;border:2px solid #c32d2d;color:#b72020;border-radius:12px;padding:12px;font-size:18px;font-weight:800}
+#navigation .c3-traffic{position:absolute;top:300px;left:12px;right:12px;z-index:35;background:#fff4d7;padding:10px;border-radius:14px;font-size:14px}
+#navigation .c3-panel{position:absolute;top:145px;bottom:max(12px,env(safe-area-inset-bottom));left:10px;right:10px;z-index:60;overflow:auto;overscroll-behavior:contain;background:#f8fbff;border:1px solid #d5e0ee;border-radius:18px;padding:12px;box-shadow:0 8px 24px #17212630}
+#navigation [hidden]{display:none!important}
+#navigation:has(.c3-panel:not([hidden])) .nav-bottom{visibility:hidden}
+#navigation .c3-panel-head{display:flex;align-items:center;gap:10px;justify-content:space-between;position:sticky;top:-12px;background:#f8fbff;z-index:1;padding:6px 0}
+#navigation .c3-panel h2{font-size:22px;line-height:1.2;margin:4px 0}
+#navigation .c3-panel h3{font-size:19px;line-height:1.25;margin:4px 0}
+#navigation .c3-panel p{font-size:14px;margin:8px 0;line-height:1.4}
+#navigation .c3-label{color:#48627c;font-size:12px!important;font-weight:650}
+#navigation .c3-panel button,#navigation .c3-actions button,#navigation .c3-trip button{min-height:44px;padding:10px 12px;font-size:15px;line-height:1.25;border-radius:11px;margin:4px 0;white-space:normal}
+#navigation .c3-panel-head button{width:auto;background:#e6eef9;color:#164779}
+#navigation .c3-actions,#navigation .c3-search{display:flex;gap:8px;align-items:stretch}
+#navigation .c3-actions button{flex:1;min-width:0}
+#navigation .c3-search input{width:100%;min-width:0;border:1px solid #c9d5e4;border-radius:10px;padding:10px;font-size:16px}
+#navigation .c3-search button{width:auto}
+#navigation .c3-categories{display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;margin:8px 0}
+#navigation .c3-categories button{background:#e7f0fd;color:#1556a3}
+#navigation .c3-result{display:block;text-align:left;background:white;color:#172126;border:1px solid #d5e0ee;padding:12px!important;margin:10px 0!important}
+#navigation .c3-result span{display:block;font-size:13px;margin-top:6px}
+#navigation .c3-stop-box{background:white;border:1px solid #d5e0ee;border-radius:14px;padding:12px;margin:10px 0}
+#navigation .c3-address{font-size:12px;color:#526779;line-height:1.35;margin:3px 0;overflow-wrap:anywhere}
+#navigation .c3-trip>strong{display:block;font-size:15px}
+#navigation .c3-trip button{padding:8px;min-height:40px;font-size:14px}
+#navigation .turn-card strong{font-size:18px!important;display:block;max-height:48px;overflow:hidden}
+#navigation .turn-card>div:last-child{font-size:13px!important}
+@media(max-height:700px){#navigation .c3-traffic{top:275px}#navigation .nav-bottom{padding:10px}#navigation .c3-actions button{font-size:13px;padding:8px 5px}#navigation .c3-status{max-height:40px}}
+
+#navigation #navueManualButton{top:180px;bottom:auto;left:auto;right:12px;z-index:40}
+#navigation .c3-speed{right:68px}
+</style><script>/* NAVUE_BUILD_3C_SIMULATION_V1 — no live data or location requests. */
+(function(){
+ 'use strict';
+ const nav=document.getElementById('navigation');
+ const oldShow=window.show,oldBuild=window.buildRoutes,oldChoose=window.chooseRoute,oldAlt=window.openAlternateRoutes,oldFinish=window.finishTrip,oldVoice=window.handleVoice;
+ const state={final:'',stops:[],candidate:null,results:[],panel:'',atStop:false,delay:0,speed:null,limit:null,highway:false,alerted:false};
+ let speedTimer=null,uid=0;
+ const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n};
+ const button=(text,fn,cls)=>{const b=el('button',text,cls);b.type='button';b.onclick=fn;return b};
+ const active=()=>document.querySelector('.screen.active')?.id;
+ const clean=t=>String(t||'').toLowerCase().replace(/[’']/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+ const distance=k=>typeof navueDistanceText==='function'?navueDistanceText(k):k+' km';
+ const speedText=k=>Math.round((p.fuelUnits==='us'?k*.621371:k))+' '+(p.fuelUnits==='us'?'mph':'km/h');
+ const facts={highways:false,tolls:false,paidFerries:false};
+ const status=el('div','','c3-status');status.id='navue3cStatus';status.setAttribute('role','status');status.hidden=true;nav.appendChild(status);
+ const demo=el('div','SIMULATION · 3C · No live map, traffic or speed data','c3-demo');nav.appendChild(demo);
+ const speedBadge=el('div','Speed / limit unavailable · Demo','c3-speed');nav.appendChild(speedBadge);
+ const speedAlert=el('div','','c3-speed-alert');speedAlert.hidden=true;speedAlert.setAttribute('role','status');nav.appendChild(speedAlert);
+ const traffic=el('div','','c3-traffic');traffic.hidden=true;nav.appendChild(traffic);
+ const trip=el('div','','c3-trip');nav.querySelector('.nav-bottom').prepend(trip);
+ const controls=el('div',null,'c3-actions');controls.append(button('Search along route',()=>openSearch()),button('Stops',()=>openStops()),button('Demo alerts',()=>openDemos()));nav.querySelector('.nav-bottom').appendChild(controls);
+ const panel=el('section',null,'c3-panel');panel.id='navue3cPanel';panel.hidden=true;panel.setAttribute('aria-label','Trip options');nav.appendChild(panel);
+ function notify(text){
+  status.textContent=text;status.hidden=false;
+  if(active()==='navigation'&&tripVoice)speak(text,true,p.voiceStyle,()=>{if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});
+ }
+ function closePanel(){panel.hidden=true;panel.replaceChildren();state.panel='';state.candidate=null;state.results=[];}
+ function shell(title,kind){
+  state.panel=kind;panel.hidden=false;panel.replaceChildren();
+  const h=el('div',null,'c3-panel-head');h.append(el('h2',title),button('Close',()=>{closePanel();notify('Back to your trip.')}));panel.append(h,el('p','SIMULATED · Fictional places and estimates','c3-label'));
+  panel.scrollTop=0;return panel;
+ }
+ function reset(){
+  state.final=p.destination||'';state.stops=[];state.atStop=false;state.delay=0;state.speed=null;state.limit=null;state.alerted=false;
+  closePanel();document.getElementById('navue3cRouteNote')?.remove();status.hidden=true;traffic.hidden=true;speedAlert.hidden=true;clearTimeout(speedTimer);render();
+ }
+ function remaining(){return Math.max(0,Number(p.selectedRoute?.time)||0)+state.stops.reduce((n,s)=>n+s.extra,0)+state.delay;}
+ function render(){
+  if(!p.selectedRoute)return;
+  trip.replaceChildren();
+  const rejected=state.stops.filter(s=>!navueRouteAllowed(s));
+  if(rejected.length){state.stops=state.stops.filter(navueRouteAllowed);state.atStop=false;notify('A simulated stop no longer meets your restrictions and was removed. Your final destination is unchanged.')}
+  const next=state.stops[0];
+  if(next){
+   trip.append(el('strong',(state.atStop?'At stop: ':'Next stop: ')+next.name),el('div',next.address,'c3-address'),el('div','Final destination: '+state.final,'c3-address'));
+   trip.append(button(state.atStop?'Continue trip':'Simulate arrival at stop',state.atStop?continueTrip:arriveStop));
+  }
+  const turn=nav.querySelector('.turn-card');
+  turn.querySelector('.small').textContent=next?'SIMULATED DETOUR':'SIMULATED GUIDANCE';
+  turn.querySelector('strong').textContent=next?(state.atStop?'Stop reached':'To '+next.name):'↑ Continue straight';
+  turn.querySelector('div:last-child').textContent=next?(state.atStop?'Continue when ready':next.address):(p.fuelUnits==='us'?'0.7 mi':'1.2 km');
+  navMinutes.textContent=remaining()+' min';navEta.textContent=eta(remaining());
+  navKm.textContent=distance((Number(p.selectedRoute.km)||0)+state.stops.reduce((n,s)=>n+s.extraKm,0));
+  const finish=nav.querySelector('.finish');finish.textContent=next?(state.atStop?'Continue trip':'Simulate arrival at stop'):'Finish simulated trip';finish.onclick=next?(state.atStop?continueTrip:arriveStop):()=>window.finishTrip();
+  speedBadge.textContent=state.limit==null?'Speed / limit unavailable · Demo':'Demo '+speedText(state.speed)+' · Limit '+speedText(state.limit);
+  speedBadge.classList.toggle('c3-over',state.limit!=null&&state.speed>state.limit);
+ }
+ function samples(query){
+  const q=clean(query);let label=query.trim();
+  if(/coffee|tim hortons|starbucks/.test(q))label=/tim hortons/.test(q)?'Tim Hortons (sample)':/starbucks/.test(q)?'Starbucks (sample)':'Coffee shop';
+  else if(/gas|fuel|petrol/.test(q))label='Gas station';
+  else if(/charg|\bev\b/.test(q))label='EV charger';
+  else if(/washroom|restroom|toilet/.test(q))label='Washroom stop';
+  else if(/rest area/.test(q))label='Rest area';
+  else if(/restaurant|food/.test(q))label='Restaurant';
+  else if(/pharmac/.test(q))label='Pharmacy';
+  else if(/grocer|store/.test(q))label='Store';
+  return [
+   {name:label+' — Sample 1',address:'10 Demo Lane, Demo City, ON',extra:6,extraKm:2,roadFacts:{...facts}},
+   {name:label+' — Sample 2',address:'20 Example Avenue, Demo City, ON',extra:9,extraKm:4,roadFacts:{...facts}},
+   {name:label+' — Sample 3',address:'30 Sample Highway, Demo City, ON',extra:4,extraKm:5,roadFacts:{highways:true,tolls:true,paidFerries:false}}
+  ].filter(navueRouteAllowed).map(s=>({...s,key:++uid}));
+ }
+ function openSearch(query){
+  if(state.atStop){notify('Choose Continue trip before searching for another stop.');return}
+  state.candidate=null;const box=shell('Search along route','search');
+  const form=el('form',null,'c3-search');const input=el('input');input.type='search';input.placeholder='Coffee, gas or a place name';input.setAttribute('aria-label','Search along route');input.value=query||'';input.maxLength=100;
+  const submit=button('Search',()=>{});submit.type='submit';form.append(input,submit);form.onsubmit=e=>{e.preventDefault();search(input.value)};box.append(form);
+  const cats=el('div',null,'c3-categories');['Coffee','Gas','EV charging','Restaurants','Rest areas','Washrooms','Pharmacy','Groceries'].forEach(q=>cats.append(button(q,()=>search(q))));box.append(cats);
+  if(query)search(query);else notify('What would you like to find along your route?');
+ }
+ function search(query){
+  query=String(query||'').trim().slice(0,100);if(!query){notify('Say or enter a place or category.');return}
+  const box=shell('Along-route results','results');state.candidate=null;state.results=samples(query);
+  box.append(button('New search',()=>openSearch(),'secondary'));
+  state.results.forEach((s,i)=>{const row=button('',()=>preview(s),'c3-result');row.append(el('strong',(i+1)+'. '+s.name),el('span',s.address),el('span','+'+s.extra+' min driving · '+distance(s.extraKm)+' extra · '+(s.roadFacts.highways?'Highway / tolls':'Local roads / no tolls')));box.append(row)});
+  notify('Sample results for '+query+'. '+state.results.map((s,i)=>(i+1)+': '+s.name+', '+s.extra+' extra minutes').join('. ')+'. Say the number or tap a result.');
+ }
+ function preview(s){
+  if(!navueRouteAllowed(s)){notify('That detour does not meet your current restrictions. Search again.');return}
+  if(state.stops.length>=3){notify('This prototype supports up to three stops. Remove one before adding another.');return}
+  state.candidate=s;const box=shell('Add this stop?','confirm');
+  const card=el('div',null,'c3-stop-box');card.append(el('h3',s.name),el('p',s.address),el('strong','Extra driving time: '+s.extra+' minutes'),el('p','Excludes time spent at the stop.','c3-address'),el('p','Final destination: '+state.final,'c3-address'));
+  const row=el('div',null,'c3-actions');row.append(button('Add stop',addStop),button('Cancel',()=>{closePanel();notify('Cancelled. Your route is unchanged.')},'secondary'));card.append(row);box.append(card);
+  notify('Sample stop: '+s.name+', '+s.address+'. Adds '+s.extra+' minutes of driving, excluding time spent there. Add this stop?');
+ }
+ function addStop(){
+  const s=state.candidate;if(!s)return;
+  if(!navueRouteAllowed(s)){closePanel();notify('Your restrictions changed. Search again for a matching detour.');return}
+  state.stops.push({...s});closePanel();render();notify('Stop added: '+s.name+'. Your final destination remains '+state.final+'.');
+ }
+ function openStops(){
+  state.candidate=null;const box=shell('Your stops','stops');box.append(el('p','Final destination: '+state.final));
+  if(!state.stops.length)box.append(el('p','No stops added.'));
+  state.stops.forEach((s,i)=>{const row=el('div',null,'c3-stop-box');row.append(el('strong',(i+1)+'. '+s.name),el('p',s.address,'c3-address'),button('Remove stop '+(i+1),()=>removeStop(i)));box.append(row)});
+  if(state.stops.length)box.append(button(state.atStop?'Continue trip':'Skip next stop',state.atStop?continueTrip:()=>removeStop(0)));
+  box.append(button('Add a stop',()=>openSearch()));notify(state.stops.length?state.stops.length+' stops. Say remove stop and its number, skip next stop, or add a stop.':'No stops added. Say add a stop to search.');
+ }
+ function removeStop(i){
+  if(!Number.isInteger(i)||!state.stops[i]){notify('That stop is not in your trip.');return}
+  const name=state.stops[i].name;state.stops.splice(i,1);if(i===0)state.atStop=false;
+  closePanel();render();notify('Removed '+name+'. Final destination remains '+state.final+'.');
+ }
+ function arriveStop(){
+  if(!state.stops.length)return;
+  state.atStop=true;closePanel();render();notify('You have reached the simulated stop, '+state.stops[0].name+'. Say Continue trip when ready.');
+ }
+ function continueTrip(){
+  if(!state.atStop){notify('You are still heading to your next destination.');return}
+  state.stops.shift();state.atStop=false;render();closePanel();notify('Continuing to '+(state.stops[0]?.name||state.final)+'.');
+ }
+ function trafficDemo(){
+  state.delay=8;closePanel();traffic.replaceChildren(el('strong','Simulated traffic ahead · +8 min'));
+  const row=el('div',null,'c3-actions');row.append(button('Alternate routes',()=>window.openAlternateRoutes(false)),button('Clear demo',()=>{state.delay=0;traffic.hidden=true;render();notify('Traffic demo cleared.')},'secondary'));traffic.append(row);traffic.hidden=false;render();notify('Simulated traffic adds eight minutes. You can request alternate routes.');
+ }
+ function setSpeed(speed,limit,highway){
+  if(speed==null||limit==null){state.speed=null;state.limit=null;state.alerted=false;speedAlert.hidden=true;clearTimeout(speedTimer);render();return}
+  state.speed=speed;state.limit=limit;state.highway=highway;render();
+  const over=speed-limit>(highway?12:10);
+  if(over&&!state.alerted){
+   speedAlert.textContent='SIMULATION · Speed reminder: '+speedText(speed)+' · Limit '+speedText(limit);speedAlert.hidden=false;
+   clearTimeout(speedTimer);speedTimer=setTimeout(()=>{speedAlert.hidden=true},2000);
+   notify('Simulated speed reminder. Limit '+speedText(limit)+'.');
+  }
+  if(!over){speedAlert.hidden=true;clearTimeout(speedTimer)}state.alerted=over;
+ }
+ function openDemos(){
+  state.candidate=null;const box=shell('Demo alerts','demos');
+  box.append(el('p','These controls simulate conditions. They do not measure your speed or check live traffic.'));
+  box.append(button('Simulate traffic delay',trafficDemo));
+  box.append(button('Local-road speed reminder',()=>{closePanel();state.alerted=false;setSpeed(65,50,false)}));
+  box.append(button('Highway speed reminder',()=>{closePanel();state.alerted=false;setSpeed(115,100,true)}));
+  box.append(button('Speed within limit',()=>{closePanel();setSpeed(48,50,false);notify('Simulated speed is within the limit.')}));
+  box.append(button('Clear speed data',()=>{closePanel();setSpeed(null,null,false);notify('Speed-limit data unavailable.')}));
+ }
+ // Demo path identities are only for testing duplicate exclusion, never real road verification.
+ window.navue3cAlternateCandidates=function(base){
+  const rank=scores();
+  return [
+   {simulationPath:'demo-local-north',name:'Local roads — north alternative',m:Math.min(97,rank[0]+3),roadFacts:{...facts},badges:['🌳 LOCAL'],time:base.time+4,km:base.km+2,cost:'$0',trade:'Simulated local-road alternative'},
+   {simulationPath:'demo-local-south',name:'Local roads — south alternative',m:Math.min(96,rank[0]+1),roadFacts:{...facts},badges:['🌳 LOCAL'],time:base.time+6,km:base.km+3,cost:'$0',trade:'Simulated local-road alternative'},
+   {simulationPath:'demo-highway',name:'Highway alternative',m:Math.min(96,rank[1]+1),roadFacts:{highways:true,tolls:false,paidFerries:false},badges:['🛣️ HIGHWAY','🚫 NO TOLL'],time:Math.max(8,base.time-2),km:base.km+5,cost:'$0',trade:'Simulated highway alternative'},
+   {simulationPath:'demo-paid',name:'Paid highway alternative',m:rank[2],roadFacts:{highways:true,tolls:true,paidFerries:false},badges:['🛣️ HIGHWAY','💰 $6 TOLL'],time:Math.max(8,base.time-4),km:base.km+6,cost:'$6',trade:'Simulated paid alternative'}
+  ].filter(r=>r.simulationPath!==base.simulationPath).filter((r,i,all)=>r.roadFacts.highways||r===all.find(x=>!x.roadFacts.highways));
+ };
+ window.buildRoutes=function(){reset();return oldBuild.apply(this,arguments)};
+ window.chooseRoute=function(route){
+  if(route&&!route.simulationPath)route.simulationPath='demo-initial-'+route.id;
+  const r=oldChoose.apply(this,arguments);
+  if(active()==='navigation'){if(state.final!==p.destination)reset();render();setTimeout(render,60)}return r;
+ };
+ window.openAlternateRoutes=function(){
+  if(state.atStop){notify('Choose Continue trip before requesting another route.');return}
+  closePanel();const r=oldAlt.apply(this,arguments);
+  if(state.stops.length){const note=el('p','Simulated alternatives retain your stops. Next stop: '+state.stops[0].name+'. Final destination: '+state.final,'c3-label');note.id='navue3cRouteNote';document.getElementById('navue3cRouteNote')?.remove();routeCards.before(note)}
+  return r;
+ };
+ window.finishTrip=function(){reset();return oldFinish.apply(this,arguments)};
+ window.show=function(id){
+  if(id!=='navigation')closePanel();
+  const r=oldShow.apply(this,arguments);
+  if(id==='navigation'){if(state.final!==p.destination)reset();render();setTimeout(render,100)}
+  return r;
+ };
+ function index(t){return ({one:0,first:0,two:1,second:1,three:2,third:2})[t]??(/^[1-3]$/.test(t)?Number(t)-1:-1)}
+ window.handleVoice=function(raw,mode){
+  if(active()!=='navigation')return oldVoice.apply(this,arguments);
+  const t=clean(raw).replace(/^please /,'').replace(/ please$/,'');
+  if(window.navueEndTripPending)return oldVoice.apply(this,arguments);
+  if(/^(close|close search|close stops|cancel|cancel that|never mind|go back|back)$/.test(t)&&state.panel){closePanel();notify('Cancelled. Your route is unchanged.');return}
+  if(state.panel==='confirm'){
+   if(/^(yes|yeah|yep|yes please|add stop|add as a stop|add it|confirm)$/.test(t)){addStop();return}
+   if(/^(no|no thanks|nope)$/.test(t)){closePanel();notify('Cancelled. Your route is unchanged.');return}
+  }
+  const match=t.match(/^(?:find|search for|look for|look up|add (?:a )?stop (?:at|for))\s+(.+?)(?:\s+(?:along (?:my |the )?route|ahead|on (?:my |the )?way))?$/);
+  if(match){openSearch(match[1]);return}
+  if(/^(add (?:a |another )?stop|search along (?:my |the )?route|search|find a stop)$/.test(t)){openSearch();return}
+  if(/^(show|open|manage)( my| the)? stops$/.test(t)){openStops();return}
+  if(/^(skip|remove|delete)( the| my)?( next| this)? stop$/.test(t)){removeStop(0);return}
+  const rem=t.match(/^(?:remove|delete|skip) stop (one|two|three|1|2|3)$/);if(rem){removeStop(index(rem[1]));return}
+  if(/^(continue (?:my |the )?trip|resume (?:my |the )?trip)$/.test(t)){continueTrip();return}
+  if(state.stops.length&&/^(arrived|i have arrived|im here|arrived at (?:the )?stop|simulate arrival at stop)$/.test(t)){arriveStop();return}
+  if(/^(simulate traffic|simulate traffic delay|traffic demo)$/.test(t)){trafficDemo();return}
+  if(/^(simulate speed reminder|test speed reminder|local road speed reminder)$/.test(t)){closePanel();state.alerted=false;setSpeed(65,50,false);return}
+  if(t==='highway speed reminder'){closePanel();state.alerted=false;setSpeed(115,100,true);return}
+  if(/^(show|open) demo alerts$/.test(t)){openDemos();return}
+  if(/^(how much longer|time left|how long|whats my eta|what is my eta)$/.test(t)){notify('Simulated arrival at '+state.final+' in '+remaining()+' minutes, excluding time spent at stops.');return}
+  if(state.panel==='results'){
+   const n=index(t.replace(/^(?:choose|select|pick|result|option) /,''));
+   const named=state.results.find(s=>clean(s.name)===t);
+   if(state.results[n]||named){preview(state.results[n]||named);return}
+  }
+  if(state.panel==='search'&&!/\b(mic|microphone|speaker|mute|unmute|stop|end|settings|preferences|destination|route|saved)\b/.test(t)){search(raw);return}
+  return oldVoice.apply(this,arguments);
+ };
+ // Exposed state is read-only to tests; no profile settings are modified by 3C.
+ window.navue3c={snapshot:()=>JSON.parse(JSON.stringify(state)),setSimulatedSpeed:setSpeed};
 })();
 </script></body></html>
