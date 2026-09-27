@@ -2188,13 +2188,25 @@ Prototype road split is temporary demo data until live route-segment classificat
 
 #navigation #navueManualButton{top:180px;bottom:auto;left:auto;right:12px;z-index:40}
 #navigation .c3-speed{right:68px}
+/* Compact trip overview: one action, tappable ordered stops. */
+#navigation .c3-trip{max-height:190px;overflow:auto;margin-bottom:6px}
+#navigation .c3-trip .c3-itinerary-stop{display:flex;align-items:center;gap:8px;text-align:left;background:#eef4fc;color:#172126;margin:2px 0;padding:6px 8px;min-height:44px;font-size:14px}
+#navigation .c3-stop-number{flex:0 0 25px;height:25px;border-radius:50%;background:#1769e0;color:white;display:grid;place-items:center}
+#navigation .c3-itinerary-stop span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#navigation .c3-trip .c3-address{font-size:12px;margin:5px 0}
+#navigation #navueManualSheet{z-index:65;max-height:65vh;overflow:auto}
+#navigation #navueManualSheet .c3-actions{display:grid;grid-template-columns:1fr 1fr;margin-top:7px}
+#navigation #navueManualSheet .c3-actions button{margin:0;font-size:13px}
+#navigation:has(.c3-panel:not([hidden])) .c3-status{display:none}
+#navigation .c3-demo{padding:4px 8px;font-size:10px}
+
 </style><script>/* NAVUE_BUILD_3C_SIMULATION_V1 — no live data or location requests. */
 (function(){
  'use strict';
  const nav=document.getElementById('navigation');
  const oldShow=window.show,oldBuild=window.buildRoutes,oldChoose=window.chooseRoute,oldAlt=window.openAlternateRoutes,oldFinish=window.finishTrip,oldVoice=window.handleVoice;
  const state={final:'',stops:[],candidate:null,results:[],panel:'',atStop:false,delay:0,speed:null,limit:null,highway:false,alerted:false};
- let speedTimer=null,uid=0;
+ let speedTimer=null,statusTimer=null,uid=0;
  const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n};
  const button=(text,fn,cls)=>{const b=el('button',text,cls);b.type='button';b.onclick=fn;return b};
  const active=()=>document.querySelector('.screen.active')?.id;
@@ -2203,15 +2215,22 @@ Prototype road split is temporary demo data until live route-segment classificat
  const speedText=k=>Math.round((p.fuelUnits==='us'?k*.621371:k))+' '+(p.fuelUnits==='us'?'mph':'km/h');
  const facts={highways:false,tolls:false,paidFerries:false};
  const status=el('div','','c3-status');status.id='navue3cStatus';status.setAttribute('role','status');status.hidden=true;nav.appendChild(status);
- const demo=el('div','SIMULATION · 3C · No live map, traffic or speed data','c3-demo');nav.appendChild(demo);
+ const demo=el('div','SIMULATION · No live data','c3-demo');nav.appendChild(demo);
  const speedBadge=el('div','Speed / limit unavailable · Demo','c3-speed');nav.appendChild(speedBadge);
  const speedAlert=el('div','','c3-speed-alert');speedAlert.hidden=true;speedAlert.setAttribute('role','status');nav.appendChild(speedAlert);
  const traffic=el('div','','c3-traffic');traffic.hidden=true;nav.appendChild(traffic);
  const trip=el('div','','c3-trip');nav.querySelector('.nav-bottom').prepend(trip);
- const controls=el('div',null,'c3-actions');controls.append(button('Search along route',()=>openSearch()),button('Stops',()=>openStops()),button('Demo alerts',()=>openDemos()));nav.querySelector('.nav-bottom').appendChild(controls);
+ const controls=el('div',null,'c3-actions');controls.append(button('Search along route',()=>openSearch()),button('Stops',()=>openStops()),button('Demo alerts',()=>openDemos()));function installTripMenu(){
+  const sheet=document.getElementById('navueManualSheet');
+  if(sheet&&!sheet.contains(controls)){
+   sheet.appendChild(controls);
+   controls.addEventListener('click',()=>sheet.classList.remove('open'));
+  }
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installTripMenu);else installTripMenu();
  const panel=el('section',null,'c3-panel');panel.id='navue3cPanel';panel.hidden=true;panel.setAttribute('aria-label','Trip options');nav.appendChild(panel);
  function notify(text){
-  status.textContent=text;status.hidden=false;
+  status.textContent=text;status.hidden=false;clearTimeout(statusTimer);statusTimer=setTimeout(()=>{status.hidden=true},4000);
   if(active()==='navigation'&&tripVoice)speak(text,true,p.voiceStyle,()=>{if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});
  }
  function closePanel(){panel.hidden=true;panel.replaceChildren();state.panel='';state.candidate=null;state.results=[];}
@@ -2231,17 +2250,23 @@ Prototype road split is temporary demo data until live route-segment classificat
   const rejected=state.stops.filter(s=>!navueRouteAllowed(s));
   if(rejected.length){state.stops=state.stops.filter(navueRouteAllowed);state.atStop=false;notify('A simulated stop no longer meets your restrictions and was removed. Your final destination is unchanged.')}
   const next=state.stops[0];
-  if(next){
-   trip.append(el('strong',(state.atStop?'At stop: ':'Next stop: ')+next.name),el('div',next.address,'c3-address'),el('div','Final destination: '+state.final,'c3-address'));
-   trip.append(button(state.atStop?'Continue trip':'Simulate arrival at stop',state.atStop?continueTrip:arriveStop));
-  }
+  trip.hidden=!next;
+  state.stops.forEach((stop,i)=>{
+   const row=button('',()=>editStop(stop.key),'c3-itinerary-stop');
+   row.append(el('span',String(i+1),'c3-stop-number'),el('span',stop.name));
+   row.setAttribute('aria-label','Stop '+(i+1)+': '+stop.name+'. Manage stop');
+   trip.append(row);
+  });
+  if(next)trip.append(el('div','Final destination: '+state.final,'c3-address'));
+  installTripMenu();
   const turn=nav.querySelector('.turn-card');
   turn.querySelector('.small').textContent=next?'SIMULATED DETOUR':'SIMULATED GUIDANCE';
   turn.querySelector('strong').textContent=next?(state.atStop?'Stop reached':'To '+next.name):'↑ Continue straight';
   turn.querySelector('div:last-child').textContent=next?(state.atStop?'Continue when ready':next.address):(p.fuelUnits==='us'?'0.7 mi':'1.2 km');
   navMinutes.textContent=remaining()+' min';navEta.textContent=eta(remaining());
   navKm.textContent=distance((Number(p.selectedRoute.km)||0)+state.stops.reduce((n,s)=>n+s.extraKm,0));
-  const finish=nav.querySelector('.finish');finish.textContent=next?(state.atStop?'Continue trip':'Simulate arrival at stop'):'Finish simulated trip';finish.onclick=next?(state.atStop?continueTrip:arriveStop):()=>window.finishTrip();
+  const finish=nav.querySelector('.finish');finish.textContent=next?(state.atStop?'Continue trip':'Arrived at stop'):'Finish simulated trip';finish.onclick=next?(state.atStop?continueTrip:arriveStop):()=>window.finishTrip();
+  speedBadge.hidden=state.limit==null;
   speedBadge.textContent=state.limit==null?'Speed / limit unavailable · Demo':'Demo '+speedText(state.speed)+' · Limit '+speedText(state.limit);
   speedBadge.classList.toggle('c3-over',state.limit!=null&&state.speed>state.limit);
  }
@@ -2292,9 +2317,18 @@ Prototype road split is temporary demo data until live route-segment classificat
  function openStops(){
   state.candidate=null;const box=shell('Your stops','stops');box.append(el('p','Final destination: '+state.final));
   if(!state.stops.length)box.append(el('p','No stops added.'));
-  state.stops.forEach((s,i)=>{const row=el('div',null,'c3-stop-box');row.append(el('strong',(i+1)+'. '+s.name),el('p',s.address,'c3-address'),button('Remove stop '+(i+1),()=>removeStop(i)));box.append(row)});
+  state.stops.forEach((s,i)=>{const row=el('div',null,'c3-stop-box');row.append(el('strong',(i+1)+'. '+s.name),el('p',s.address,'c3-address'),button('Manage stop '+(i+1),()=>editStop(s.key)));box.append(row)});
   if(state.stops.length)box.append(button(state.atStop?'Continue trip':'Skip next stop',state.atStop?continueTrip:()=>removeStop(0)));
   box.append(button('Add a stop',()=>openSearch()));notify(state.stops.length?state.stops.length+' stops. Say remove stop and its number, skip next stop, or add a stop.':'No stops added. Say add a stop to search.');
+ }
+ function editStop(key){
+  const i=state.stops.findIndex(s=>s.key===key);if(i<0)return;
+  const stop=state.stops[i];state.candidate=null;
+  const box=shell('Stop '+(i+1),'edit-stop');
+  box.append(el('h3',stop.name),el('p',stop.address));
+  const actions=el('div',null,'c3-actions');
+  actions.append(button('Remove stop',()=>removeStop(state.stops.findIndex(s=>s.key===key))),button('Cancel',()=>closePanel(),'secondary'));
+  box.append(actions);
  }
  function removeStop(i){
   if(!Number.isInteger(i)||!state.stops[i]){notify('That stop is not in your trip.');return}
@@ -2368,6 +2402,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   const t=clean(raw).replace(/^please /,'').replace(/ please$/,'');
   if(window.navueEndTripPending)return oldVoice.apply(this,arguments);
   if(/^(close|close search|close stops|cancel|cancel that|never mind|go back|back)$/.test(t)&&state.panel){closePanel();notify('Cancelled. Your route is unchanged.');return}
+  if(state.panel==='edit-stop'&&/^(no|no thanks)$/.test(t)){closePanel();return}
   if(state.panel==='confirm'){
    if(/^(yes|yeah|yep|yes please|add stop|add as a stop|add it|confirm)$/.test(t)){addStop();return}
    if(/^(no|no thanks|nope)$/.test(t)){closePanel();notify('Cancelled. Your route is unchanged.');return}
