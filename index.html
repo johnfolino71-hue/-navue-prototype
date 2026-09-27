@@ -2222,21 +2222,51 @@ Prototype road split is temporary demo data until live route-segment classificat
  const trip=el('div','','c3-trip');nav.querySelector('.nav-bottom').prepend(trip);
  const controls=el('div',null,'c3-actions');controls.append(button('Search along route',()=>openSearch()),button('Stops',()=>openStops()),button('Demo alerts',()=>openDemos()));function installTripMenu(){
   const sheet=document.getElementById('navueManualSheet');
-  if(sheet&&!sheet.contains(controls)){
-   sheet.appendChild(controls);
-   controls.addEventListener('click',()=>sheet.classList.remove('open'));
+  if(sheet&&!overview.contains(sheet)){
+   overview.appendChild(sheet);sheet.appendChild(controls);
+   sheet.querySelector('.sheet-handle')?.remove();sheet.querySelector('.sheet-title')?.remove();
+   document.getElementById('navueManualButton').onclick=()=>{if(expanded)closePanel();else expandDrawer()};
   }
  }
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installTripMenu);else installTripMenu();
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installTripMenu);else setTimeout(installTripMenu,0);
  const panel=el('section',null,'c3-panel');panel.id='navue3cPanel';panel.hidden=true;panel.setAttribute('aria-label','Trip options');nav.appendChild(panel);
+ const drawer=nav.querySelector('.nav-bottom');
+ const grip=button('','c3-unused');grip.onclick=null;grip.className='c3-grip';grip.setAttribute('aria-label','Expand trip panel');grip.setAttribute('aria-expanded','false');
+ grip.append(el('span','','c3-handle'),el('span','Trip options','c3-grip-label'));
+ const reminder=el('div','','c3-reminder');
+ const summary=el('div',null,'c3-summary');
+ summary.append(grip,reminder,nav.querySelector('.nav-metrics'));
+ const drawerBody=el('div',null,'c3-drawer-body');
+ const overview=el('div',null,'c3-overview');
+ const destination=nav.querySelector('#navDestination').parentElement;
+ overview.append(trip,destination,nav.querySelector('.finish'));
+ drawerBody.append(overview,panel);drawer.replaceChildren(summary,drawerBody);
+ let expanded=false,drag=null,suppressTap=false;
+ function limits(){const height=nav.clientHeight||window.innerHeight;return {min:summary.offsetHeight+16,max:Math.max(summary.offsetHeight+70,height-126)}}
+ function setDrawerHeight(h){const l=limits();drawer.style.height=Math.max(l.min,Math.min(l.max,h))+'px'}
+ function expandDrawer(){expanded=true;drawer.classList.add('c3-expanded');grip.setAttribute('aria-expanded','true');grip.setAttribute('aria-label','Collapse trip panel');drawerBody.inert=false;setDrawerHeight(limits().max)}
+ function collapseDrawer(){expanded=false;drawer.classList.remove('c3-expanded');drawer.style.height='';grip.setAttribute('aria-expanded','false');grip.setAttribute('aria-label','Expand trip panel');drawerBody.inert=true;}
+ grip.onclick=()=>{if(suppressTap){suppressTap=false;return}if(expanded){closePanel()}else{expandDrawer()}};
+ grip.addEventListener('pointerdown',e=>{drag={y:e.clientY,h:drawer.getBoundingClientRect().height};suppressTap=false;grip.setPointerCapture?.(e.pointerId)});
+ grip.addEventListener('pointermove',e=>{if(!drag)return;const delta=drag.y-e.clientY;if(Math.abs(delta)>5){suppressTap=true;expanded=true;drawerBody.inert=false;drawer.classList.add('c3-expanded');grip.setAttribute('aria-expanded','true');setDrawerHeight(drag.h+delta)}});
+ function endDrag(){if(!drag)return;drag=null;if(suppressTap){if(drawer.getBoundingClientRect().height<limits().min+45)closePanel();else{expanded=true;grip.setAttribute('aria-label','Collapse trip panel')}}}
+ grip.addEventListener('pointerup',endDrag);grip.addEventListener('pointercancel',endDrag);
+ function fitViewport(){
+  if(active()!=='navigation')return;
+  const v=window.visualViewport;
+  nav.style.height=(v?.height||window.innerHeight)+'px';nav.style.top=(v?.offsetTop||0)+'px';
+  if(expanded)setDrawerHeight(parseFloat(drawer.style.height)||limits().max);
+ }
+ window.addEventListener('resize',fitViewport);window.visualViewport?.addEventListener('resize',fitViewport);window.visualViewport?.addEventListener('scroll',fitViewport);
+ collapseDrawer();
  function notify(text){
   status.textContent=text;status.hidden=false;clearTimeout(statusTimer);statusTimer=setTimeout(()=>{status.hidden=true},4000);
   if(active()==='navigation'&&tripVoice)speak(text,true,p.voiceStyle,()=>{if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});
  }
- function closePanel(){panel.hidden=true;panel.replaceChildren();state.panel='';state.candidate=null;state.results=[];}
+ function closePanel(){panel.hidden=true;panel.replaceChildren();state.panel='';state.candidate=null;state.results=[];overview.hidden=false;collapseDrawer();}
  function shell(title,kind){
-  state.panel=kind;panel.hidden=false;panel.replaceChildren();
-  const h=el('div',null,'c3-panel-head');h.append(el('h2',title),button('Close',()=>{closePanel();notify('Back to your trip.')}));panel.append(h,el('p','SIMULATED · Fictional places and estimates','c3-label'));
+  state.panel=kind;overview.hidden=true;expandDrawer();panel.hidden=false;panel.replaceChildren();
+  const h=el('div',null,'c3-panel-head');h.append(el('h2',title),button('Back',()=>{panel.hidden=true;panel.replaceChildren();state.panel='';state.candidate=null;state.results=[];overview.hidden=false;expandDrawer()}));panel.append(h,el('p','SIMULATED · Fictional places and estimates','c3-label'));
   panel.scrollTop=0;return panel;
  }
  function reset(){
@@ -2257,7 +2287,8 @@ Prototype road split is temporary demo data until live route-segment classificat
    row.setAttribute('aria-label','Stop '+(i+1)+': '+stop.name+'. Manage stop');
    trip.append(row);
   });
-  if(next)trip.append(el('div','Final destination: '+state.final,'c3-address'));
+  reminder.textContent=state.stops.length?(state.atStop?'At stop · ':'')+state.stops.length+' stop'+(state.stops.length===1?'':'s')+' · '+next.name:'No stops';
+  fitViewport();
   installTripMenu();
   const turn=nav.querySelector('.turn-card');
   turn.querySelector('.small').textContent=next?'SIMULATED DETOUR':'SIMULATED GUIDANCE';
@@ -2432,3 +2463,34 @@ Prototype road split is temporary demo data until live route-segment classificat
  window.navue3c={snapshot:()=>JSON.parse(JSON.stringify(state)),setSimulatedSpeed:setSpeed};
 })();
 </script></body></html>
+<style>/* NAVUE_3C_DRAGGABLE_TRIP_PANEL */
+body:has(#navigation.active){overflow:hidden;height:100dvh;overscroll-behavior:none}
+#navigation.active{position:fixed!important;inset:0;margin:0 auto;width:100%;max-width:480px;height:100dvh;min-height:0!important;overflow:hidden!important}
+#navigation .nav-map{position:absolute;inset:0;height:100%!important;min-height:0!important}
+#navigation .nav-bottom{visibility:visible!important;left:8px;right:8px;bottom:0;z-index:38;padding:0!important;border-radius:20px 20px 0 0!important;display:flex;flex-direction:column;overflow:hidden;max-height:calc(100% - 126px);box-shadow:0 -3px 18px #17212622}
+#navigation .c3-summary{flex-shrink:0;padding:0 14px 12px;background:white}
+#navigation .c3-grip{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:44px;min-height:44px;padding:5px;margin:0;background:white;color:#526779;font-size:11px;touch-action:none;cursor:ns-resize;border-radius:16px}
+#navigation .c3-handle{display:block;width:42px;height:4px;background:#aab4ba;border-radius:6px}
+#navigation .c3-reminder{font-size:12px;line-height:18px;color:#315575;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px}
+#navigation .nav-metrics{margin:0;display:flex;justify-content:space-between;gap:8px}
+#navigation .nav-metrics strong{font-size:20px}
+#navigation .c3-drawer-body{display:none;min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 12px max(12px,env(safe-area-inset-bottom));flex:1}
+#navigation .c3-expanded .c3-drawer-body{display:block;border-top:1px solid #e3eaf0}
+#navigation .c3-trip{max-height:none;overflow:visible;margin:8px 0}
+#navigation .c3-trip .c3-itinerary-stop span:last-child{white-space:normal}
+#navigation .c3-panel{position:static;inset:auto;overflow:visible;background:white;border:0;border-radius:0;box-shadow:none;padding:8px 0;max-height:none}
+#navigation .c3-panel-head{position:static;padding:0;background:white}
+#navigation .c3-panel h2{font-size:20px}
+#navigation #navueManualSheet{position:static;display:block!important;max-height:none;overflow:visible;padding:10px 0 0;box-shadow:none;border-radius:0}
+#navigation #navueManualButton{display:none!important}
+#navigation .c3-overview>.small{font-size:12px;padding:8px 0}
+#navigation .finish{min-height:44px}
+#navigation .car-dot{bottom:145px!important;top:auto!important;transform:translateX(-50%)}
+#navigation .c3-demo{top:120px;left:12px;right:auto;width:auto;padding:3px 7px;font-size:9px}
+#navigation .c3-speed{top:145px;right:auto}
+#navigation .c3-status{top:185px;font-size:12px}
+#navigation .c3-traffic{top:240px}
+#navigation .c3-speed-alert{top:180px}
+#navigation:has(.c3-expanded) .c3-status{display:none}
+@media(max-height:450px){#navigation .nav-bottom{max-height:calc(100% - 118px)}#navigation .c3-demo{display:none}#navigation .c3-grip-label{display:none}}
+</style>
