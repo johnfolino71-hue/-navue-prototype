@@ -2242,22 +2242,42 @@ Prototype road split is temporary demo data until live route-segment classificat
  overview.append(trip,destination,nav.querySelector('.finish'));
  drawerBody.append(overview,panel);drawer.replaceChildren(summary,drawerBody);
  let expanded=false,drag=null,suppressTap=false;
- function limits(){const height=nav.clientHeight||window.innerHeight;return {min:summary.offsetHeight+16,max:Math.max(summary.offsetHeight+70,height-126)}}
+ function limits(){
+  const min=summary.offsetHeight;
+  const content=panel.hidden?overview:panel;
+  const padding=parseFloat(getComputedStyle(drawerBody).paddingBottom)||12;
+  const needed=min+content.scrollHeight+padding+2;
+  return {min,max:Math.max(min,Math.min((nav.clientHeight||innerHeight)-126,needed))};
+ }
  function setDrawerHeight(h){const l=limits();drawer.style.height=Math.max(l.min,Math.min(l.max,h))+'px'}
- function expandDrawer(){expanded=true;drawer.classList.add('c3-expanded');grip.setAttribute('aria-expanded','true');grip.setAttribute('aria-label','Collapse trip panel');drawerBody.inert=false;setDrawerHeight(limits().max)}
- function collapseDrawer(){expanded=false;drawer.classList.remove('c3-expanded');drawer.style.height='';grip.setAttribute('aria-expanded','false');grip.setAttribute('aria-label','Expand trip panel');drawerBody.inert=true;}
- grip.onclick=()=>{if(suppressTap){suppressTap=false;return}if(expanded){closePanel()}else{expandDrawer()}};
- grip.addEventListener('pointerdown',e=>{drag={y:e.clientY,h:drawer.getBoundingClientRect().height};suppressTap=false;grip.setPointerCapture?.(e.pointerId)});
- grip.addEventListener('pointermove',e=>{if(!drag)return;const delta=drag.y-e.clientY;if(Math.abs(delta)>5){suppressTap=true;expanded=true;drawerBody.inert=false;drawer.classList.add('c3-expanded');grip.setAttribute('aria-expanded','true');setDrawerHeight(drag.h+delta)}});
- function endDrag(){if(!drag)return;drag=null;if(suppressTap){if(drawer.getBoundingClientRect().height<limits().min+45)closePanel();else{expanded=true;grip.setAttribute('aria-label','Collapse trip panel')}}}
- grip.addEventListener('pointerup',endDrag);grip.addEventListener('pointercancel',endDrag);
+ function refreshDrawer(){drawer.style.height=(expanded?limits().max:limits().min)+'px'}
+ function expandDrawer(){expanded=true;drawer.classList.add('c3-expanded');grip.setAttribute('aria-expanded','true');grip.setAttribute('aria-label','Collapse trip panel');drawerBody.inert=false;refreshDrawer()}
+ function collapseDrawer(){expanded=false;drawer.classList.remove('c3-expanded');grip.setAttribute('aria-expanded','false');grip.setAttribute('aria-label','Expand trip panel');drawerBody.inert=true;drawerBody.scrollTop=0;refreshDrawer()}
+ grip.onclick=null;summary.onclick=()=>{if(suppressTap){suppressTap=false;return}if(expanded)closePanel();else expandDrawer()};
+ // A short swipe commits once; no continuous height/layout work under the finger.
+ summary.addEventListener('pointerdown',e=>{if(e.button!==0)return;drag={y:e.clientY,delta:0};suppressTap=false;summary.setPointerCapture?.(e.pointerId)});
+ summary.addEventListener('pointermove',e=>{if(!drag||drag.done)return;drag.delta=drag.y-e.clientY;if(Math.abs(drag.delta)>=12){drag.done=true;suppressTap=true;if(drag.delta>0)expandDrawer();else closePanel()}});
+ summary.addEventListener('pointerup',()=>{drag=null;if(suppressTap)setTimeout(()=>{suppressTap=false},350)});
+ summary.addEventListener('pointercancel',()=>{drag=null;suppressTap=false});
+ // Keep swipes inside the scrolling content; stop scroll chaining at its edges.
+ let touchY=0,touchStartY=0;
+ nav.addEventListener('touchstart',e=>{if(e.touches.length===1)touchY=touchStartY=e.touches[0].clientY},{passive:true});
+ nav.addEventListener('touchmove',e=>{
+  if(e.touches.length!==1)return;
+  const y=e.touches[0].clientY,delta=y-touchY;touchY=y;
+  const inside=expanded&&drawerBody.contains(e.target);
+  const scrollable=drawerBody.scrollHeight>drawerBody.clientHeight+1;
+  const atTop=drawerBody.scrollTop<=0,atBottom=drawerBody.scrollTop+drawerBody.clientHeight>=drawerBody.scrollHeight-1;
+  if(inside&&atTop&&y-touchStartY>16){if(e.cancelable)e.preventDefault();closePanel();return}
+  if(!inside||!scrollable||(delta>0&&atTop)||(delta<0&&atBottom)){if(e.cancelable)e.preventDefault()}
+ },{passive:false});
  function fitViewport(){
   if(active()!=='navigation')return;
-  const v=window.visualViewport;
-  nav.style.height=(v?.height||window.innerHeight)+'px';nav.style.top=(v?.offsetTop||0)+'px';
-  if(expanded)setDrawerHeight(parseFloat(drawer.style.height)||limits().max);
+  nav.style.height=(window.visualViewport?.height||window.innerHeight)+'px';nav.style.top='0px';refreshDrawer();
  }
- window.addEventListener('resize',fitViewport);window.visualViewport?.addEventListener('resize',fitViewport);window.visualViewport?.addEventListener('scroll',fitViewport);
+ window.addEventListener('resize',fitViewport);window.visualViewport?.addEventListener('resize',fitViewport);
+ const drawerObserver=new (window.ResizeObserver||class{observe(){}})(()=>{refreshDrawer()});
+ drawerObserver.observe(overview);drawerObserver.observe(panel);drawerObserver.observe(summary);
  collapseDrawer();
  function notify(text){
   status.textContent=text;status.hidden=false;clearTimeout(statusTimer);statusTimer=setTimeout(()=>{status.hidden=true},4000);
@@ -2493,4 +2513,16 @@ body:has(#navigation.active){overflow:hidden;height:100dvh;overscroll-behavior:n
 #navigation .c3-speed-alert{top:180px}
 #navigation:has(.c3-expanded) .c3-status{display:none}
 @media(max-height:450px){#navigation .nav-bottom{max-height:calc(100% - 118px)}#navigation .c3-demo{display:none}#navigation .c3-grip-label{display:none}}
+</style><style>
+/* NAVUE_3C_SMOOTH_CONTENT_SIZED_PANEL */
+html:has(#navigation.active){height:100%;overflow:hidden;overscroll-behavior:none}
+body:has(#navigation.active){position:fixed;inset:0;width:100%;overflow:hidden;overscroll-behavior:none}
+#navigation .nav-bottom{transition:height .24s cubic-bezier(.2,.8,.2,1);will-change:height}
+#navigation .c3-summary{touch-action:none;user-select:none;-webkit-user-select:none}
+#navigation .c3-drawer-body{display:block!important;visibility:hidden;overflow-y:auto;overflow-x:hidden;overscroll-behavior:none;-webkit-overflow-scrolling:touch}
+#navigation .c3-expanded .c3-drawer-body{visibility:visible}
+#navigation .c3-overview,#navigation .c3-panel{display:flow-root}
+#navigation .c3-grip{height:40px;min-height:40px}
+#navigation .c3-drawer-body button:not(.c3-itinerary-stop){padding:7px 10px!important;min-height:40px;font-size:13px;border-radius:10px}
+@media(prefers-reduced-motion:reduce){#navigation .nav-bottom{transition:none}}
 </style>
