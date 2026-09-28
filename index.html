@@ -1936,6 +1936,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(/^(home|work|office|job)$/.test(q)){reply('Please save an address named '+(/^(work|office|job)$/.test(q)?'Work':'Home')+' in Saved first.');return true}
   return false
  }
+ window.navueResolveSavedVoice=function(raw){return resolveSaved(destinationPhrase(command(raw)))};
  function routeChoice(t){
   // Speech recognizers often transcribe isolated letters as these words.
   var spoken=t.replace(/^(?:the )?(?:letter|option)\s+/,'').replace(/\s+please$/,'');
@@ -2096,6 +2097,10 @@ Prototype road split is temporary demo data until live route-segment classificat
    feedback('Do you want to change your destination? Say change my destination.');return
   }
   if(savedCommand(t)){candidate='';clearInput();openSavedRoutesPage();return}
+  // Saved destinations take precedence over an unfinished unknown-place question.
+  if(/^(home|destination|savedRoutesPage)$/.test(page)&&window.navueResolveSavedVoice&&window.navueResolveSavedVoice(raw)){
+   candidate='';var oldFeedback=document.getElementById('navueDestinationFeedback');if(oldFeedback)oldFeedback.remove();return
+  }
   if(candidate&&page==='destination'){
    if(/^(yes|yes please|yeah|yep|correct|thats right)$/.test(t)){var q=candidate;use(q,true,false);return}
    if(/^(no|nope|cancel|never mind|nevermind)$/.test(t)){candidate='';clearInput();feedback('Okay, what’s the new address or place?');return}
