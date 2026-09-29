@@ -2219,7 +2219,7 @@ Prototype road split is temporary demo data until live route-segment classificat
  const nav=document.getElementById('navigation');
  const oldShow=window.show,oldBuild=window.buildRoutes,oldChoose=window.chooseRoute,oldAlt=window.openAlternateRoutes,oldFinish=window.finishTrip,oldVoice=window.handleVoice;
  const state={final:'',stops:[],candidate:null,results:[],panel:'',atStop:false,delay:0,speed:null,limit:null,highway:false,alerted:false,suggestion:null};
- let speedTimer=null,statusTimer=null,uid=0;
+ let statusTimer=null,uid=0;
  const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n};
  const button=(text,fn,cls)=>{const b=el('button',text,cls);b.type='button';b.onclick=fn;return b};
  const active=()=>document.querySelector('.screen.active')?.id;
@@ -2229,8 +2229,13 @@ Prototype road split is temporary demo data until live route-segment classificat
  const facts={highways:false,tolls:false,paidFerries:false};
  const status=el('div','','c3-status');status.id='navue3cStatus';status.setAttribute('role','status');status.hidden=true;nav.appendChild(status);
  const demo=el('div','SIMULATION · No live data','c3-demo');nav.appendChild(demo);
- const speedBadge=el('div','Speed / limit unavailable · Demo','c3-speed');nav.appendChild(speedBadge);
- const speedAlert=el('div','','c3-speed-alert');speedAlert.hidden=true;speedAlert.setAttribute('role','status');nav.appendChild(speedAlert);
+ const speedBadge=el('div',null,'c3-speed');speedBadge.setAttribute('role','group');nav.appendChild(speedBadge);
+ const speedCaption=el('div','SIMULATED','c3-speed-caption');
+ const speedRow=el('div',null,'c3-speed-row');
+ const currentSpeed=el('div',null,'c3-current-speed'),speedNumber=el('strong','—','c3-speed-number'),speedUnit=el('span','km/h','c3-speed-unit');
+ currentSpeed.append(speedNumber,speedUnit);
+ const limitSign=el('div',null,'c3-limit-sign'),limitNumber=el('strong','—','c3-limit-number');limitSign.append(el('span','LIMIT'),limitNumber);
+ speedRow.append(currentSpeed,limitSign);speedBadge.append(speedCaption,speedRow);
  const traffic=el('div','','c3-traffic');traffic.hidden=true;nav.appendChild(traffic);
  const trip=el('div','','c3-trip');nav.querySelector('.nav-bottom').prepend(trip);
  const controls=el('div',null,'c3-actions');controls.append(button('Search along route',()=>openSearch()),button('Stops',()=>openStops()),button('Demo alerts',()=>openDemos()));function installTripMenu(){
@@ -2304,7 +2309,7 @@ Prototype road split is temporary demo data until live route-segment classificat
  }
  function reset(){
   state.final=p.destination||'';state.stops=[];state.atStop=false;state.delay=0;state.speed=null;state.limit=null;state.alerted=false;
-  closePanel();document.getElementById('navue3cRouteNote')?.remove();status.hidden=true;traffic.hidden=true;speedAlert.hidden=true;clearTimeout(speedTimer);render();
+  closePanel();document.getElementById('navue3cRouteNote')?.remove();status.hidden=true;traffic.hidden=true;render();
  }
  function remaining(){return Math.max(0,Number(p.selectedRoute?.time)||0)+state.stops.reduce((n,s)=>n+s.extra,0)+state.delay;}
  function render(){
@@ -2330,9 +2335,13 @@ Prototype road split is temporary demo data until live route-segment classificat
   navMinutes.textContent=remaining()+' min';navEta.textContent=eta(remaining());
   navKm.textContent=distance((Number(p.selectedRoute.km)||0)+state.stops.reduce((n,s)=>n+s.extraKm,0));
   const finish=nav.querySelector('.finish');finish.textContent=next?(state.atStop?'Continue trip':'Arrived at stop'):'Finish simulated trip';finish.onclick=next?(state.atStop?continueTrip:arriveStop):()=>window.finishTrip();
-  speedBadge.hidden=state.limit==null;
-  speedBadge.textContent=state.limit==null?'Speed / limit unavailable · Demo':'Demo '+speedText(state.speed)+' · Limit '+speedText(state.limit);
-  speedBadge.classList.toggle('c3-over',state.limit!=null&&state.speed>state.limit);
+  const knownSpeed=Number.isFinite(state.speed),knownLimit=Number.isFinite(state.limit);
+  speedNumber.textContent=knownSpeed?String(Math.round(p.fuelUnits==='us'?state.speed*.621371:state.speed)):'—';
+  limitNumber.textContent=knownLimit?String(Math.round(p.fuelUnits==='us'?state.limit*.621371:state.limit)):'—';
+  speedUnit.textContent=p.fuelUnits==='us'?'mph':'km/h';
+  const speeding=knownSpeed&&knownLimit&&state.speed>state.limit;
+  speedBadge.classList.toggle('c3-over',speeding);
+  speedBadge.setAttribute('aria-label','Simulated speed '+(knownSpeed?speedText(state.speed):'unavailable')+'. Speed limit '+(knownLimit?speedText(state.limit):'unavailable')+(speeding?'. Over speed limit.':'.'));
  }
  function samples(query){
   const q=clean(query);let label=query.trim();
@@ -2439,22 +2448,22 @@ Prototype road split is temporary demo data until live route-segment classificat
   const row=el('div',null,'c3-actions');row.append(button('Alternate routes',()=>window.openAlternateRoutes(false)),button('Clear demo',()=>{state.delay=0;traffic.hidden=true;render();notify('Traffic demo cleared.')},'secondary'));traffic.append(row);traffic.hidden=false;render();notify('Simulated traffic adds eight minutes. You can request alternate routes.');
  }
  function setSpeed(speed,limit,highway){
-  if(speed==null||limit==null){state.speed=null;state.limit=null;state.alerted=false;speedAlert.hidden=true;clearTimeout(speedTimer);render();return}
-  state.speed=speed;state.limit=limit;state.highway=highway;render();
-  const over=speed-limit>(highway?12:10);
-  if(over&&!state.alerted){
-   speedAlert.textContent='SIMULATION · Speed reminder: '+speedText(speed)+' · Limit '+speedText(limit);speedAlert.hidden=false;
-   clearTimeout(speedTimer);speedTimer=setTimeout(()=>{speedAlert.hidden=true},2000);
-   notify('Simulated speed reminder. Limit '+speedText(limit)+'.');
+  state.speed=Number.isFinite(speed)&&speed>=0?speed:null;
+  state.limit=Number.isFinite(limit)&&limit>0?limit:null;
+  state.highway=!!highway;render();
+  const over=state.speed!=null&&state.limit!=null&&state.speed>state.limit;
+  // The compact display handles the visual warning; preserve optional spoken reminders.
+  if(over&&!state.alerted&&active()==='navigation'&&tripVoice){
+   speak('Just a friendly reminder, you are over the speed limit of '+speedText(state.limit)+'.',true,p.voiceStyle,()=>{if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});
   }
-  if(!over){speedAlert.hidden=true;clearTimeout(speedTimer)}state.alerted=over;
+  state.alerted=over;
  }
  function openDemos(){
   state.candidate=null;const box=shell('Demo alerts','demos');
   box.append(el('p','These controls simulate conditions. They do not measure your speed or check live traffic.'));
   box.append(button('Simulate traffic delay',trafficDemo));
-  box.append(button('Local-road speed reminder',()=>{closePanel();state.alerted=false;setSpeed(65,50,false)}));
-  box.append(button('Highway speed reminder',()=>{closePanel();state.alerted=false;setSpeed(115,100,true)}));
+  box.append(button('Local-road speed reminder',()=>{closePanel();setSpeed(65,50,false)}));
+  box.append(button('Highway speed reminder',()=>{closePanel();setSpeed(115,100,true)}));
   box.append(button('Speed within limit',()=>{closePanel();setSpeed(48,50,false);notify('Simulated speed is within the limit.')}));
   box.append(button('Clear speed data',()=>{closePanel();setSpeed(null,null,false);notify('Speed-limit data unavailable.')}));
  }
@@ -2513,8 +2522,8 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(/^(continue (?:my |the )?trip|resume (?:my |the )?trip)$/.test(t)){continueTrip();return}
   if(state.stops.length&&/^(arrived|i have arrived|im here|arrived at (?:the )?stop|simulate arrival at stop)$/.test(t)){arriveStop();return}
   if(/^(simulate traffic|simulate traffic delay|traffic demo)$/.test(t)){trafficDemo();return}
-  if(/^(simulate speed reminder|test speed reminder|local road speed reminder)$/.test(t)){closePanel();state.alerted=false;setSpeed(65,50,false);return}
-  if(t==='highway speed reminder'){closePanel();state.alerted=false;setSpeed(115,100,true);return}
+  if(/^(simulate speed reminder|test speed reminder|local road speed reminder)$/.test(t)){closePanel();setSpeed(65,50,false);return}
+  if(t==='highway speed reminder'){closePanel();setSpeed(115,100,true);return}
   if(/^(show|open) demo alerts$/.test(t)){openDemos();return}
   if(/^(how much longer|time left|how long|whats my eta|what is my eta)$/.test(t)){notify('Simulated arrival at '+state.final+' in '+remaining()+' minutes, excluding time spent at stops.');return}
   if(state.panel==='results'){
@@ -2585,4 +2594,19 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
 #routeCards .route-main{margin:3px 0!important;white-space:normal!important}
 #routeCards .badge{font-size:12px!important;padding:2px 5px!important;margin:2px}
 #routeCards .route-save-bookmark{bottom:5px!important;right:8px!important}
+</style>
+<style>/* NAVUE_COMPACT_SIMULATED_SPEEDOMETER_V1 */
+#navigation .c3-speed{top:145px;left:12px;right:auto;width:126px;box-sizing:border-box;padding:6px 8px;border-radius:13px;box-shadow:0 2px 8px #17212618;color:#172126}
+#navigation .c3-speed-caption{font-size:8px;letter-spacing:.6px;color:#48627c;text-align:center;margin-bottom:4px;line-height:10px}
+#navigation .c3-speed-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#navigation .c3-current-speed{display:flex;flex-direction:column;align-items:center;min-width:42px}
+#navigation .c3-speed-number{font-size:27px;line-height:29px;font-variant-numeric:tabular-nums;font-weight:800}
+#navigation .c3-speed-unit{font-size:9px;line-height:12px}
+#navigation .c3-limit-sign{box-sizing:border-box;width:46px;height:46px;border:2px solid #33434f;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:white}
+#navigation .c3-limit-sign span{font-size:7px;line-height:9px}
+#navigation .c3-limit-number{font-size:18px;line-height:20px;font-weight:800;font-variant-numeric:tabular-nums}
+#navigation .c3-speed.c3-over .c3-current-speed{color:#b72020}
+#navigation .c3-speed.c3-over .c3-speed-number{text-decoration:underline;text-underline-offset:3px}
+#navigation .c3-status{top:230px}
+#navigation .c3-traffic{top:300px}
 </style>
