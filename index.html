@@ -2238,7 +2238,7 @@ Prototype road split is temporary demo data until live route-segment classificat
  limitSign.hidden=true;speedRow.append(currentSpeed,limitSign);speedBadge.append(speedCaption,speedRow);
  const traffic=el('div','','c3-traffic');traffic.hidden=true;nav.appendChild(traffic);
  const trip=el('div','','c3-trip');nav.querySelector('.nav-bottom').prepend(trip);
- const controls=el('div',null,'c3-actions');controls.append(button('Search along route',()=>openSearch()),button('Stops',()=>openStops()),button('Demo alerts',()=>openDemos()));function installTripMenu(){
+ const controls=el('div',null,'c3-actions');controls.append(button('Search along route',()=>openSearch()),button('Stops',()=>openStops()));function installTripMenu(){
   const sheet=document.getElementById('navueManualSheet');
   if(sheet&&!overview.contains(sheet)){
    overview.appendChild(sheet);sheet.appendChild(controls);
@@ -2247,6 +2247,41 @@ Prototype road split is temporary demo data until live route-segment classificat
   }
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installTripMenu);else setTimeout(installTripMenu,0);
+ // NAVUE_ROAD_ALERTS_OPTION_C_V1 — local simulation only; no reporting service connected.
+ const alertTypes=[['traffic','Traffic'],['police','Police'],['crash','Crash'],['hazard','Hazard'],['closure','Closure'],['blocked','Blocked lane'],['map','Map issue'],['weather','Bad weather'],['gas','Gas prices'],['animal','Animal'],['help','Roadside help']];
+ const alertArt={
+ traffic:'<g transform="translate(22 3) scale(.66)" fill="#1769e0"><path d="M4 22l8-14h23l12 14 9 3v16H2V26z"/><path d="M16 12h15l9 11H10z" fill="white"/><g fill="#183b5a" stroke="white" stroke-width="2"><circle cx="13" cy="41" r="7"/><circle cx="44" cy="41" r="7"/></g></g><g transform="translate(12 17) scale(.7)" fill="#183b5a"><path d="M4 22l8-14h23l12 14 9 3v16H2V26z"/><path d="M16 12h15l9 11H10z" fill="white"/><g stroke="white" stroke-width="2"><circle cx="13" cy="41" r="7"/><circle cx="44" cy="41" r="7"/></g></g><g transform="translate(1 30) scale(.7)" fill="#1769e0"><path d="M4 22l8-14h23l12 14 9 3v16H2V26z"/><path d="M16 12h15l9 11H10z" fill="white"/><g fill="#183b5a" stroke="white" stroke-width="2"><circle cx="13" cy="41" r="7"/><circle cx="44" cy="41" r="7"/></g></g>',
+ police:'<path d="M32 11l20 8v19c0 12-20 20-20 20S12 50 12 38V19z" fill="#183b5a"/><path d="M16 22l16-7 16 7-4 10H20z" fill="#1769e0"/><path d="M20 33h24" stroke="white" stroke-width="3"/><path d="M32 36l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z" fill="#ffc83d"/>',
+ crash:'<path d="M8 35l7-13h20l8 13 8 3-4 13H7z" fill="#1769e0"/><path d="M19 26h12l5 10H14z" fill="white"/><circle cx="16" cy="51" r="6" fill="#183b5a"/><circle cx="39" cy="51" r="6" fill="#183b5a"/><path d="M54 25v33" stroke="#183b5a" stroke-width="5"/><path d="M46 13l2 9M58 17l-5 7M39 21l6 5" stroke="#ffc83d" stroke-width="4" stroke-linecap="round"/>',
+ hazard:'<path d="M27 9a6 6 0 0 1 10 0l23 40a6 6 0 0 1-5 9H9a6 6 0 0 1-5-9z" fill="#1769e0"/><path d="M32 23v16" stroke="#ffcf35" stroke-width="6" stroke-linecap="round"/><circle cx="32" cy="48" r="3.5" fill="#ffcf35"/>',
+ closure:'<path d="M14 33v24M50 33v24" stroke="#183b5a" stroke-width="6"/><rect x="6" y="21" width="52" height="20" rx="4" fill="#1769e0"/><path d="M10 39l13-16M27 39l13-16M44 39l10-13" stroke="white" stroke-width="6"/><circle cx="14" cy="14" r="5" fill="#ffc83d"/><circle cx="50" cy="14" r="5" fill="#ffc83d"/>',
+ blocked:'<path d="M9 7v50M54 7v50" stroke="#183b5a" stroke-width="4" stroke-linecap="round"/><path d="M32 6v9m0 36v7" stroke="#183b5a" stroke-width="3"/><path d="M22 54V39c0-10 21-9 21-20V12m-7 6 7-7 7 7" fill="none" stroke="#1769e0" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 21h12v9H17z" fill="#ffc83d"/>',
+ map:'<path d="M5 17l17-6 18 6 19-6v40l-19 6-18-6-17 6z" fill="#1769e0"/><path d="M22 13v36m18-29v35" stroke="white" stroke-width="3"/><path d="M43 5c-10 0-15 11-10 18l10 13 10-13c5-7 0-18-10-18" fill="#183b5a"/><path d="M43 11v9" stroke="#ffc83d" stroke-width="3"/><circle cx="43" cy="25" r="2" fill="#ffc83d"/>',
+ weather:'<path d="M15 29C1 28 4 11 17 12c4-13 24-9 25 1 17-3 21 17 8 18H15z" fill="#183b5a"/><path d="M13 42l5-8h27l7 8v17H11z" fill="#1769e0"/><path d="M21 37h21l5 10H16z" fill="white"/><path d="M24 46l12-7" stroke="#183b5a" stroke-width="2"/><path d="M6 34l-2 6m53-5-2 6" stroke="#1769e0" stroke-width="3" stroke-linecap="round"/>',
+ gas:'<rect x="11" y="10" width="29" height="45" rx="5" fill="#1769e0"/><rect x="16" y="16" width="19" height="15" rx="3" fill="white"/><path d="M40 25h6v18c0 9 11 9 11 0V20l-8-8" fill="none" stroke="#183b5a" stroke-width="4"/><circle cx="24" cy="46" r="12" fill="#ffc83d"/><text x="24" y="52" text-anchor="middle" font-size="20" font-weight="800" fill="#183b5a">$</text>',
+ animal:'<path d="M12 31h22l8-13 9 6-6 14v19h-5V40H22l-4 17h-5l3-20-7-1z" fill="#183b5a"/><path d="M43 19l-4-9m3 5-8-2m14 7 4-12m-2 7 7-2" stroke="#1769e0" stroke-width="3" stroke-linecap="round"/><path d="M7 13l5 5M6 24h6" stroke="#ffc83d" stroke-width="3" stroke-linecap="round"/>',
+ help:'<path d="M9 32l6-17h27l6 17v22H7V32z" fill="#1769e0"/><path d="M18 20h21l4 12H13z" fill="white"/><path d="M13 41h7m15 0h7" stroke="white" stroke-width="4"/><path d="M42 53l12-19c-7-9-1-18 6-17l-3 8 5 3 5-6c3 9-1 14-8 13L48 58z" fill="#183b5a" transform="translate(-4 0)"/><path d="M52 4v10m-5-5h10" stroke="#ffc83d" stroke-width="4"/>'
+ };
+ function alertIcon(id){const wrap=el('span',null,'c3-alert-icon');wrap.innerHTML='<svg viewBox="0 0 68 64" aria-hidden="true" focusable="false">'+alertArt[id]+'</svg>';return wrap}
+ let reportChoice=null;
+ const roadLauncher=button('',()=>openRoadAlerts(),'c3-road-launcher');roadLauncher.id='navueRoadAlerts';roadLauncher.setAttribute('aria-label','Road alerts');roadLauncher.setAttribute('aria-controls','navue3cPanel');roadLauncher.append(alertIcon('hazard'));nav.append(roadLauncher);
+ function openRoadAlerts(){
+  reportChoice=null;const box=shell('Road alerts','road-alerts');box.querySelector('.c3-label').textContent='SIMULATED · Not shared with other drivers';
+  const grid=el('div',null,'c3-alert-grid');
+  alertTypes.forEach(([id,label])=>{const b=button('',()=>previewReport(id),'c3-alert-choice');b.dataset.alert=id;b.setAttribute('aria-label',label);b.append(alertIcon(id),el('span',label,'c3-alert-name'));grid.append(b)});
+  box.append(grid);drawerBody.scrollTop=0;refreshDrawer();
+ }
+ function previewReport(id){
+  const type=alertTypes.find(x=>x[0]===id);if(!type)return;reportChoice=id;
+  const box=shell('Report '+type[1].toLowerCase()+'?','road-confirm');box.querySelector('.c3-label').textContent='SIMULATED · Not shared with other drivers';
+  const visual=el('div',null,'c3-report-preview');visual.append(alertIcon(id),el('strong',type[1]));box.append(visual);
+  if(id==='help')box.append(el('p','Demo only. This does not request roadside or emergency assistance.','c3-label'));
+  const row=el('div',null,'c3-actions');row.append(button('Confirm demo',confirmReport),button('Cancel',()=>{reportChoice=null;closePanel()},'secondary'));box.append(row);drawerBody.scrollTop=0;refreshDrawer();notify('Report '+type[1].toLowerCase()+' in this demo? Say yes or no.');
+ }
+ function confirmReport(){if(state.panel!=='road-confirm'||!reportChoice)return;const label=alertTypes.find(x=>x[0]===reportChoice)[1];reportChoice=null;closePanel();notify(label+' demo confirmed. Not shared with other drivers.')}
+ const testingButton=button('Navigation demo controls',()=>{if(!p.selectedRoute){alert('Start a simulated trip first.');return}window.show('navigation');openDemos()},'secondary');
+ const testingTitle=Array.from(document.querySelectorAll('#preferences .pref-title')).find(e=>e.textContent==='Prototype Testing');
+ if(testingTitle)testingTitle.after(testingButton);
  const panel=el('section',null,'c3-panel');panel.id='navue3cPanel';panel.hidden=true;panel.setAttribute('aria-label','Trip options');nav.appendChild(panel);
  const drawer=nav.querySelector('.nav-bottom');
  const grip=button('','c3-unused');grip.onclick=null;grip.className='c3-grip';grip.setAttribute('aria-label','Expand trip panel');grip.setAttribute('aria-expanded','false');
@@ -2268,7 +2303,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   return {min,max:Math.max(min,Math.min((nav.clientHeight||innerHeight)-126,needed))};
  }
  function setDrawerHeight(h){const l=limits();drawer.style.height=Math.max(l.min,Math.min(l.max,h))+'px'}
- function refreshDrawer(){drawer.style.height=(expanded?limits().max:limits().min)+'px'}
+ function refreshDrawer(){drawer.style.height=(expanded?limits().max:limits().min)+'px';nav.style.setProperty('--c3-summary-height',summary.offsetHeight+'px')}
  function expandDrawer(){expanded=true;drawer.classList.add('c3-expanded');grip.setAttribute('aria-expanded','true');grip.setAttribute('aria-label','Collapse trip panel');drawerBody.inert=false;refreshDrawer()}
  function collapseDrawer(){expanded=false;drawer.classList.remove('c3-expanded');grip.setAttribute('aria-expanded','false');grip.setAttribute('aria-label','Expand trip panel');drawerBody.inert=true;drawerBody.scrollTop=0;refreshDrawer()}
  grip.onclick=null;summary.onclick=()=>{if(suppressTap){suppressTap=false;return}if(expanded)closePanel();else expandDrawer()};
@@ -2467,7 +2502,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   state.alerted=over;
  }
  function openDemos(){
-  state.candidate=null;const box=shell('Demo alerts','demos');
+  state.candidate=null;const box=shell('Prototype testing','demos');
   box.append(el('p','These controls simulate conditions. Each local-road or highway test represents entering another road. They do not measure your speed or check live traffic.'));
   box.append(button('Simulate traffic delay',trafficDemo));
   box.append(button('Local-road speed reminder',()=>{closePanel();setSpeed(65,50,false,'demo-road-'+(++uid))}));
@@ -2510,6 +2545,15 @@ Prototype road split is temporary demo data until live route-segment classificat
   const t=clean(raw).replace(/^please /,'').replace(/ please$/,'');
   if(window.navueEndTripPending)return oldVoice.apply(this,arguments);
   if(/^(close|close search|close stops|cancel|cancel that|never mind|go back|back)$/.test(t)&&state.panel){closePanel();notify('Cancelled. Your route is unchanged.');return}
+  if(/^(?:open |show )?(?:road alerts|hazard alerts|hazards alerts)$/.test(t)){openRoadAlerts();return}
+  if(state.panel==='road-confirm'){
+   if(/^(yes|yeah|yep|confirm|confirm demo|yes please)$/.test(t)){confirmReport();return}
+   if(/^(no|nope|no thanks)$/.test(t)){reportChoice=null;closePanel();return}
+  }
+  if(/^(correction|correct that|wrong search|thats wrong)$/.test(t)&&/^road-/.test(state.panel)){openRoadAlerts();return}
+  const reportText=t.replace(/^report (?:a |an )?/,'');
+  const reportType=alertTypes.find(([id,label])=>clean(label)===reportText||({accident:'crash',construction:'closure',rain:'weather','road hazard':'hazard','road closure':'closure','lane closure':'blocked'})[reportText]===id);
+  if(reportType&&(state.panel==='road-alerts'||state.panel==='road-confirm'||/^report /.test(t))){previewReport(reportType[0]);return}
   if(/^(correction|correct that|wrong search|thats wrong)$/.test(t)&&state.panel){openSearch();return}
   if(state.panel==='search-clarify'){
    if(/^(yes|yeah|yep|correct|yes please|thats right)$/.test(t)){const query=state.suggestion;search(query);return}
@@ -2616,4 +2660,18 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
 #navigation .c3-speed.c3-over .c3-current-speed{color:#b72020}
 #navigation .c3-status{top:205px}
 #navigation .c3-traffic{top:280px}
+</style>
+
+<style>/* NAVUE_ROAD_ALERTS_OPTION_C_V1 */
+#navigation .c3-road-launcher{position:absolute;right:14px;bottom:calc(var(--c3-summary-height,110px) + 14px);z-index:37;width:52px;height:52px;min-height:52px;margin:0;padding:8px;border-radius:50%;background:white;box-shadow:0 3px 12px #183b5a25;display:grid;place-items:center}
+#navigation:has(.c3-expanded) .c3-road-launcher{visibility:hidden;pointer-events:none}
+#navigation .c3-alert-icon{display:grid;place-items:center;width:50px;height:50px;background:#edf5ff;border-radius:50%;padding:5px;flex-shrink:0}
+#navigation .c3-alert-icon svg{width:100%;height:100%;overflow:visible}
+#navigation .c3-road-launcher .c3-alert-icon{width:36px;height:36px;background:none;padding:0}
+#navigation .c3-alert-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px 6px;padding:3px 0 8px}
+#navigation .c3-drawer-body button.c3-alert-choice{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;margin:0;padding:5px 2px!important;min-height:76px;background:white;color:#183b5a;border-radius:12px;font-size:11px;line-height:14px}
+#navigation .c3-alert-choice:active{background:#edf5ff}
+#navigation .c3-alert-choice:focus-visible,#navigation .c3-road-launcher:focus-visible{outline:3px solid #1769e0;outline-offset:2px}
+#navigation .c3-report-preview{display:flex;align-items:center;gap:12px;margin:14px 0;color:#183b5a}
+#navigation .c3-panel .c3-label{font-size:10px;line-height:14px;margin:5px 0 8px}
 </style>
