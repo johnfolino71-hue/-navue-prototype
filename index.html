@@ -2478,10 +2478,24 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(!state.atStop){notify('You are still heading to your next destination.');return}
   state.stops.shift();state.atStop=false;render();closePanel();notify('Continuing to '+(state.stops[0]?.name||state.final)+'.');
  }
- function trafficDemo(){
-  state.delay=8;closePanel();traffic.replaceChildren(el('strong','Simulated traffic ahead · +8 min'));
-  const row=el('div',null,'c3-actions');row.append(button('Alternate routes',()=>window.openAlternateRoutes(false)),button('Clear demo',()=>{state.delay=0;traffic.hidden=true;render();notify('Traffic demo cleared.')},'secondary'));traffic.append(row);traffic.hidden=false;render();notify('Simulated traffic adds eight minutes. You can request alternate routes.');
+ // NAVUE_INCIDENT_PREVIEW_V1: explicit local fixtures, never Google reports.
+ // Custom report sharing/sub-options are paused pending the native Google trial.
+ function incidentDemo(kind){
+  const accident=kind==='accident';
+  state.delay=accident?0:8;closePanel();
+  clearTimeout(statusTimer);status.hidden=true;
+  // One shared card: replacing a scenario never stacks incident warnings.
+  traffic.replaceChildren(el('small','DEMO · Not a live report','c3-incident-source'),el('strong',accident?'Accident ahead':'Traffic ahead · +8 min'));
+  traffic.setAttribute('role','status');traffic.dataset.scenario=kind;
+  const row=el('div',null,'c3-actions');
+  row.append(button('Alternate routes',()=>window.openAlternateRoutes(false)),button('Clear demo',()=>{
+   state.delay=0;traffic.hidden=true;traffic.replaceChildren();delete traffic.dataset.scenario;render();
+  },'secondary'));
+  traffic.append(row);traffic.hidden=false;render();
+  // Deliberately bypass notify(): it would create a second visual message.
+  if(active()==='navigation'&&tripVoice)speak(accident?'Demo alert. Accident ahead.':'Demo alert. Traffic ahead adds eight minutes.',true,p.voiceStyle,()=>{if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});
  }
+ function trafficDemo(){incidentDemo('traffic')}
  function setSpeed(speed,limit,highway,roadId){
   const nextRoad=roadId==null?state.roadId:String(roadId);
   const roadChanged=nextRoad!==state.roadId||state.highway!==!!highway||state.limit!==limit;
@@ -2504,6 +2518,7 @@ Prototype road split is temporary demo data until live route-segment classificat
  function openDemos(){
   state.candidate=null;const box=shell('Prototype testing','demos');
   box.append(el('p','These controls simulate conditions. Each local-road or highway test represents entering another road. They do not measure your speed or check live traffic.'));
+  box.append(button('Simulate accident ahead',()=>incidentDemo('accident')));
   box.append(button('Simulate traffic delay',trafficDemo));
   box.append(button('Local-road speed reminder',()=>{closePanel();setSpeed(65,50,false,'demo-road-'+(++uid))}));
   box.append(button('Highway speed reminder',()=>{closePanel();setSpeed(115,100,true,'demo-road-'+(++uid))}));
@@ -2573,6 +2588,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   const rem=t.match(/^(?:remove|delete|skip) stop (one|two|three|1|2|3)$/);if(rem){removeStop(index(rem[1]));return}
   if(/^(continue (?:my |the )?trip|resume (?:my |the )?trip)$/.test(t)){continueTrip();return}
   if(state.stops.length&&/^(arrived|i have arrived|im here|arrived at (?:the )?stop|simulate arrival at stop)$/.test(t)){arriveStop();return}
+  if(/^(simulate accident|simulate accident ahead|accident demo)$/.test(t)){incidentDemo('accident');return}
   if(/^(simulate traffic|simulate traffic delay|traffic demo)$/.test(t)){trafficDemo();return}
   if(/^(simulate speed reminder|test speed reminder|local road speed reminder)$/.test(t)){closePanel();setSpeed(65,50,false,'demo-road-'+(++uid));return}
   if(t==='highway speed reminder'){closePanel();setSpeed(115,100,true,'demo-road-'+(++uid));return}
@@ -2726,3 +2742,8 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
  if(get('preferences').classList.contains('active'))fill();
 })();
 </script>
+
+<style>/* NAVUE_INCIDENT_PREVIEW_V1 */
+#navigation .c3-traffic .c3-incident-source{display:block;font-size:10px;font-weight:700;letter-spacing:.03em;color:#526779;margin-bottom:4px}
+#navigation .c3-traffic{background:white;border:1px solid #d6e3f1;box-shadow:0 3px 12px #183b5a1a}
+</style>
