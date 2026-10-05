@@ -33,3 +33,9 @@ Choose whether Google-supported incident reports use Google's native reporting i
 5. Test supported reporting and approach prompts on actual devices, including speaker off, microphone off, temporary listening permission denied, cancellation, and map attribution/UI overlap.
 6. Verify two-device NaVue sharing if the independent service is chosen. Keep demo reports out of all production feeds.
 7. Do not call this connected or ready for public navigation until these checks are complete. This will not happen automatically through a Google map integration.
+
+## Approved prototype scope — 2026-10-05, 17:10 Toronto
+
+Proceed only with clearly labelled, explicitly triggered accident and traffic demo warnings. One shared incident warning at a time, optional speech controlled by the existing speaker setting, no microphone activation, and simulated ETA adjustment for the traffic fixture. Keep approved NaVue styling. Pause new custom reporting sub-options and sharing. Existing Option C report-preview design remains a simulation, not a Google reporting implementation. The separate custom-report draft is unpublished and is not approved for production.
+
+The recommended first live integration uses Google's incident system as the single incident-alert source, subject to a real Navigation SDK trial confirming menus, symbols, audio and prompt behaviour. Do not claim replacement of Google-supplied incident icons or cross-source incident deduplication: neither is established by the reviewed public SDK documentation. This supersedes any earlier assumption that the custom interface can be wired directly into Google's incident feed.
