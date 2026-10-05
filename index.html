@@ -2675,3 +2675,54 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
 #navigation .c3-report-preview{display:flex;align-items:center;gap:12px;margin:14px 0;color:#183b5a}
 #navigation .c3-panel .c3-label{font-size:10px;line-height:14px;margin:5px 0 8px}
 </style>
+<script>/* NAVUE_FUEL_SETTINGS_PERSISTENCE_V1 */
+(function(){
+ window.navueDistanceText=function(km){const n=Number(km);return p.fuelUnits==='us'?(n*.621371>=10?Math.round(n*.621371):(n*.621371).toFixed(1))+' mi':n+' km'};
+ window.renderFuelFields=function(){
+  const us=document.getElementById('fuelUnits').value==='us';
+  document.getElementById('cityFuelLabel').textContent=us?'CITY — MPG':'CITY — L/100 KM';
+  document.getElementById('highwayFuelLabel').textContent=us?'HIGHWAY — MPG':'HIGHWAY — L/100 KM';
+  document.getElementById('fuelPriceLabel').textContent=us?'AVERAGE FUEL PRICE — $/GALLON':'AVERAGE FUEL PRICE — $/LITRE';
+ };
+ window.showFuelScreen=function(){
+  ['fuelUnits','cityFuel','highwayFuel','fuelPrice'].forEach(key=>{document.getElementById(key).value=p[key]??(key==='fuelUnits'?'metric':'')});
+  renderFuelFields();show('fuelScreen');
+ };
+ const fields={fuelUnits:'prefFuelUnits',cityFuel:'prefCityFuel',highwayFuel:'prefHighwayFuel',fuelPrice:'prefFuelPrice'};
+ const get=id=>document.getElementById(id);
+ // Restore only this broken feature; do not activate the unrelated legacy script blocks.
+ window.renderPrefFuelLabels=function(){
+  const us=get('prefFuelUnits').value==='us';
+  get('prefCityFuelLabel').textContent=us?'CITY — MPG':'CITY — L/100 KM';
+  get('prefHighwayFuelLabel').textContent=us?'HIGHWAY — MPG':'HIGHWAY — L/100 KM';
+  get('prefFuelPriceLabel').textContent=us?'AVERAGE FUEL PRICE — $/GALLON':'AVERAGE FUEL PRICE — $/LITRE';
+ };
+ function fill(){
+  Object.entries(fields).forEach(([key,id])=>{get(id).value=p[key]??(key==='fuelUnits'?'metric':'')});
+  renderPrefFuelLabels();
+ }
+ const priorShow=window.show;
+ window.show=function(id){
+  const entering=id==='preferences'&&!get('preferences').classList.contains('active');
+  if(entering){fill();prefReturn=document.querySelector('.screen.active')?.id||'home'}
+  return priorShow.apply(this,arguments);
+ };
+ const priorSave=window.savePreferences;
+ window.savePreferences=function(){
+  const values={};
+  for(const [key,id] of Object.entries(fields)){
+   const input=get(id),value=input.value.trim();input.setCustomValidity('');
+   if(key!=='fuelUnits'&&value!==''&&(!/^\d+(?:\.\d+)?$/.test(value)||!Number.isFinite(Number(value))||Number(value)<=0)){
+    input.setCustomValidity('Enter a number greater than zero, or leave this field blank.');input.reportValidity();input.focus();return;
+   }
+   values[key]=value;
+  }
+  Object.assign(p,values);
+  const result=priorSave.apply(this,arguments);
+  if(typeof applyNaVueRouteFuelCost==='function')applyNaVueRouteFuelCost();
+  return result;
+ };
+ Object.values(fields).forEach(id=>get(id).addEventListener('input',()=>get(id).setCustomValidity('')));
+ if(get('preferences').classList.contains('active'))fill();
+})();
+</script>
