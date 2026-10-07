@@ -2255,7 +2255,7 @@ Prototype road split is temporary demo data until live route-segment classificat
  const nav=document.getElementById('navigation');
  const oldShow=window.show,oldBuild=window.buildRoutes,oldChoose=window.chooseRoute,oldAlt=window.openAlternateRoutes,oldFinish=window.finishTrip,oldVoice=window.handleVoice;
  const state={final:'',stops:[],candidate:null,results:[],panel:'',atStop:false,delay:0,speed:null,limit:null,highway:false,roadId:null,alerted:false,suggestion:null};
- let statusTimer=null,limitBadgeTimer=null,uid=0;
+ let statusTimer=null,limitBadgeTimer=null,uid=0,incidentTimer=null,incidentShown=false,incidentOffer=null;
  const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n};
  const button=(text,fn,cls)=>{const b=el('button',text,cls);b.type='button';b.onclick=fn;return b};
  const active=()=>document.querySelector('.screen.active')?.id;
@@ -2379,6 +2379,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   panel.scrollTop=0;return panel;
  }
  function reset(){
+  clearTimeout(incidentTimer);incidentShown=false;incidentOffer=null;
   state.final=p.destination||'';state.stops=[];state.atStop=false;state.delay=0;state.speed=null;state.limit=null;state.roadId=null;state.alerted=false;clearTimeout(limitBadgeTimer);limitSign.hidden=true;
   closePanel();document.getElementById('navue3cRouteNote')?.remove();status.hidden=true;traffic.hidden=true;render();
  }
@@ -2516,20 +2517,57 @@ Prototype road split is temporary demo data until live route-segment classificat
  }
  // NAVUE_INCIDENT_PREVIEW_V1: explicit local fixtures, never Google reports.
  // Custom report sharing/sub-options are paused pending the native Google trial.
+ // NAVUE_AUTOMATIC_INCIDENT_OFFER_V1 — timed fixtures, not real detection.
+ function clearIncident(){
+  clearTimeout(incidentTimer);incidentShown=true;incidentOffer=null;
+  state.delay=0;traffic.hidden=true;traffic.replaceChildren();delete traffic.dataset.scenario;render();
+ }
+ function answerIncident(yes){
+  const offer=incidentOffer;if(!offer)return;incidentOffer=null;
+  if(!yes){traffic.hidden=true;render();return}
+  // Recheck at confirmation: preferences may have changed since the offer.
+  if(!navueRouteAllowed(offer.route)||p.selectedRoute!==offer.base){
+   traffic.hidden=true;notify('That alternative is no longer available. Keeping your route.');return
+  }
+  state.delay=0;traffic.hidden=true;
+  window.chooseRoute(offer.route,false);render();
+ }
  function incidentDemo(kind){
-  const accident=kind==='accident';
-  state.delay=accident?0:8;closePanel();
+  if(!p.selectedRoute||active()!=='navigation')return;
+  clearTimeout(incidentTimer);incidentShown=true;
+  const accident=kind==='accident',base=p.selectedRoute;
+  state.delay=accident?12:8;closePanel();
   clearTimeout(statusTimer);status.hidden=true;
-  // One shared card: replacing a scenario never stacks incident warnings.
-  traffic.replaceChildren(el('small','DEMO · Not a live report','c3-incident-source'),el('strong',accident?'Accident ahead':'Traffic ahead · +8 min'));
+  const candidates=window.navue3cAlternateCandidates(base).filter(navueRouteAllowed).sort((a,b)=>a.time-b.time);
+  const candidate=candidates.find(r=>r.time<base.time+state.delay);
+  const saving=candidate?Math.round(base.time+state.delay-candidate.time):0;
+  incidentOffer=candidate?{base,route:{...candidate,id:base.id},saving}:null;
+  traffic.replaceChildren(el('small','DEMO · Simulated route and times','c3-incident-source'),el('strong',accident?'Accident ahead':'Traffic ahead'));
+  traffic.append(el('div','Estimated traffic delay: '+state.delay+' min'));
   traffic.setAttribute('role','status');traffic.dataset.scenario=kind;
+  if(candidate){
+   const preview=el('div',null,'c3-route-preview');
+   // A schematic only: no real exit, coordinates, or road geometry is implied.
+   preview.innerHTML='<svg viewBox="0 0 300 58" role="img" aria-label="Simulated route preview: blue alternative bypasses the delayed grey route"><path d="M15 42 H285" fill="none" stroke="#adb7c1" stroke-width="5"/><path d="M15 42 H55 Q70 42 80 24 L90 16 H220 L245 42 H285" fill="none" stroke="#1769e0" stroke-width="5"/><circle cx="165" cy="42" r="7" fill="#d94b3d"/><circle cx="15" cy="42" r="5" fill="#1769e0"/></svg>';
+   preview.append(el('small',candidate.name+' · Demo turn in '+distance(2)));traffic.append(preview);
+   traffic.append(el('strong','Alternate route saves '+saving+' minutes. Take it?'));
+  }else traffic.append(el('div','No faster matching route available.'));
   const row=el('div',null,'c3-actions');
-  row.append(button('Alternate routes',()=>window.openAlternateRoutes(false)),button('Clear demo',()=>{
-   state.delay=0;traffic.hidden=true;traffic.replaceChildren();delete traffic.dataset.scenario;render();
-  },'secondary'));
-  traffic.append(row);traffic.hidden=false;render();
-  // Deliberately bypass notify(): it would create a second visual message.
-  if(active()==='navigation'&&tripVoice)speak(accident?'Demo alert. Accident ahead.':'Demo alert. Traffic ahead adds eight minutes.',true,p.voiceStyle,()=>{if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});
+  if(candidate)row.append(button('Yes, take it',()=>answerIncident(true)),button('No, stay',()=>answerIncident(false),'secondary'));
+  row.append(button('Clear demo',clearIncident,'secondary'));traffic.append(row);traffic.hidden=false;render();
+  const message='Demo. '+(accident?'Accident ahead. ':'Traffic ahead. '+state.delay+' minute delay. ')+(candidate?'Alternate route saves '+saving+' minutes. Take it?':'No faster matching route available.');
+  if(tripVoice)speak(message,true,p.voiceStyle,()=>{if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});
+ }
+ function scheduleIncident(){
+  if(incidentShown||incidentTimer)return;
+  incidentTimer=setTimeout(function attempt(){
+   if(active()!=='navigation'){incidentTimer=null;return}
+   if(state.panel||state.atStop||window.navueEndTripPending||window.navueSpeechPending){incidentTimer=setTimeout(attempt,1000);return}
+   incidentTimer=null;
+   // Alternate fixtures between trips in this browser session.
+   let count=0;try{count=Number(sessionStorage.getItem('navueIncidentDemoCount'))||0;sessionStorage.setItem('navueIncidentDemoCount',String(count+1))}catch(e){}
+   incidentDemo(count%2?'accident':'traffic');
+  },20000);
  }
  function trafficDemo(){incidentDemo('traffic')}
  function setSpeed(speed,limit,highway,roadId){
@@ -2556,6 +2594,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   box.append(el('p','These controls simulate conditions. Each local-road or highway test represents entering another road. They do not measure your speed or check live traffic.'));
   box.append(button('Simulate accident ahead',()=>incidentDemo('accident')));
   box.append(button('Simulate traffic delay',trafficDemo));
+  box.append(button('Clear incident demo',()=>{closePanel();clearIncident()}));
   box.append(button('Local-road speed reminder',()=>{closePanel();setSpeed(65,50,false,'demo-road-'+(++uid))}));
   box.append(button('Highway speed reminder',()=>{closePanel();setSpeed(115,100,true,'demo-road-'+(++uid))}));
   box.append(button('Speed within limit',()=>{closePanel();setSpeed(48,50,false);notify('Simulated speed is within the limit.')}));
@@ -2575,7 +2614,7 @@ Prototype road split is temporary demo data until live route-segment classificat
  window.chooseRoute=function(route){
   if(route&&!route.simulationPath)route.simulationPath='demo-initial-'+route.id;
   const r=oldChoose.apply(this,arguments);
-  if(active()==='navigation'){if(state.final!==p.destination)reset();render();setTimeout(render,60)}return r;
+  if(active()==='navigation'){if(state.final!==p.destination)reset();render();setTimeout(render,60);scheduleIncident()}return r;
  };
  window.openAlternateRoutes=function(){
   if(state.atStop){notify('Choose Continue trip before requesting another route.');return}
@@ -2585,9 +2624,9 @@ Prototype road split is temporary demo data until live route-segment classificat
  };
  window.finishTrip=function(){reset();return oldFinish.apply(this,arguments)};
  window.show=function(id){
-  if(id!=='navigation')closePanel();
+  if(id!=='navigation'){closePanel();clearTimeout(incidentTimer);incidentTimer=null;incidentOffer=null;traffic.hidden=true}
   const r=oldShow.apply(this,arguments);
-  if(id==='navigation'){if(state.final!==p.destination)reset();render();setTimeout(render,100)}
+  if(id==='navigation'){if(state.final!==p.destination)reset();render();setTimeout(render,100);scheduleIncident()}
   return r;
  };
  function index(t){return ({one:0,first:0,two:1,second:1,three:2,third:2})[t]??(/^[1-3]$/.test(t)?Number(t)-1:-1)}
@@ -2595,6 +2634,12 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(active()!=='navigation')return oldVoice.apply(this,arguments);
   const t=clean(raw).replace(/^please /,'').replace(/ please$/,'');
   if(window.navueEndTripPending)return oldVoice.apply(this,arguments);
+  if(!state.panel&&incidentOffer&&!traffic.hidden){
+   if(/^(yes|yeah|yep|yes please|take it|take that route|confirm)$/.test(t)){answerIncident(true);return}
+   if(/^(no|nope|no thanks|stay|keep my route|cancel)$/.test(t)){answerIncident(false);return}
+  }
+  if(/^(clear demo|clear alert)$/.test(t)){clearIncident();return}
+
   if(/^(close|close search|close stops|cancel|cancel that|never mind|go back|back)$/.test(t)&&state.panel){closePanel();notify('Cancelled. Your route is unchanged.');return}
   if(/^(?:open |show )?(?:road alerts|hazard alerts|hazards alerts)$/.test(t)){openRoadAlerts();return}
   if(state.panel==='road-confirm'){
@@ -2782,4 +2827,13 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
 <style>/* NAVUE_INCIDENT_PREVIEW_V1 */
 #navigation .c3-traffic .c3-incident-source{display:block;font-size:10px;font-weight:700;letter-spacing:.03em;color:#526779;margin-bottom:4px}
 #navigation .c3-traffic{background:white;border:1px solid #d6e3f1;box-shadow:0 3px 12px #183b5a1a}
+</style>
+
+<style>/* NAVUE_AUTOMATIC_INCIDENT_OFFER_V1 */
+#navigation .c3-traffic{top:210px;max-height:calc(100dvh - 350px);overflow:auto;overscroll-behavior:contain;font-size:13px;padding:10px 12px;line-height:1.35}
+#navigation .c3-traffic>strong{display:block;margin:3px 0}
+#navigation .c3-route-preview svg{width:100%;height:58px;display:block}
+#navigation .c3-route-preview small{display:block;font-size:11px;color:#526779}
+#navigation .c3-traffic .c3-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+#navigation .c3-traffic button{flex:1;font-size:12px;min-height:44px;margin:0;padding:7px!important}
 </style>
