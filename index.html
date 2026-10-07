@@ -2555,16 +2555,15 @@ Prototype road split is temporary demo data until live route-segment classificat
   const candidate=candidates.find(r=>r.time<base.time+state.delay);
   const saving=candidate?Math.round(base.time+state.delay-candidate.time):0;
   incidentOffer=candidate?{base,route:{...candidate,id:base.id},saving}:null;
-  traffic.replaceChildren(el('small','DEMO · Simulated route and times','c3-incident-source'),el('strong',accident?'Accident ahead':'Traffic ahead'));
-  traffic.append(el('div','Estimated traffic delay: '+state.delay+' min'));
+  traffic.replaceChildren(el('small','DEMO','c3-incident-source'),el('strong',(accident?'Accident ahead':'Traffic ahead')+' · '+state.delay+' min delay'));
   traffic.setAttribute('role','status');traffic.dataset.scenario=kind;
   if(candidate){
    showComparison(saving);
-   traffic.append(el('strong','Alternate route saves '+saving+' minutes. Take it?'));
+   traffic.append(el('strong','Alternate saves '+saving+' min. Take it?'));
   }else{closeComparison();traffic.append(el('div','No faster matching route available.'))}
   const row=el('div',null,'c3-actions');
-  if(candidate)row.append(button('Yes, take it',()=>answerIncident(true)),button('No, stay',()=>answerIncident(false),'secondary'));
-  row.append(button('Clear demo',clearIncident,'secondary'));traffic.append(row);traffic.hidden=false;render();
+  if(candidate)row.append(button('Yes',()=>answerIncident(true)),button('No',()=>answerIncident(false),'secondary'));
+  if(!candidate)row.append(button('Close',()=>{traffic.hidden=true},'secondary'));traffic.append(row);traffic.hidden=false;render();
   const message='Demo. '+(accident?'Accident ahead. ':'Traffic ahead. '+state.delay+' minute delay. ')+(candidate?'Alternate route saves '+saving+' minutes. Take it?':'No faster matching route available.');
   if(tripVoice)speak(message,true,p.voiceStyle,()=>{if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});
  }
@@ -2860,4 +2859,12 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
 #navigation.c3-route-accepted .c3-map-comparison svg{transform:scale(1.12);transition:transform .55s ease}
 @keyframes c3MapReveal{from{opacity:0;transform:scale(1.06)}to{opacity:1;transform:scale(1)}}
 @media(prefers-reduced-motion:reduce){#navigation .c3-map-comparison,#navigation.c3-route-accepted .c3-map-comparison svg{animation:none;transition:none;transform:none}}
+</style>
+
+<style>/* NAVUE_COMPACT_INCIDENT_COPY_V1 */
+#navigation .c3-traffic{padding:8px 12px;font-size:13px;line-height:1.3;font-weight:700}
+#navigation .c3-traffic>strong{margin:2px 0;font-weight:700}
+#navigation .c3-traffic .c3-incident-source{font-size:9px;line-height:11px;margin:0 0 2px;font-weight:700}
+#navigation .c3-traffic .c3-actions{margin-top:5px;gap:8px}
+#navigation .c3-traffic button{font-size:12px;font-weight:700}
 </style>
