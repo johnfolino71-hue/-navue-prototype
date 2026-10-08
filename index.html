@@ -2413,7 +2413,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   const prior=localReports.find(r=>r.category===id&&r.subtype===key);
   if(prior){prior.lastReportedAt=Date.now();return prior}
   const n=localReports.length;
-  const report={id:'local-report-'+(++uid),category:id,subtype:key,label:reportLabel(id,key,label),source:'navue-demo',reportedAt:Date.now(),lastReportedAt:Date.now(),location:{kind:'simulation',x:50,offsetPx:n%2?23:-23,y:68-(Math.floor(n/2)%6)*8},votes:[]};
+  const report={id:'local-report-'+(++uid),category:id,subtype:key,label:reportLabel(id,key,label),source:'navue-demo',reportedAt:Date.now(),lastReportedAt:Date.now(),location:{kind:'simulation',x:50,offsetPx:n%2?18:-18,y:68-(Math.floor(n/2)%6)*8},votes:[]};
   // These are demonstration map anchors, never real latitude/longitude or GPS readings.
   localReports.push(report);
   const marker=button('',()=>showReportDetails(report),'c3-report-marker');marker.dataset.reportId=report.id;marker.style.left='calc('+report.location.x+'% + '+report.location.offsetPx+'px)';marker.style.top=report.location.y+'%';marker.setAttribute('aria-label',report.label+' — demo report');marker.title=report.label+' · DEMO';marker.append(subIcon(id,key));reportLayer.append(marker);return report;
@@ -3125,11 +3125,11 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
 
 <style>/* NAVUE_REPORT_MARKERS_V1 */
 #navigation .c3-report-layer{position:absolute;inset:0;pointer-events:none;z-index:24}
-#navigation button.c3-report-marker{position:absolute;transform:translate(-50%,-100%);pointer-events:auto;display:grid;place-items:center;width:30px;height:30px;min-height:30px;padding:2px;margin:0;border:1.5px solid #1769e0;border-radius:50%;background:white;box-shadow:0 2px 7px #183b5a30}
+#navigation button.c3-report-marker{position:absolute;transform:translate(-50%,-100%);pointer-events:auto;display:grid;place-items:center;width:26px;height:26px;min-height:26px;padding:1px;margin:0;border:1.5px solid #1769e0;border-radius:50%;background:white;box-shadow:0 2px 7px #183b5a30}
 #navigation .c3-report-marker:after{content:'';position:absolute;top:100%;border:3px solid transparent;border-top-color:#1769e0}
-#navigation .c3-report-marker .c3-alert-icon{width:24px;height:24px;padding:0}
-/* NAVUE_COMPACT_ROUTE_MARKERS_V2: 30px artwork, 44px invisible tap area, 3px route gap. */
-#navigation .c3-report-marker:before{content:"";position:absolute;inset:-7px;border-radius:50%}
+#navigation .c3-report-marker .c3-alert-icon{width:22px;height:22px;padding:0}
+/* NAVUE_COMPACT_ROUTE_MARKERS_V3: 26px marker, 44px invisible tap area, outer edge touches the 10px route. */
+#navigation .c3-report-marker:before{content:"";position:absolute;inset:-9px;border-radius:50%}
 #navigation .c3-report-marker:focus-visible{outline:3px solid #ffc83d;outline-offset:2px}
 #navigation.c3-comparing .c3-report-layer{visibility:hidden}
 #navigation .c3-report-prompt{top:auto;bottom:calc(var(--c3-summary-height,110px) + 12px);z-index:36;max-height:140px}
