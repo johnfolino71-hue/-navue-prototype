@@ -2320,14 +2320,77 @@ Prototype road split is temporary demo data until live route-segment classificat
   alertTypes.forEach(([id,label])=>{const b=button('',()=>previewReport(id),'c3-alert-choice');b.dataset.alert=id;b.setAttribute('aria-label',label);b.append(alertIcon(id),el('span',label,'c3-alert-name'));grid.append(b)});
   box.append(grid);drawerBody.scrollTop=0;refreshDrawer();
  }
- function previewReport(id){
-  const type=alertTypes.find(x=>x[0]===id);if(!type)return;reportChoice=id;
-  const box=shell('Report '+type[1].toLowerCase()+'?','road-confirm');box.querySelector('.c3-label').textContent='SIMULATED · Not shared with other drivers';
-  const visual=el('div',null,'c3-report-preview');visual.append(alertIcon(id),el('strong',type[1]));box.append(visual);
-  if(id==='help')box.append(el('p','Demo only. This does not request roadside or emergency assistance.','c3-label'));
-  const row=el('div',null,'c3-actions');row.append(button('Confirm demo',confirmReport),button('Cancel',()=>{reportChoice=null;closePanel()},'secondary'));box.append(row);drawerBody.scrollTop=0;refreshDrawer();notify('Report '+type[1].toLowerCase()+' in this demo? Say yes or no.');
+ // NAVUE_ROAD_SUBOPTIONS_V1 — NaVue-only simulated reporting, not Google's report panel.
+ const alertOptions={
+  traffic:[['traffic','Traffic'],['heavy','Heavy'],['standstill','Standstill']],
+  police:[['police','Police'],['camera','Mobile camera'],['hidden','Hidden'],['opposite','Other side']],
+  crash:[['crash','Crash'],['pileup','Pile-up'],['opposite','Other side']],
+  hazard:[['hazard','Hazard'],['construction','Construction'],['shoulder','Car on shoulder'],['signal','Broken traffic light'],['pothole','Pothole'],['object','Object']],
+  closure:[['closure','Road closed'],['ramp','Ramp closed']],
+  blocked:[['blocked','Blocked lane'],['left','Left lane'],['center','Centre lane'],['right','Right lane']],
+  map:[['address','Wrong address'],['road','Road issue'],['turn','Turn restriction']],
+  weather:[['weather','Bad weather'],['slippery','Slippery road'],['flood','Flood'],['snow','Unplowed road'],['fog','Fog'],['ice','Icy road']],
+  gas:[['regular','Regular'],['premium','Premium'],['diesel','Diesel']],
+  animal:[['animal','Animal'],['lane','In lane'],['shoulder','On shoulder']],
+  help:[['community','NaVue drivers'],['roadside','Road assistance'],['emergency','Emergency call']]
+ };
+ const subArt={
+  heavy:'<path d="M12 23h42M12 33h42M12 43h42"/>',
+  standstill:'<path d="M24 15v35M42 15v35" stroke-width="9"/>',
+  camera:'<rect x="12" y="13" width="43" height="30" rx="6"/><circle cx="33" cy="28" r="9"/><path d="M33 43v15m0-9-13 9m13-9 13 9"/>',
+  hidden:'<path d="M7 31q26-30 52 0-26 30-52 0z"/><circle cx="33" cy="31" r="8"/><path d="M12 53 54 9" stroke="#ffc83d" stroke-width="6"/>',
+  opposite:'<path d="M23 53V12l-9 9m9-9 9 9M45 12v41l-9-9m9 9 9-9"/>',
+  pileup:'<rect x="7" y="12" width="23" height="18" rx="4"/><rect x="36" y="12" width="23" height="18" rx="4"/><rect x="22" y="36" width="23" height="18" rx="4"/>',
+  construction:'<path d="M12 39a21 21 0 0 1 42 0M8 41h50M27 36V13h12v23"/>',
+  shoulder:'<path d="M20 7v50M37 7v50"/><rect x="45" y="25" width="15" height="23" rx="4" fill="#ffc83d"/>',
+  signal:'<rect x="20" y="7" width="26" height="50" rx="8"/><circle cx="33" cy="18" r="3"/><circle cx="33" cy="32" r="3"/><circle cx="33" cy="46" r="3"/><path d="m45 7 14 14m0-14L45 21" stroke="#ffc83d"/>',
+  pothole:'<ellipse cx="33" cy="43" rx="25" ry="11" fill="#183b5a"/><path d="M33 9v17m0 6v2" stroke="#ffc83d" stroke-width="5"/>',
+  object:'<path d="m13 24 20-10 20 10v24L33 58 13 48zm0 0 20 11 20-11M33 35v23"/>',
+  ramp:'<path d="M20 58V8m0 34 31-25m-10-2h13v14"/><path d="m39 37 17 17m0-17L39 54" stroke="#ffc83d"/>',
+  left:'<path d="M16 8v48M50 8v48M33 8v48" stroke-dasharray="6 5"/><path d="M10 31h14" stroke="#ffc83d" stroke-width="9"/>',
+  center:'<path d="M16 8v48M50 8v48M33 8v48" stroke-dasharray="6 5"/><path d="M26 31h14" stroke="#ffc83d" stroke-width="9"/>',
+  right:'<path d="M16 8v48M50 8v48M33 8v48" stroke-dasharray="6 5"/><path d="M43 31h14" stroke="#ffc83d" stroke-width="9"/>',
+  address:'<path d="m9 30 24-20 24 20M16 25v30h34V25M28 55V38h11v17"/>',
+  road:'<path d="m11 57 10-48m35 48L46 9M33 10v9m0 9v9m0 9v9"/>',
+  turn:'<path d="M20 56V29q0-12 12-12h20m-9-9 9 9-9 9"/><path d="m12 8 44 48" stroke="#ffc83d"/>',
+  slippery:'<rect x="18" y="8" width="31" height="23" rx="7"/><path d="M23 32q-15 7 0 13t0 14M43 32q-15 7 0 13t0 14"/>',
+  flood:'<path d="M7 35q7-10 14 0t14 0 14 0 14 0M7 49q7-10 14 0t14 0 14 0 14 0M18 24V12h30v12"/>',
+  snow:'<path d="M33 7v36M17 16l32 20M49 16 17 36M6 56q10-19 20-8 8-21 20-5 13-5 15 13"/>',
+  fog:'<path d="M9 22h48M17 33h41M6 44h44" stroke-width="6"/>',
+  ice:'<path d="M33 7v50M11 19l44 26M11 45l44-26M26 10l7 7 7-7M26 54l7-7 7 7"/>',
+  lane:'<path d="M12 7v50M54 7v50M33 7v10m0 30v10"/><circle cx="33" cy="33" r="10" fill="#ffc83d"/>',
+  community:'<circle cx="23" cy="20" r="9"/><circle cx="47" cy="24" r="7"/><path d="M7 54V44q16-20 32 0v10m3-17q16-7 17 10v7"/>',
+  roadside:'<path d="M8 34h31V19h11l10 15v14H8zM39 34h21"/><circle cx="19" cy="50" r="6"/><circle cx="50" cy="50" r="6"/><path d="M13 30V12h19v10"/>',
+  emergency:'<path d="M25 10h16v15h15v16H41v15H25V41H10V25h15z" fill="#ffc83d"/>'
+ };
+ function subIcon(id,key){
+  if(!subArt[key])return alertIcon(id);
+  const wrap=el('span',null,'c3-alert-icon');
+  wrap.innerHTML='<svg viewBox="0 0 68 64" aria-hidden="true"><g fill="none" stroke="#1769e0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">'+subArt[key]+'</g></svg>';return wrap;
  }
- function confirmReport(){if(state.panel!=='road-confirm'||!reportChoice)return;const label=alertTypes.find(x=>x[0]===reportChoice)[1];reportChoice=null;closePanel();notify(label+' demo confirmed. Not shared with other drivers.')}
+ let reportSub=null;
+ function previewReport(id){
+  const type=alertTypes.find(x=>x[0]===id);if(!type)return;reportChoice=id;reportSub=alertOptions[id][0][0];
+  const box=shell(type[1],'road-suboptions');box.classList.remove('c3-sub-enter');void box.offsetWidth;box.classList.add('c3-sub-enter');
+  box.querySelector('.c3-panel-head button').onclick=openRoadAlerts;
+  box.querySelector('.c3-label').textContent='DEMO · Not shared';
+  const grid=el('div',null,'c3-alert-grid');grid.setAttribute('role','group');grid.setAttribute('aria-label',type[1]+' options');
+  alertOptions[id].forEach(([key,label])=>{const b=button('',()=>selectReportSub(key),'c3-alert-choice');b.dataset.suboption=key;b.setAttribute('aria-pressed',String(key===reportSub));b.append(subIcon(id,key),el('span',label,'c3-alert-name'));grid.append(b)});box.append(grid);
+  const special={map:'Demo feedback only. Not sent to Google.',gas:'Price reporting is not connected.',help:'Demo only. No call or assistance request is made.'};
+  if(special[id])box.append(el('p',special[id],'c3-label'));
+  const row=el('div',null,'c3-actions');row.append(button(id==='help'?'Preview request':id==='map'?'Preview feedback':id==='gas'?'Preview price':'Report',confirmReport),button('Cancel',()=>{reportChoice=null;reportSub=null;closePanel()},'secondary'));box.append(row);drawerBody.scrollTop=0;refreshDrawer();
+  notify(type[1]+'. Choose an option, then say report or cancel.');
+ }
+ function selectReportSub(key){
+  if(!reportChoice||!alertOptions[reportChoice].some(x=>x[0]===key))return;reportSub=key;
+  panel.querySelectorAll('[data-suboption]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.suboption===key)));
+ }
+ function confirmReport(){
+  if(state.panel!=='road-suboptions'||!reportChoice||!reportSub)return;
+  const label=alertOptions[reportChoice].find(x=>x[0]===reportSub)[1],id=reportChoice;
+  reportChoice=null;reportSub=null;panel.classList.remove('c3-sub-enter');closePanel();
+  notify(id==='help'?label+' demo only. No assistance requested.':id==='map'?label+' demo preview. Feedback not sent.':id==='gas'?label+' selected. Price reporting is not connected.':label+' demo confirmed. Not shared with other drivers.');
+ }
  const testingButton=button('Navigation demo controls',()=>{if(!p.selectedRoute){alert('Start a simulated trip first.');return}window.show('navigation');openDemos()},'secondary');
  const testingTitle=Array.from(document.querySelectorAll('#preferences .pref-title')).find(e=>e.textContent==='Prototype Testing');
  if(testingTitle)testingTitle.after(testingButton);
@@ -2387,6 +2450,7 @@ Prototype road split is temporary demo data until live route-segment classificat
  }
  function closePanel(){state.suggestion=null;panel.hidden=true;panel.replaceChildren();state.panel='';state.candidate=null;state.results=[];overview.hidden=false;collapseDrawer();}
  function shell(title,kind){
+  panel.classList.remove('c3-sub-enter');
   state.suggestion=null;state.panel=kind;overview.hidden=true;expandDrawer();panel.hidden=false;panel.replaceChildren();
   const h=el('div',null,'c3-panel-head');h.append(el('h2',title),button('Back',()=>{panel.hidden=true;panel.replaceChildren();state.panel='';state.candidate=null;state.results=[];overview.hidden=false;expandDrawer()}));panel.append(h,el('p','SIMULATED · Fictional places and estimates','c3-label'));
   panel.scrollTop=0;return panel;
@@ -2651,14 +2715,24 @@ Prototype road split is temporary demo data until live route-segment classificat
 
   if(/^(close|close search|close stops|cancel|cancel that|never mind|go back|back)$/.test(t)&&state.panel){closePanel();notify('Cancelled. Your route is unchanged.');return}
   if(/^(?:open |show )?(?:road alerts|hazard alerts|hazards alerts)$/.test(t)){openRoadAlerts();return}
-  if(state.panel==='road-confirm'){
-   if(/^(yes|yeah|yep|confirm|confirm demo|yes please)$/.test(t)){confirmReport();return}
+  if(state.panel==='road-suboptions'){
+   if(/^(yes|yeah|yep|confirm|confirm demo|yes please|report|send|preview request|preview feedback|preview price)$/.test(t)){confirmReport();return}
    if(/^(no|nope|no thanks)$/.test(t)){reportChoice=null;closePanel();return}
   }
   if(/^(correction|correct that|wrong search|thats wrong)$/.test(t)&&/^road-/.test(state.panel)){openRoadAlerts();return}
+  if(state.panel==='road-suboptions'&&reportChoice){
+   const words=t.replace(/^(?:select |choose |report )(?:the )?/,'');
+   const aliases={'center lane':'Centre lane','on the shoulder':reportChoice==='animal'?'On shoulder':'Car on shoulder','in the lane':'In lane','pile up':'Pile-up','camera':'Mobile camera'};
+   const sub=alertOptions[reportChoice].find(x=>clean(x[1])===words||x[0]===words||x[1]===aliases[words]);
+   if(sub){selectReportSub(sub[0]);notify(sub[1]+'. Say report or cancel.');return}
+  }
   const reportText=t.replace(/^report (?:a |an )?/,'');
-  const reportType=alertTypes.find(([id,label])=>clean(label)===reportText||({accident:'crash',construction:'closure',rain:'weather','road hazard':'hazard','road closure':'closure','lane closure':'blocked'})[reportText]===id);
-  if(reportType&&(state.panel==='road-alerts'||state.panel==='road-confirm'||/^report /.test(t))){previewReport(reportType[0]);return}
+  if(/^report /.test(t)){
+   const direct={construction:['hazard','construction'],pothole:['hazard','pothole'],'mobile camera':['police','camera'],'hidden police':['police','hidden'],'left lane':['blocked','left'],'right lane':['blocked','right'],'centre lane':['blocked','center'],'center lane':['blocked','center'],flood:['weather','flood'],fog:['weather','fog'],'icy road':['weather','ice'],'slippery road':['weather','slippery']};
+   if(direct[reportText]){const [category,key]=direct[reportText];previewReport(category);selectReportSub(key);return}
+  }
+  const reportType=alertTypes.find(([id,label])=>clean(label)===reportText||({accident:'crash',construction:'hazard',rain:'weather','road hazard':'hazard','road closure':'closure','lane closure':'blocked'})[reportText]===id);
+  if(reportType&&(state.panel==='road-alerts'||state.panel==='road-suboptions'||/^report /.test(t))){previewReport(reportType[0]);return}
   if(/^(correction|correct that|wrong search|thats wrong)$/.test(t)&&state.panel){openSearch();return}
   if(state.panel==='search-clarify'){
    if(/^(yes|yeah|yep|correct|yes please|thats right)$/.test(t)){const query=state.suggestion;search(query);return}
@@ -2776,6 +2850,12 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
 #navigation .c3-road-launcher .c3-alert-icon{width:36px;height:36px;background:none;padding:0}
 #navigation .c3-alert-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px 6px;padding:3px 0 8px}
 #navigation .c3-drawer-body button.c3-alert-choice{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;margin:0;padding:5px 2px!important;min-height:76px;background:white;color:#183b5a;border-radius:12px;font-size:11px;line-height:14px}
+/* NAVUE_ROAD_SUBOPTIONS_V1 */
+#navigation .c3-alert-choice[aria-pressed="true"]{background:#e6f0ff;box-shadow:inset 0 0 0 2px #1769e0}
+#navigation .c3-alert-choice[aria-pressed="true"] .c3-alert-name{font-weight:750}
+#navigation .c3-panel.c3-sub-enter{animation:c3-sub-rise .2s ease-out}
+@keyframes c3-sub-rise{from{transform:translateY(20px);opacity:.5}to{transform:translateY(0);opacity:1}}
+@media(prefers-reduced-motion:reduce){#navigation .c3-panel.c3-sub-enter{animation:none}}
 #navigation .c3-alert-choice:active{background:#edf5ff}
 #navigation .c3-alert-choice:focus-visible,#navigation .c3-road-launcher:focus-visible{outline:3px solid #1769e0;outline-offset:2px}
 #navigation .c3-report-preview{display:flex;align-items:center;gap:12px;margin:14px 0;color:#183b5a}
