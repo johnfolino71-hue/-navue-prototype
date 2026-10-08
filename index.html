@@ -2334,39 +2334,49 @@ Prototype road split is temporary demo data until live route-segment classificat
   animal:[['animal','Animal'],['lane','In lane'],['shoulder','On shoulder']],
   help:[['community','NaVue drivers'],['roadside','Road assistance'],['emergency','Emergency call']]
  };
+ // NAVUE_SUBOPTION_ILLUSTRATIONS_C_V2 — approved flat illustrated Option C palette.
+ const blue='#1769e0',navy='#183b5a',yellow='#ffc83d';
+ const carC='<path d="M8 29l5-12q2-4 7-4h23q5 0 7 4l5 12q6 2 6 8v13H3V37q0-6 5-8z" fill="#1769e0"/><path d="m18 18-5 12h36l-5-12z" fill="white" stroke="none"/><rect x="7" y="47" width="10" height="11" rx="4" fill="#183b5a"/><rect x="47" y="47" width="10" height="11" rx="4" fill="#183b5a"/><circle cx="14" cy="39" r="4" fill="white" stroke="none"/><circle cx="50" cy="39" r="4" fill="white" stroke="none"/>';
+ const miniCar=(x,y,k=1)=>'<g transform="translate('+x+' '+y+') scale('+k+')">'+carC+'</g>';
+ const roadC='<path d="M19 6h31l15 52H4z" fill="#183b5a"/><path d="m34 11 1 10m1 9 1 10m1 9 1 6" stroke="white" stroke-width="3"/>';
+ const coneC='<path d="m24 13-9 32h26l-9-32z" fill="#ffc83d"/><path d="M20 28h16l2 7H18z" fill="white" stroke="none"/><rect x="11" y="44" width="34" height="7" rx="3" fill="#1769e0"/>';
+ const laneC=x=>roadC+'<g transform="translate('+x+' 16) scale(.6)">'+coneC+'</g>';
+ const snowflakeC='<path d="M50 7v25M39 13l22 13M39 26l22-13m-16-5 5 5 5-5m-10 23 5-5 5 5" fill="none" stroke="#ffc83d" stroke-width="3"/>';
+ const wavesC='<path d="M3 38q8-7 16 0t16 0 16 0 16 0v9q-8-7-16 0t-16 0-16 0-16 0zM3 53q8-7 16 0t16 0 16 0 16 0v7H3z" fill="#2998f5" stroke="white" stroke-width="2"/>';
  const subArt={
-  heavy:'<path d="M12 23h42M12 33h42M12 43h42"/>',
-  standstill:'<path d="M24 15v35M42 15v35" stroke-width="9"/>',
-  camera:'<rect x="12" y="13" width="43" height="30" rx="6"/><circle cx="33" cy="28" r="9"/><path d="M33 43v15m0-9-13 9m13-9 13 9"/>',
-  hidden:'<path d="M7 31q26-30 52 0-26 30-52 0z"/><circle cx="33" cy="31" r="8"/><path d="M12 53 54 9" stroke="#ffc83d" stroke-width="6"/>',
-  opposite:'<path d="M23 53V12l-9 9m9-9 9 9M45 12v41l-9-9m9 9 9-9"/>',
-  pileup:'<rect x="7" y="12" width="23" height="18" rx="4"/><rect x="36" y="12" width="23" height="18" rx="4"/><rect x="22" y="36" width="23" height="18" rx="4"/>',
-  construction:'<path d="M12 39a21 21 0 0 1 42 0M8 41h50M27 36V13h12v23"/>',
-  shoulder:'<path d="M20 7v50M37 7v50"/><rect x="45" y="25" width="15" height="23" rx="4" fill="#ffc83d"/>',
-  signal:'<rect x="20" y="7" width="26" height="50" rx="8"/><circle cx="33" cy="18" r="3"/><circle cx="33" cy="32" r="3"/><circle cx="33" cy="46" r="3"/><path d="m45 7 14 14m0-14L45 21" stroke="#ffc83d"/>',
-  pothole:'<ellipse cx="33" cy="43" rx="25" ry="11" fill="#183b5a"/><path d="M33 9v17m0 6v2" stroke="#ffc83d" stroke-width="5"/>',
-  object:'<path d="m13 24 20-10 20 10v24L33 58 13 48zm0 0 20 11 20-11M33 35v23"/>',
-  ramp:'<path d="M20 58V8m0 34 31-25m-10-2h13v14"/><path d="m39 37 17 17m0-17L39 54" stroke="#ffc83d"/>',
-  left:'<path d="M16 8v48M50 8v48M33 8v48" stroke-dasharray="6 5"/><path d="M10 31h14" stroke="#ffc83d" stroke-width="9"/>',
-  center:'<path d="M16 8v48M50 8v48M33 8v48" stroke-dasharray="6 5"/><path d="M26 31h14" stroke="#ffc83d" stroke-width="9"/>',
-  right:'<path d="M16 8v48M50 8v48M33 8v48" stroke-dasharray="6 5"/><path d="M43 31h14" stroke="#ffc83d" stroke-width="9"/>',
-  address:'<path d="m9 30 24-20 24 20M16 25v30h34V25M28 55V38h11v17"/>',
-  road:'<path d="m11 57 10-48m35 48L46 9M33 10v9m0 9v9m0 9v9"/>',
-  turn:'<path d="M20 56V29q0-12 12-12h20m-9-9 9 9-9 9"/><path d="m12 8 44 48" stroke="#ffc83d"/>',
-  slippery:'<rect x="18" y="8" width="31" height="23" rx="7"/><path d="M23 32q-15 7 0 13t0 14M43 32q-15 7 0 13t0 14"/>',
-  flood:'<path d="M7 35q7-10 14 0t14 0 14 0 14 0M7 49q7-10 14 0t14 0 14 0 14 0M18 24V12h30v12"/>',
-  snow:'<path d="M33 7v36M17 16l32 20M49 16 17 36M6 56q10-19 20-8 8-21 20-5 13-5 15 13"/>',
-  fog:'<path d="M9 22h48M17 33h41M6 44h44" stroke-width="6"/>',
-  ice:'<path d="M33 7v50M11 19l44 26M11 45l44-26M26 10l7 7 7-7M26 54l7-7 7 7"/>',
-  lane:'<path d="M12 7v50M54 7v50M33 7v10m0 30v10"/><circle cx="33" cy="33" r="10" fill="#ffc83d"/>',
-  community:'<circle cx="23" cy="20" r="9"/><circle cx="47" cy="24" r="7"/><path d="M7 54V44q16-20 32 0v10m3-17q16-7 17 10v7"/>',
-  roadside:'<path d="M8 34h31V19h11l10 15v14H8zM39 34h21"/><circle cx="19" cy="50" r="6"/><circle cx="50" cy="50" r="6"/><path d="M13 30V12h19v10"/>',
-  emergency:'<path d="M25 10h16v15h15v16H41v15H25V41H10V25h15z" fill="#ffc83d"/>'
+  heavy:miniCar(28,-1,.6)+miniCar(14,13,.65)+miniCar(0,28,.65),
+  standstill:miniCar(0,23,.55)+miniCar(32,23,.55)+'<path d="M27 5v16m11-16v16" stroke="#ffc83d" stroke-width="6"/>',
+  pileup:miniCar(30,0,.55)+miniCar(1,26,.57)+miniCar(31,29,.56)+'<path d="m19 26-7-12 11 4 5-13 5 15 10-4-6 12" fill="#ffc83d" stroke="none"/>',
+  camera:'<path d="M33 37v21m0-16L19 59m14-17 14 17" stroke-width="5"/><rect x="17" y="8" width="22" height="8" rx="3" fill="#183b5a"/><rect x="9" y="14" width="45" height="29" rx="4" fill="#1769e0"/><circle cx="32" cy="28" r="10" fill="#183b5a" stroke="white"/><rect x="44" y="19" width="6" height="4" rx="1" fill="white" stroke="none"/><path d="m59 13 5-4m-6 14h7m-6 9 5 4" stroke="#ffc83d" stroke-width="4"/>',
+  hidden:'<path d="m12 20 22-12 22 12-6 15H18z" fill="#1769e0"/><path d="M17 33h34v9H17z" fill="#183b5a"/><path d="M20 33h28" stroke="white"/><path d="m34 15 3 6 7 1-5 5 1 6-6-3-6 3 1-6-5-5 7-1z" fill="#ffc83d" stroke="none"/><path d="M5 58V47q0-11 9-7 3-16 13-5 12-8 17 2 12-7 16 4 9-1 5 17z" fill="#1769e0"/>',
+  opposite:roadC+'<path d="M21 45V20l-5 6m5-6 5 6M48 21v25l-5-6m5 6 5-6" stroke="#ffc83d" stroke-width="4"/>',
+  construction:'<path d="M29 24v27m29-27v27" stroke-width="5"/><rect x="22" y="16" width="42" height="18" rx="3" fill="#1769e0"/><path d="m26 31 11-12m4 12 11-12m4 12 5-6" stroke="white" stroke-width="5"/><circle cx="28" cy="9" r="4" fill="#ffc83d"/><circle cx="57" cy="9" r="4" fill="#ffc83d"/><path d="M7 48q0-23 17-23t18 23l6 4q-20 13-44 0z" fill="#ffc83d"/><path d="m21 27 4 19m-12-7 3 10"/>',
+  shoulder:'<path d="m48 5-10 54h28L59 5z" fill="#183b5a"/><path d="M52 10v9m0 7v9m0 7v9" stroke="white"/>'+miniCar(0,18,.64),
+  signal:'<rect x="16" y="5" width="26" height="49" rx="9" fill="#183b5a"/><path d="M29 54v7" stroke-width="5"/><circle cx="29" cy="16" r="6" fill="#ef5350" stroke="none"/><circle cx="29" cy="30" r="6" fill="#ffc83d" stroke="none"/><circle cx="29" cy="44" r="6" fill="#29a5a0" stroke="none"/><path d="m49 22 13 14m0-14L49 36" stroke="#ffc83d" stroke-width="6"/>',
+  pothole:'<path d="M7 39q-5-7 9-9 1-5 15-3 9-4 14 1 18-2 14 6 14 5 0 10 0 7-16 7-12 6-22 0-21 0-14-12z" fill="#183b5a"/><ellipse cx="8" cy="53" rx="4" ry="2" fill="#183b5a"/><ellipse cx="60" cy="52" rx="4" ry="2" fill="#183b5a"/><path d="M33 6v12m-17-7 5 9m24-1 7-9" stroke="#ffc83d" stroke-width="4"/>',
+  object:roadC+'<path d="m17 26 28 5 6-7 5 3-4 7 9 2v16L15 44z" fill="#1769e0"/><ellipse cx="15" cy="35" rx="9" ry="12" fill="#ffc83d"/><ellipse cx="15" cy="35" rx="4" ry="7" fill="none" stroke="white" stroke-width="2"/><path d="m30 35 10 2m5 7 10 2"/>',
+  left:laneC(0),center:laneC(18),right:laneC(35),
+  ramp:roadC+'<path d="M24 51q0-18 27-28m-9-4 13 2-3 12" stroke="#1769e0" stroke-width="7"/><path d="m43 34 17 17m0-17L43 51" stroke="#ffc83d" stroke-width="4"/>',
+  address:'<path d="m6 28 27-21 28 21" fill="#1769e0"/><path d="M13 27v31h40V27L33 12z" fill="#1769e0"/><rect x="20" y="30" width="10" height="10" fill="white" stroke="none"/><path d="M36 58V37h11v21" fill="white"/><circle cx="54" cy="17" r="10" fill="#ffc83d"/><path d="m50 13 8 8m0-8-8 8"/>',
+  road:roadC+'<path d="m34 24-8 6 12 6-9 8" stroke="#ffc83d" stroke-width="5"/>',
+  turn:'<path d="M16 55V32q0-15 15-15h18m-9-9 10 9-10 9" fill="none" stroke="#1769e0" stroke-width="9"/><path d="m13 8 43 46" stroke="#ffc83d" stroke-width="6"/>',
+  slippery:'<g transform="translate(10 -2) rotate(8 28 24) scale(.72)">'+carC+'</g><path d="M23 43q22 5 0 10t1 9m19-19q22 5 0 10t1 9" fill="none" stroke-width="4"/>',
+  flood:miniCar(12,1,.7)+wavesC,
+  snow:roadC+'<path d="M5 55q4-16 16-7 3-17 15-7 6-7 13 4 12-3 15 10z" fill="white" stroke="#b6dafa"/>'+snowflakeC,
+  fog:miniCar(10,0,.73)+'<path d="M4 37h58M10 46h51M4 55h49" stroke="#9fbed8" stroke-width="5"/>',
+  ice:roadC+'<path d="M12 43q7-10 20-5 16-3 22 6l-5 8H20z" fill="#b6e3ff" stroke="none"/>'+snowflakeC,
+  lane:roadC+'<g transform="translate(12 14) scale(.65)">'+alertArt.animal+'</g>',
+  community:'<circle cx="23" cy="20" r="10" fill="#ffc83d"/><circle cx="49" cy="23" r="8" fill="#ffc83d"/><path d="M38 55V43q10-18 24 0v12z" fill="#1769e0"/><path d="M5 55V43q18-22 36 0v12z" fill="#1769e0"/>',
+  roadside:'<path d="M5 33h32V19h13l12 16v16H5z" fill="#1769e0"/><path d="M43 24h5l8 11H43z" fill="white" stroke="none"/><circle cx="17" cy="52" r="7" fill="#183b5a"/><circle cx="51" cy="52" r="7" fill="#183b5a"/><path d="M13 31V11h19v10l-5 5" fill="none" stroke-width="5"/><path d="M10 41h18" stroke="#ffc83d" stroke-width="4"/>',
+  emergency:'<path d="M17 11q-9 0-9 10 4 28 31 36 12 2 15-8l-13-9-8 6q-14-7-16-19l7-6z" fill="#1769e0"/><path d="M45 5v24M33 17h24" stroke="#ffc83d" stroke-width="7"/>'
  };
  function subIcon(id,key){
-  if(!subArt[key])return alertIcon(id);
+  let art=subArt[key];
+  if(id==='animal'&&key==='shoulder')art=roadC+'<g transform="translate(37 21) scale(.46)">'+alertArt.animal+'</g>';
+  if(id==='gas')art=alertArt.gas+'<rect x="40" y="39" width="24" height="21" rx="5" fill="#183b5a"/><text x="52" y="54" text-anchor="middle" fill="white" stroke="none" font-size="14" font-weight="800">'+({regular:'R',premium:'P',diesel:'D'})[key]+'</text>';
+  if(!art)return alertIcon(id);
   const wrap=el('span',null,'c3-alert-icon');
-  wrap.innerHTML='<svg viewBox="0 0 68 64" aria-hidden="true"><g fill="none" stroke="#1769e0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">'+subArt[key]+'</g></svg>';return wrap;
+  wrap.innerHTML='<svg viewBox="0 0 68 64" aria-hidden="true"><g fill="none" stroke="#183b5a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'+art+'</g></svg>';return wrap;
  }
  let reportSub=null;
  function previewReport(id){
