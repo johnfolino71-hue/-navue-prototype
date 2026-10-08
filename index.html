@@ -2395,9 +2395,58 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(!reportChoice||!alertOptions[reportChoice].some(x=>x[0]===key))return;reportSub=key;
   panel.querySelectorAll('[data-suboption]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.suboption===key)));
  }
+ // NAVUE_REPORT_MARKERS_V1 — local map coordinates and explicit second-driver simulation only.
+ const localReports=[];let approachTimer=null,approachExpiry=null,activeReport=null,approachRun=0;
+ const reportLayer=el('div',null,'c3-report-layer');nav.querySelector('.nav-map').append(reportLayer);
+ const reportPrompt=el('section',null,'c3-traffic c3-report-prompt');reportPrompt.hidden=true;reportPrompt.setAttribute('aria-label','Reported hazard ahead');reportPrompt.setAttribute('role','status');nav.append(reportPrompt);
+ function reportLabel(id,key,label){
+  if(id==='police')return key==='hidden'?'Hidden police':key==='opposite'?'Police on other side':label;
+  if(id==='blocked')return key==='blocked'?label:label+' blocked';
+  if(id==='crash'&&key==='opposite')return 'Crash on other side';
+  if(id==='animal')return key==='lane'?'Animal in lane':key==='shoulder'?'Animal on shoulder':label;
+  return label;
+ }
+ function dismissReportPrompt(){clearTimeout(approachTimer);clearTimeout(approachExpiry);approachTimer=null;activeReport=null;reportPrompt.hidden=true;reportPrompt.replaceChildren()}
+ function clearReportMarkers(){dismissReportPrompt();localReports.length=0;reportLayer.replaceChildren()}
+ function addReportMarker(id,key,label){
+  if(['map','gas','help'].includes(id))return; // feedback/prices/help are not confirmed hazard reports
+  const prior=localReports.find(r=>r.category===id&&r.subtype===key);
+  if(prior){prior.lastReportedAt=Date.now();return prior}
+  const n=localReports.length;
+  const report={id:'local-report-'+(++uid),category:id,subtype:key,label:reportLabel(id,key,label),source:'navue-demo',reportedAt:Date.now(),lastReportedAt:Date.now(),location:{kind:'simulation',x:50+(n%3-1)*15,y:68-(Math.floor(n/3)%6)*8},votes:[]};
+  // These are demonstration map anchors, never real latitude/longitude or GPS readings.
+  localReports.push(report);
+  const marker=button('',()=>showReportDetails(report),'c3-report-marker');marker.dataset.reportId=report.id;marker.style.left=report.location.x+'%';marker.style.top=report.location.y+'%';marker.setAttribute('aria-label',report.label+' — demo report');marker.title=report.label+' · DEMO';marker.append(subIcon(id,key));reportLayer.append(marker);return report;
+ }
+ function showReportDetails(report){
+  dismissReportPrompt();const box=shell(report.label,'report-details');box.querySelector('.c3-label').textContent='DEMO · Your report · Not shared';
+  const visual=el('div',null,'c3-report-preview');visual.append(subIcon(report.category,report.subtype),el('strong',report.label));box.append(visual);
+  box.append(button('Simulate another driver approaching',()=>simulateReportApproach(report)),button('Close',closePanel,'secondary'));drawerBody.scrollTop=0;refreshDrawer();
+ }
+ function simulateReportApproach(report=localReports[localReports.length-1]){
+  if(!report){notify('Report an alert first.');return}
+  dismissReportPrompt();closePanel();const run=++approachRun;
+  notify('Demo: another driver approaching.');
+  approachTimer=setTimeout(function attempt(){
+   if(active()!=='navigation')return;
+   if(state.panel||!traffic.hidden||window.navueEndTripPending||window.navueSpeechPending){approachTimer=setTimeout(attempt,500);return}
+   approachTimer=null;status.hidden=true;activeReport={report,run};
+   reportPrompt.replaceChildren(el('small','DEMO · Approaching driver','c3-incident-source'),el('strong',report.label+' ahead'));
+   const row=el('div',null,'c3-actions');row.append(button('Still there',()=>voteReport(true)),button('Not there',()=>voteReport(false),'secondary'));reportPrompt.append(row);reportPrompt.hidden=false;
+   const expire=()=>{if(!activeReport||activeReport.run!==run)return;clearTimeout(approachExpiry);approachExpiry=setTimeout(()=>dismissReportPrompt(),12000)};expire();
+   if(tripVoice)speak('Demo. '+report.label+' ahead. Still there or not there?',true,p.voiceStyle,()=>{expire();if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});else expire();
+  },2000);
+ }
+ function voteReport(present){
+  if(!activeReport)return;const {report,run}=activeReport;
+  if(!report.votes.some(v=>v.driver===run))report.votes.push({driver:run,present,at:Date.now(),simulated:true});
+  dismissReportPrompt();notify(present?'Demo: still there recorded.':'Demo: not there recorded. Awaiting more confirmation.');
+  // One negative vote and silence never remove a marker; production lifecycle needs the shared service.
+ }
  function confirmReport(){
   if(state.panel!=='road-suboptions'||!reportChoice||!reportSub)return;
   const label=alertOptions[reportChoice].find(x=>x[0]===reportSub)[1],id=reportChoice;
+  addReportMarker(id,reportSub,label);
   reportChoice=null;reportSub=null;panel.classList.remove('c3-sub-enter');closePanel();
   notify(id==='help'?label+' demo only. No assistance requested.':id==='map'?label+' demo preview. Feedback not sent.':id==='gas'?label+' selected. Price reporting is not connected.':label+' demo confirmed. Not shared with other drivers.');
  }
@@ -2460,12 +2509,14 @@ Prototype road split is temporary demo data until live route-segment classificat
  }
  function closePanel(){state.suggestion=null;panel.hidden=true;panel.replaceChildren();state.panel='';state.candidate=null;state.results=[];overview.hidden=false;collapseDrawer();}
  function shell(title,kind){
+  dismissReportPrompt();
   panel.classList.remove('c3-sub-enter');
   state.suggestion=null;state.panel=kind;overview.hidden=true;expandDrawer();panel.hidden=false;panel.replaceChildren();
   const h=el('div',null,'c3-panel-head');h.append(el('h2',title),button('Back',()=>{panel.hidden=true;panel.replaceChildren();state.panel='';state.candidate=null;state.results=[];overview.hidden=false;expandDrawer()}));panel.append(h,el('p','SIMULATED · Fictional places and estimates','c3-label'));
   panel.scrollTop=0;return panel;
  }
  function reset(){
+  clearReportMarkers();
   clearTimeout(incidentTimer);incidentShown=false;incidentOffer=null;closeComparison();
   state.final=p.destination||'';state.stops=[];state.atStop=false;state.delay=0;state.speed=null;state.limit=null;state.roadId=null;state.alerted=false;clearTimeout(limitBadgeTimer);limitSign.hidden=true;
   closePanel();document.getElementById('navue3cRouteNote')?.remove();status.hidden=true;traffic.hidden=true;render();
@@ -2603,7 +2654,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   state.stops.shift();state.atStop=false;render();closePanel();notify('Continuing to '+(state.stops[0]?.name||state.final)+'.');
  }
  // NAVUE_INCIDENT_PREVIEW_V1: explicit local fixtures, never Google reports.
- // Custom report sharing/sub-options are paused pending the native Google trial.
+ // Custom report sharing remains disconnected; local reporting previews are separate.
  // NAVUE_AUTOMATIC_INCIDENT_OFFER_V1 — timed fixtures, not real detection.
  function clearIncident(){
   clearTimeout(incidentTimer);incidentShown=true;incidentOffer=null;closeComparison();
@@ -2620,6 +2671,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   window.chooseRoute(offer.route,false);render();acceptComparison();
  }
  function incidentDemo(kind){
+  dismissReportPrompt();
   if(!p.selectedRoute||active()!=='navigation')return;
   clearTimeout(incidentTimer);incidentShown=true;
   const accident=kind==='accident',base=p.selectedRoute;
@@ -2645,7 +2697,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(incidentShown||incidentTimer)return;
   incidentTimer=setTimeout(function attempt(){
    if(active()!=='navigation'){incidentTimer=null;return}
-   if(state.panel||state.atStop||window.navueEndTripPending||window.navueSpeechPending){incidentTimer=setTimeout(attempt,1000);return}
+   if(state.panel||state.atStop||activeReport||approachTimer||window.navueEndTripPending||window.navueSpeechPending){incidentTimer=setTimeout(attempt,1000);return}
    incidentTimer=null;
    // Alternate fixtures between trips in this browser session.
    let count=0;try{count=Number(sessionStorage.getItem('navueIncidentDemoCount'))||0;sessionStorage.setItem('navueIncidentDemoCount',String(count+1))}catch(e){}
@@ -2675,6 +2727,8 @@ Prototype road split is temporary demo data until live route-segment classificat
  function openDemos(){
   state.candidate=null;const box=shell('Prototype testing','demos');
   box.append(el('p','These controls simulate conditions. Each local-road or highway test represents entering another road. They do not measure your speed or check live traffic.'));
+  box.append(button('Simulate approaching reported alert',()=>simulateReportApproach()));
+  box.append(button('Clear reported markers',()=>{closePanel();clearReportMarkers()}));
   box.append(button('Simulate accident ahead',()=>incidentDemo('accident')));
   box.append(button('Simulate traffic delay',trafficDemo));
   box.append(button('Clear incident demo',()=>{closePanel();clearIncident()}));
@@ -2707,7 +2761,7 @@ Prototype road split is temporary demo data until live route-segment classificat
  };
  window.finishTrip=function(){reset();return oldFinish.apply(this,arguments)};
  window.show=function(id){
-  if(id!=='navigation'){closePanel();clearTimeout(incidentTimer);incidentTimer=null;incidentOffer=null;traffic.hidden=true;closeComparison()}
+  if(id!=='navigation'){dismissReportPrompt();closePanel();clearTimeout(incidentTimer);incidentTimer=null;incidentOffer=null;traffic.hidden=true;closeComparison()}
   const r=oldShow.apply(this,arguments);
   if(id==='navigation'){if(state.final!==p.destination)reset();render();setTimeout(render,100);scheduleIncident()}
   return r;
@@ -2717,6 +2771,12 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(active()!=='navigation')return oldVoice.apply(this,arguments);
   const t=clean(raw).replace(/^please /,'').replace(/ please$/,'');
   if(window.navueEndTripPending)return oldVoice.apply(this,arguments);
+  if(activeReport&&!reportPrompt.hidden){
+   if(/^(still there|yes|yes still there|its still there|it is still there)$/.test(t)){voteReport(true);return}
+   if(/^(not there|no|gone|its gone|it is gone|no longer there)$/.test(t)){voteReport(false);return}
+   if(/^(close|cancel|dismiss)$/.test(t)){dismissReportPrompt();return}
+  }
+  if(/^(simulate (?:another driver approaching|approaching reported alert))$/.test(t)){simulateReportApproach();return}
   if(!state.panel&&incidentOffer&&!traffic.hidden){
    if(/^(yes|yeah|yep|yes please|take it|take that route|confirm)$/.test(t)){answerIncident(true);return}
    if(/^(no|nope|no thanks|stay|keep my route|cancel)$/.test(t)){answerIncident(false);return}
@@ -2777,7 +2837,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   return oldVoice.apply(this,arguments);
  };
  // Exposed state is read-only to tests; no profile settings are modified by 3C.
- window.navue3c={snapshot:()=>JSON.parse(JSON.stringify(state)),setSimulatedSpeed:setSpeed};
+ window.navue3c={snapshot:()=>JSON.parse(JSON.stringify(state)),setSimulatedSpeed:setSpeed,reports:()=>JSON.parse(JSON.stringify(localReports)),simulateReportApproach};
 })();
 </script></body></html>
 <style>/* NAVUE_3C_DRAGGABLE_TRIP_PANEL */
@@ -3062,3 +3122,13 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
  sync();
 })();
 </script>
+
+<style>/* NAVUE_REPORT_MARKERS_V1 */
+#navigation .c3-report-layer{position:absolute;inset:0;pointer-events:none;z-index:24}
+#navigation button.c3-report-marker{position:absolute;transform:translate(-50%,-100%);pointer-events:auto;display:grid;place-items:center;width:46px;height:46px;min-height:46px;padding:3px;margin:0;border:2px solid #1769e0;border-radius:50%;background:white;box-shadow:0 2px 7px #183b5a30}
+#navigation .c3-report-marker:after{content:'';position:absolute;top:100%;border:5px solid transparent;border-top-color:#1769e0}
+#navigation .c3-report-marker .c3-alert-icon{width:36px;height:36px;padding:1px}
+#navigation .c3-report-marker:focus-visible{outline:3px solid #ffc83d;outline-offset:2px}
+#navigation.c3-comparing .c3-report-layer{visibility:hidden}
+#navigation .c3-report-prompt{top:auto;bottom:calc(var(--c3-summary-height,110px) + 12px);z-index:36;max-height:140px}
+</style>
