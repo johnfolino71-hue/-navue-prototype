@@ -39,3 +39,14 @@ Choose whether Google-supported incident reports use Google's native reporting i
 Proceed only with clearly labelled, explicitly triggered accident and traffic demo warnings. One shared incident warning at a time, optional speech controlled by the existing speaker setting, no microphone activation, and simulated ETA adjustment for the traffic fixture. Keep approved NaVue styling. Pause new custom reporting sub-options and sharing. Existing Option C report-preview design remains a simulation, not a Google reporting implementation. The separate custom-report draft is unpublished and is not approved for production.
 
 The recommended first live integration uses Google's incident system as the single incident-alert source, subject to a real Navigation SDK trial confirming menus, symbols, audio and prompt behaviour. Do not claim replacement of Google-supplied incident icons or cross-source incident deduplication: neither is established by the reviewed public SDK documentation. This supersedes any earlier assumption that the custom interface can be wired directly into Google's incident feed.
+
+## Launch requirements confirmed — 2026-10-07, 22:02 Toronto
+
+Gio requires a NaVue shared reporting service to be built before custom reports are advertised as shared with other NaVue drivers. This is a future build requirement, not authorization to implement it now. Store category/sub-option, incident coordinates/direction and timestamps; provide nearby delivery, duplicate handling, Still there/Gone votes, moderation and expiry. Verify sharing on two devices. The prototype currently has no connected sharing service.
+
+Also require a production Google Navigation SDK integration trial to verify that Google-managed incidents, including police reports originating with Google Maps users, can appear and notify NaVue drivers where supported. Availability depends on region, incident type and Google processing; never promise every submitted report will appear. A Maps JavaScript map or API key alone does not enable native Navigation SDK incident alerts in Safari.
+
+Treat these as two separate integration workstreams. Keep Google incidents in Google's supported presentation/lifecycle and NaVue reports in our service. Reassess the earlier single-source recommendation before combining sources; verify prompt coordination without promising unsupported cross-source deduplication or replacement of Google's icons. Test speaker off/on and avoid overlapping notifications. Re-check official documentation at implementation time:
+https://developers.google.com/maps/documentation/navigation/ios-sdk/real-time-disruptions
+
+NaVue onboarding fuel prices, consumption and global measurement settings remain our own approved calculation feature. Preserve them; use selected-route distance with correct unit conversions when live routing is connected. No redesign of that feature is requested by this reporting work.
