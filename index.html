@@ -2312,13 +2312,65 @@ Prototype road split is temporary demo data until live route-segment classificat
  help:'<path d="M9 32l6-17h27l6 17v22H7V32z" fill="#1769e0"/><path d="M18 20h21l4 12H13z" fill="white"/><path d="M13 41h7m15 0h7" stroke="white" stroke-width="4"/><path d="M42 53l12-19c-7-9-1-18 6-17l-3 8 5 3 5-6c3 9-1 14-8 13L48 58z" fill="#183b5a" transform="translate(-4 0)"/><path d="M52 4v10m-5-5h10" stroke="#ffc83d" stroke-width="4"/>'
  };
  function alertIcon(id){const wrap=el('span',null,'c3-alert-icon');wrap.innerHTML='<svg viewBox="0 0 68 64" aria-hidden="true" focusable="false">'+alertArt[id]+'</svg>';return wrap}
+ // NAVUE_TEMPORARY_ALERT_MIC_V1 — restore the driver's setting when this interaction ends.
+ let alertMic=null;const readyRecognizers=new WeakSet(),watchedRecognizers=new WeakSet();
+ function alertMicStatus(text){
+  if(!alertMic)return;
+  const host=alertMic.kind==='verification'?reportPrompt:panel;
+  let label=host.querySelector('.c3-listening');
+  if(!label){label=el('div','','c3-listening');label.setAttribute('role','status');const head=host.querySelector('.c3-panel-head');if(head)head.after(label);else host.prepend(label)}
+  label.textContent=text;
+ }
+ function syncAlertMic(){document.querySelectorAll('#navigation .mic').forEach(b=>{b.classList.toggle('listening',!!p.micEnabled);b.classList.toggle('navue-mic-enabled',!!p.micEnabled);b.setAttribute('aria-pressed',String(!!p.micEnabled))})}
+ function readyAlertMic(){
+  if(!alertMic||alertMic.failed||!p.micEnabled)return;
+  alertMicStatus('Listening');if(!alertMic.beeped){alertMic.beeped=true;beep()}
+ }
+ function endAlertMic(kind){
+  if(!alertMic||(kind&&alertMic.kind!==kind))return;
+  const previous=alertMic;alertMic=null;
+  p.micEnabled=previous.enabled;voiceFlow=previous.enabled;
+  if(!previous.enabled)stopListen(false);
+  document.querySelectorAll('.c3-listening').forEach(e=>e.remove());syncAlertMic();
+ }
+ function beginAlertMic(kind){
+  if(alertMic&&alertMic.kind!==kind)endAlertMic();
+  if(!alertMic)alertMic={kind,enabled:!!p.micEnabled,beeped:false,failed:false};
+  if(alertMic.failed){alertMicStatus('Microphone unavailable · Tap an option');return}
+  try{unlockAudio()}catch(e){}
+  if(!(window.SpeechRecognition||window.webkitSpeechRecognition)){alertMic.failed=true;alertMicStatus('Voice unavailable · Tap an option');return}
+  p.micEnabled=true;voiceFlow=true;syncAlertMic();alertMicStatus('Starting microphone…');
+  startListen('navigation',navMic,true);
+  if(rec&&readyRecognizers.has(rec))readyAlertMic();
+ }
+ const startBeforeAlerts=window.startListen,stopBeforeAlerts=window.stopListen,saveBeforeAlerts=window.save;
+ window.save=function(){
+  if(!alertMic)return saveBeforeAlerts.apply(this,arguments);
+  const enabled=p.micEnabled;p.micEnabled=alertMic.enabled;
+  try{return saveBeforeAlerts.apply(this,arguments)}finally{p.micEnabled=enabled}
+ };
+ window.stopListen=function(){if(rec)readyRecognizers.delete(rec);if(alertMic&&!alertMic.failed)alertMicStatus('Waiting to listen…');return stopBeforeAlerts.apply(this,arguments)};
+ window.startListen=function(){
+  const result=startBeforeAlerts.apply(this,arguments),session=rec;
+  if(!session){if(alertMic&&!alertMic.failed){if(!p.micEnabled){alertMic.failed=true;alertMicStatus('Microphone unavailable · Tap an option')}else alertMicStatus(window.navueSpeechPending?'Waiting to listen…':'Starting microphone…')}return result}
+  if(watchedRecognizers.has(session))return result;watchedRecognizers.add(session);
+  const started=session.onstart,ended=session.onend,errored=session.onerror;
+  session.onstart=function(e){if(started)started.call(this,e);if(rec!==session)return;readyRecognizers.add(session);readyAlertMic()};
+  session.onend=function(e){readyRecognizers.delete(session);if(alertMic&&!alertMic.failed)alertMicStatus('Waiting to listen…');if(ended)ended.call(this,e)};
+  session.onerror=function(e){
+   if(errored)errored.call(this,e);
+   if(alertMic&&/^(not-allowed|service-not-allowed|audio-capture)$/.test(e.error)){alertMic.failed=true;p.micEnabled=false;voiceFlow=false;stopListen(false);syncAlertMic();alertMicStatus('Microphone unavailable · Tap an option')}
+  };
+  return result;
+ };
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)endAlertMic()});
  let reportChoice=null;
  const roadLauncher=button('',()=>openRoadAlerts(),'c3-road-launcher');roadLauncher.id='navueRoadAlerts';roadLauncher.setAttribute('aria-label','Road alerts');roadLauncher.setAttribute('aria-controls','navue3cPanel');roadLauncher.append(alertIcon('hazard'));nav.append(roadLauncher);
  function openRoadAlerts(){
   reportChoice=null;const box=shell('Road alerts','road-alerts');box.querySelector('.c3-label').textContent='SIMULATED · Not shared with other drivers';
   const grid=el('div',null,'c3-alert-grid');
   alertTypes.forEach(([id,label])=>{const b=button('',()=>previewReport(id),'c3-alert-choice');b.dataset.alert=id;b.setAttribute('aria-label',label);b.append(alertIcon(id),el('span',label,'c3-alert-name'));grid.append(b)});
-  box.append(grid);drawerBody.scrollTop=0;refreshDrawer();
+  box.append(grid);beginAlertMic('report');drawerBody.scrollTop=0;refreshDrawer();
  }
  // NAVUE_ROAD_SUBOPTIONS_V1 — NaVue-only simulated reporting, not Google's report panel.
  const alertOptions={
@@ -2389,7 +2441,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   const special={map:'Demo feedback only. Not sent to Google.',gas:'Price reporting is not connected.',help:'Demo only. No call or assistance request is made.'};
   if(special[id])box.append(el('p',special[id],'c3-label'));
   const row=el('div',null,'c3-actions');row.append(button(id==='help'?'Preview request':id==='map'?'Preview feedback':id==='gas'?'Preview price':'Report',confirmReport),button('Cancel',()=>{reportChoice=null;reportSub=null;closePanel()},'secondary'));box.append(row);drawerBody.scrollTop=0;refreshDrawer();
-  notify(type[1]+'. Choose an option, then say report or cancel.');
+  notify(type[1]+'. Choose an option, then say report or cancel.');beginAlertMic('report');
  }
  function selectReportSub(key){
   if(!reportChoice||!alertOptions[reportChoice].some(x=>x[0]===key))return;reportSub=key;
@@ -2406,7 +2458,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(id==='animal')return key==='lane'?'Animal in lane':key==='shoulder'?'Animal on shoulder':label;
   return label;
  }
- function dismissReportPrompt(){clearTimeout(approachTimer);clearTimeout(approachExpiry);approachTimer=null;activeReport=null;reportPrompt.hidden=true;reportPrompt.replaceChildren()}
+ function dismissReportPrompt(){endAlertMic('verification');clearTimeout(approachTimer);clearTimeout(approachExpiry);approachTimer=null;activeReport=null;reportPrompt.hidden=true;reportPrompt.replaceChildren()}
  function clearReportMarkers(){dismissReportPrompt();localReports.length=0;reportLayer.replaceChildren()}
  function addReportMarker(id,key,label){
   if(['map','gas','help'].includes(id))return; // feedback/prices/help are not confirmed hazard reports
@@ -2435,6 +2487,7 @@ Prototype road split is temporary demo data until live route-segment classificat
    const row=el('div',null,'c3-actions');row.append(button('Still there',()=>voteReport(true)),button('Not there',()=>voteReport(false),'secondary'));reportPrompt.append(row);reportPrompt.hidden=false;
    const expire=()=>{if(!activeReport||activeReport.run!==run)return;clearTimeout(approachExpiry);approachExpiry=setTimeout(()=>dismissReportPrompt(),12000)};expire();
    if(tripVoice)speak('Demo. '+report.label+' ahead. Still there or not there?',true,p.voiceStyle,()=>{expire();if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});else expire();
+   beginAlertMic('verification');
   },2000);
  }
  function voteReport(present){
@@ -2507,12 +2560,13 @@ Prototype road split is temporary demo data until live route-segment classificat
   status.textContent=text;status.hidden=false;clearTimeout(statusTimer);statusTimer=setTimeout(()=>{status.hidden=true},4000);
   if(active()==='navigation'&&tripVoice)speak(text,true,p.voiceStyle,()=>{if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});
  }
- function closePanel(){state.suggestion=null;panel.hidden=true;panel.replaceChildren();state.panel='';state.candidate=null;state.results=[];overview.hidden=false;collapseDrawer();}
+ function closePanel(){endAlertMic('report');state.suggestion=null;panel.hidden=true;panel.replaceChildren();state.panel='';state.candidate=null;state.results=[];overview.hidden=false;collapseDrawer();}
  function shell(title,kind){
+  if(!['road-alerts','road-suboptions'].includes(kind))endAlertMic('report');
   dismissReportPrompt();
   panel.classList.remove('c3-sub-enter');
   state.suggestion=null;state.panel=kind;overview.hidden=true;expandDrawer();panel.hidden=false;panel.replaceChildren();
-  const h=el('div',null,'c3-panel-head');h.append(el('h2',title),button('Back',()=>{panel.hidden=true;panel.replaceChildren();state.panel='';state.candidate=null;state.results=[];overview.hidden=false;expandDrawer()}));panel.append(h,el('p','SIMULATED · Fictional places and estimates','c3-label'));
+  const h=el('div',null,'c3-panel-head');h.append(el('h2',title),button('Back',()=>{endAlertMic('report');panel.hidden=true;panel.replaceChildren();state.panel='';state.candidate=null;state.results=[];overview.hidden=false;expandDrawer()}));panel.append(h,el('p','SIMULATED · Fictional places and estimates','c3-label'));
   panel.scrollTop=0;return panel;
  }
  function reset(){
@@ -2761,7 +2815,7 @@ Prototype road split is temporary demo data until live route-segment classificat
  };
  window.finishTrip=function(){reset();return oldFinish.apply(this,arguments)};
  window.show=function(id){
-  if(id!=='navigation'){dismissReportPrompt();closePanel();clearTimeout(incidentTimer);incidentTimer=null;incidentOffer=null;traffic.hidden=true;closeComparison()}
+  if(id!=='navigation'){endAlertMic();dismissReportPrompt();closePanel();clearTimeout(incidentTimer);incidentTimer=null;incidentOffer=null;traffic.hidden=true;closeComparison()}
   const r=oldShow.apply(this,arguments);
   if(id==='navigation'){if(state.final!==p.destination)reset();render();setTimeout(render,100);scheduleIncident()}
   return r;
@@ -2774,14 +2828,14 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(activeReport&&!reportPrompt.hidden){
    if(/^(still there|yes|yes still there|its still there|it is still there)$/.test(t)){voteReport(true);return}
    if(/^(not there|no|gone|its gone|it is gone|no longer there)$/.test(t)){voteReport(false);return}
-   if(/^(close|cancel|dismiss)$/.test(t)){dismissReportPrompt();return}
+   if(/^(close|cancel|dismiss|clear)$/.test(t)){dismissReportPrompt();return}
   }
   if(/^(simulate (?:another driver approaching|approaching reported alert))$/.test(t)){simulateReportApproach();return}
   if(!state.panel&&incidentOffer&&!traffic.hidden){
    if(/^(yes|yeah|yep|yes please|take it|take that route|confirm)$/.test(t)){answerIncident(true);return}
    if(/^(no|nope|no thanks|stay|keep my route|cancel)$/.test(t)){answerIncident(false);return}
   }
-  if(/^(clear demo|clear alert)$/.test(t)){clearIncident();return}
+  if(/^(clear demo|clear alert|clear)$/.test(t)){dismissReportPrompt();if(/^road-/.test(state.panel))closePanel();clearIncident();return}
 
   if(/^(close|close search|close stops|cancel|cancel that|never mind|go back|back)$/.test(t)&&state.panel){closePanel();notify('Cancelled. Your route is unchanged.');return}
   if(/^(?:open |show )?(?:road alerts|hazard alerts|hazards alerts)$/.test(t)){openRoadAlerts();return}
@@ -3133,4 +3187,8 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
 #navigation .c3-report-marker:focus-visible{outline:3px solid #ffc83d;outline-offset:2px}
 #navigation.c3-comparing .c3-report-layer{visibility:hidden}
 #navigation .c3-report-prompt{top:auto;bottom:calc(var(--c3-summary-height,110px) + 12px);z-index:36;max-height:140px}
+</style>
+
+<style>/* NAVUE_TEMPORARY_ALERT_MIC_V1 */
+#navigation .c3-listening{font-size:12px;font-weight:700;color:#1769e0;line-height:18px;margin:3px 0 6px}
 </style>
