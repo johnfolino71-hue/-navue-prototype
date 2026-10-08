@@ -2312,6 +2312,7 @@ Prototype road split is temporary demo data until live route-segment classificat
  help:'<path d="M9 32l6-17h27l6 17v22H7V32z" fill="#1769e0"/><path d="M18 20h21l4 12H13z" fill="white"/><path d="M13 41h7m15 0h7" stroke="white" stroke-width="4"/><path d="M42 53l12-19c-7-9-1-18 6-17l-3 8 5 3 5-6c3 9-1 14-8 13L48 58z" fill="#183b5a" transform="translate(-4 0)"/><path d="M52 4v10m-5-5h10" stroke="#ffc83d" stroke-width="4"/>'
  };
  function alertIcon(id){const wrap=el('span',null,'c3-alert-icon');wrap.innerHTML='<svg viewBox="0 0 68 64" aria-hidden="true" focusable="false">'+alertArt[id]+'</svg>';return wrap}
+ // NAVUE_ALERT_DIALOGUE_V2 — temporary speaker + contextual aliases, not a connected AI service.
  // NAVUE_TEMPORARY_ALERT_MIC_V1 — restore the driver's setting when this interaction ends.
  let alertMic=null;const readyRecognizers=new WeakSet(),watchedRecognizers=new WeakSet();
  function alertMicStatus(text){
@@ -2329,13 +2330,16 @@ Prototype road split is temporary demo data until live route-segment classificat
  function endAlertMic(kind){
   if(!alertMic||(kind&&alertMic.kind!==kind))return;
   const previous=alertMic;alertMic=null;
-  p.micEnabled=previous.enabled;voiceFlow=previous.enabled;
+  p.micEnabled=previous.enabled;voiceFlow=previous.enabled;p.voice=previous.speaker;tripVoice=previous.tripSpeaker;
+  window.navueSpeechTurn=(window.navueSpeechTurn||0)+1;window.navueSpeechPending=false;window.navueVoiceQuietUntil=0;try{speechSynthesis.cancel()}catch(e){}
+  setSpeaker();updateHomeSpeaker();
   if(!previous.enabled)stopListen(false);
   document.querySelectorAll('.c3-listening').forEach(e=>e.remove());syncAlertMic();
  }
  function beginAlertMic(kind){
   if(alertMic&&alertMic.kind!==kind)endAlertMic();
-  if(!alertMic)alertMic={kind,enabled:!!p.micEnabled,beeped:false,failed:false};
+  if(!alertMic)alertMic={kind,enabled:!!p.micEnabled,speaker:!!p.voice,tripSpeaker:!!tripVoice,beeped:false,failed:false};
+  p.voice=true;tripVoice=true;setSpeaker();updateHomeSpeaker();
   if(alertMic.failed){alertMicStatus('Microphone unavailable · Tap an option');return}
   try{unlockAudio()}catch(e){}
   if(!(window.SpeechRecognition||window.webkitSpeechRecognition)){alertMic.failed=true;alertMicStatus('Voice unavailable · Tap an option');return}
@@ -2346,8 +2350,8 @@ Prototype road split is temporary demo data until live route-segment classificat
  const startBeforeAlerts=window.startListen,stopBeforeAlerts=window.stopListen,saveBeforeAlerts=window.save;
  window.save=function(){
   if(!alertMic)return saveBeforeAlerts.apply(this,arguments);
-  const enabled=p.micEnabled;p.micEnabled=alertMic.enabled;
-  try{return saveBeforeAlerts.apply(this,arguments)}finally{p.micEnabled=enabled}
+  const enabled=p.micEnabled,speaker=p.voice;p.micEnabled=alertMic.enabled;p.voice=alertMic.speaker;
+  try{return saveBeforeAlerts.apply(this,arguments)}finally{p.micEnabled=enabled;p.voice=speaker}
  };
  window.stopListen=function(){if(rec)readyRecognizers.delete(rec);if(alertMic&&!alertMic.failed)alertMicStatus('Waiting to listen…');return stopBeforeAlerts.apply(this,arguments)};
  window.startListen=function(){
@@ -2370,7 +2374,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   reportChoice=null;const box=shell('Road alerts','road-alerts');box.querySelector('.c3-label').textContent='SIMULATED · Not shared with other drivers';
   const grid=el('div',null,'c3-alert-grid');
   alertTypes.forEach(([id,label])=>{const b=button('',()=>previewReport(id),'c3-alert-choice');b.dataset.alert=id;b.setAttribute('aria-label',label);b.append(alertIcon(id),el('span',label,'c3-alert-name'));grid.append(b)});
-  box.append(grid);beginAlertMic('report');drawerBody.scrollTop=0;refreshDrawer();
+  box.append(grid);beginAlertMic('report');notify('Which alert?');drawerBody.scrollTop=0;refreshDrawer();
  }
  // NAVUE_ROAD_SUBOPTIONS_V1 — NaVue-only simulated reporting, not Google's report panel.
  const alertOptions={
@@ -2437,15 +2441,46 @@ Prototype road split is temporary demo data until live route-segment classificat
   box.querySelector('.c3-panel-head button').onclick=openRoadAlerts;
   box.querySelector('.c3-label').textContent='DEMO · Not shared';
   const grid=el('div',null,'c3-alert-grid');grid.setAttribute('role','group');grid.setAttribute('aria-label',type[1]+' options');
-  alertOptions[id].forEach(([key,label])=>{const b=button('',()=>selectReportSub(key),'c3-alert-choice');b.dataset.suboption=key;b.setAttribute('aria-pressed',String(key===reportSub));b.append(subIcon(id,key),el('span',label,'c3-alert-name'));grid.append(b)});box.append(grid);
+  alertOptions[id].forEach(([key,label])=>{const b=button('',()=>{selectReportSub(key);confirmSubPrompt()},'c3-alert-choice');b.dataset.suboption=key;b.setAttribute('aria-pressed',String(key===reportSub));b.append(subIcon(id,key),el('span',label,'c3-alert-name'));grid.append(b)});box.append(grid);
   const special={map:'Demo feedback only. Not sent to Google.',gas:'Price reporting is not connected.',help:'Demo only. No call or assistance request is made.'};
   if(special[id])box.append(el('p',special[id],'c3-label'));
   const row=el('div',null,'c3-actions');row.append(button(id==='help'?'Preview request':id==='map'?'Preview feedback':id==='gas'?'Preview price':'Report',confirmReport),button('Cancel',()=>{reportChoice=null;reportSub=null;closePanel()},'secondary'));box.append(row);drawerBody.scrollTop=0;refreshDrawer();
-  notify(type[1]+'. Choose an option, then say report or cancel.');beginAlertMic('report');
+  beginAlertMic('report');notify(type[1]+'—which one?');
  }
  function selectReportSub(key){
   if(!reportChoice||!alertOptions[reportChoice].some(x=>x[0]===key))return;reportSub=key;
   panel.querySelectorAll('[data-suboption]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.suboption===key)));
+ }
+ function confirmSubPrompt(){
+  if(!reportChoice||!reportSub)return;
+  const label=alertOptions[reportChoice].find(x=>x[0]===reportSub)[1];
+  notify(reportLabel(reportChoice,reportSub,label)+(['help','map','gas'].includes(reportChoice)?'. Preview it?':'. Report it?'));
+ }
+ const subAliases={
+  traffic:{traffic:['normal traffic','moderate traffic','slow traffic'],heavy:['heavy traffic','very busy','bad traffic'],standstill:['stopped traffic','not moving','bumper to bumper','stand still','gridlock']},
+  police:{police:['cop','cops','police officer','officer','police car'],camera:['speed camera','mobile speed camera','radar camera','camera'],hidden:['hidden cop','hidden cops','hidden police','hiding','hidden officer','concealed police'],opposite:['opposite side','other direction','opposite direction','police on other side']},
+  crash:{crash:['accident','collision','car crash'],pileup:['pile up','multiple cars','multiple car crash','multi car accident','several cars'],opposite:['opposite side','other direction','accident on other side']},
+  hazard:{hazard:['road hazard','danger'],construction:['roadwork','road work','road works','construction work'],shoulder:['vehicle on shoulder','car on the shoulder','stopped car','broken down car'],signal:['traffic light broken','traffic lights out','light not working','broken signal'],pothole:['pot hole','hole in road','hole in the road'],object:['debris','something on road','object on road','fallen tree','log on road']},
+  closure:{closure:['road closure','closed road','road is closed'],ramp:['closed ramp','exit closed','closed exit','ramp closure']},
+  blocked:{blocked:['lane blocked','lane closure'],left:['left','left lane blocked'],center:['center','centre','middle','middle lane','center lane','middle lane blocked'],right:['right','right lane blocked']},
+  map:{address:['incorrect address','address wrong'],road:['missing road','incorrect road','wrong road'],turn:['wrong turn restriction','turn not allowed','no turn']},
+  weather:{weather:['storm','rain','bad weather ahead'],slippery:['slippery','slick road','wet slippery road'],flood:['flooded','flooded road','flooding','water on road'],snow:['snow covered road','unploughed road','unplowed','snow on road'],fog:['foggy','poor visibility'],ice:['ice','icy','black ice','ice on road']},
+  gas:{regular:['regular gas','regular gasoline','regular fuel'],premium:['premium gas','premium gasoline','premium fuel'],diesel:['diesel fuel','diesel gas']},
+  animal:{animal:['wildlife','deer','animal ahead'],lane:['in the lane','animal in lane','animal on road','on the road'],shoulder:['on the shoulder','animal on shoulder','beside the road']},
+  help:{community:['other drivers','navue','navu drivers','community help'],roadside:['roadside assistance','tow truck','towing','roadside help'],emergency:['emergency','call for help','emergency assistance']}
+ };
+ function recognizeAlertSub(category,text){
+  const words=clean(text).replace(/^(?:(?:i can see|i see|there is|theres|it is|its|select|choose|report|the|a|an) )+/,'').replace(/ (?:up ahead|ahead|please)$/,'');
+  const options=alertOptions[category],aliases=options.map(([key,label])=>({key,terms:[clean(label),clean(key),...(subAliases[category]?.[key]||[]).map(clean)]}));
+  const exact=aliases.filter(x=>x.terms.includes(words));if(exact.length===1)return exact[0].key;
+  if(/\b(not|no|or|maybe)\b/.test(words))return null;
+  const matches=aliases.map(x=>({key:x.key,score:Math.max(0,...x.terms.filter(t=>t.length>=4&&(' '+words+' ').includes(' '+t+' ')).map(t=>t.length))})).filter(x=>x.score).sort((a,b)=>b.score-a.score);
+  if(matches.length===1)return matches[0].key;
+  // Longer specific phrases beat a generic category word, but conflicting specifics require clarification.
+  if(matches.length>1&&matches[1].key===category)return matches[0].key;
+  if(matches.length)return null;
+  function near(a,b){if(a.length<5||b.length<5||Math.abs(a.length-b.length)>1)return false;let i=0,j=0,edits=0;while(i<a.length&&j<b.length){if(a[i]===b[j]){i++;j++;continue}if(++edits>1)return false;if(a.length>=b.length)i++;if(b.length>=a.length)j++}return edits+(a.length-i)+(b.length-j)<=1}
+  const fuzzy=aliases.filter(x=>x.terms.some(t=>near(words,t)));return fuzzy.length===1?fuzzy[0].key:null;
  }
  // NAVUE_REPORT_MARKERS_V1 — local map coordinates and explicit second-driver simulation only.
  const localReports=[];let approachTimer=null,approachExpiry=null,activeReport=null,approachRun=0;
@@ -2486,8 +2521,8 @@ Prototype road split is temporary demo data until live route-segment classificat
    reportPrompt.replaceChildren(el('small','DEMO · Approaching driver','c3-incident-source'),el('strong',report.label+' ahead'));
    const row=el('div',null,'c3-actions');row.append(button('Still there',()=>voteReport(true)),button('Not there',()=>voteReport(false),'secondary'));reportPrompt.append(row);reportPrompt.hidden=false;
    const expire=()=>{if(!activeReport||activeReport.run!==run)return;clearTimeout(approachExpiry);approachExpiry=setTimeout(()=>dismissReportPrompt(),12000)};expire();
-   if(tripVoice)speak('Demo. '+report.label+' ahead. Still there or not there?',true,p.voiceStyle,()=>{expire();if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});else expire();
    beginAlertMic('verification');
+   if(tripVoice)speak('Demo. '+report.label+' ahead. Still there or not there?',true,p.voiceStyle,()=>{expire();if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});else expire();
   },2000);
  }
  function voteReport(present){
@@ -2840,23 +2875,24 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(/^(close|close search|close stops|cancel|cancel that|never mind|go back|back)$/.test(t)&&state.panel){closePanel();notify('Cancelled. Your route is unchanged.');return}
   if(/^(?:open |show )?(?:road alerts|hazard alerts|hazards alerts)$/.test(t)){openRoadAlerts();return}
   if(state.panel==='road-suboptions'){
-   if(/^(yes|yeah|yep|confirm|confirm demo|yes please|report|send|preview request|preview feedback|preview price)$/.test(t)){confirmReport();return}
+   if(/^(yes|yeah|yep|confirm|confirm demo|yes please|report|report it|reported|send|send it|do it|preview it|preview request|preview feedback|preview price)$/.test(t)){confirmReport();return}
    if(/^(no|nope|no thanks)$/.test(t)){reportChoice=null;closePanel();return}
   }
   if(/^(correction|correct that|wrong search|thats wrong)$/.test(t)&&/^road-/.test(state.panel)){openRoadAlerts();return}
   if(state.panel==='road-suboptions'&&reportChoice){
-   const words=t.replace(/^(?:select |choose |report )(?:the )?/,'');
-   const aliases={'center lane':'Centre lane','on the shoulder':reportChoice==='animal'?'On shoulder':'Car on shoulder','in the lane':'In lane','pile up':'Pile-up','camera':'Mobile camera'};
-   const sub=alertOptions[reportChoice].find(x=>clean(x[1])===words||x[0]===words||x[1]===aliases[words]);
-   if(sub){selectReportSub(sub[0]);notify(sub[1]+'. Say report or cancel.');return}
+   const key=recognizeAlertSub(reportChoice,t);
+   if(key){selectReportSub(key);confirmSubPrompt();return}
   }
   const reportText=t.replace(/^report (?:a |an )?/,'');
   if(/^report /.test(t)){
    const direct={construction:['hazard','construction'],pothole:['hazard','pothole'],'mobile camera':['police','camera'],'hidden police':['police','hidden'],'left lane':['blocked','left'],'right lane':['blocked','right'],'centre lane':['blocked','center'],'center lane':['blocked','center'],flood:['weather','flood'],fog:['weather','fog'],'icy road':['weather','ice'],'slippery road':['weather','slippery']};
-   if(direct[reportText]){const [category,key]=direct[reportText];previewReport(category);selectReportSub(key);return}
+   if(direct[reportText]){const [category,key]=direct[reportText];previewReport(category);selectReportSub(key);confirmSubPrompt();return}
   }
   const reportType=alertTypes.find(([id,label])=>clean(label)===reportText||({accident:'crash',construction:'hazard',rain:'weather','road hazard':'hazard','road closure':'closure','lane closure':'blocked'})[reportText]===id);
   if(reportType&&(state.panel==='road-alerts'||state.panel==='road-suboptions'||/^report /.test(t))){previewReport(reportType[0]);return}
+  if(/^road-/.test(state.panel)&&!/\b(mic|microphone|speaker|voice|mute|unmute|settings|end trip|stop navigation)\b/.test(t)){
+   notify(state.panel==='road-suboptions'?'Which option did you mean?':'Which alert did you mean?');return
+  }
   if(/^(correction|correct that|wrong search|thats wrong)$/.test(t)&&state.panel){openSearch();return}
   if(state.panel==='search-clarify'){
    if(/^(yes|yeah|yep|correct|yes please|thats right)$/.test(t)){const query=state.suggestion;search(query);return}
