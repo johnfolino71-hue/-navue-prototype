@@ -2868,7 +2868,7 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
 #navigation .c3-traffic .c3-actions{margin-top:5px;gap:8px}
 #navigation .c3-traffic button{font-size:14px;font-weight:700}
 </style>
-<style>/* NAVUE_LOCATION_IMAGE_CHOICE_V1 */
+<style>/* NAVUE_LOCATION_IMAGE_CHOICE_V2 */
 #destination .navue-location-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:center;margin:8px 0}
 #destination .navue-location-actions #findRoutesBtn{width:100%!important;margin:0!important;min-height:44px;font-size:16px;padding:10px 8px!important}
 #destination #navueLocationImage{display:flex;align-items:center;gap:7px;background:none;color:#1769e0;text-decoration:underline;text-align:left;padding:6px 0!important;margin:0;min-height:44px;font-size:15px;border-radius:6px}
@@ -2884,7 +2884,7 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
 #navueImageDialog .image-open{padding:0;background:none;border-radius:8px}
 #navueImageDialog .image-viewer{height:320px;width:100%}
 </style>
-<script>/* NAVUE_LOCATION_IMAGE_CHOICE_V1 */
+<script>/* NAVUE_LOCATION_IMAGE_CHOICE_V2 */
 (function(){
  const page=document.getElementById('destination'),input=document.getElementById('destinationInput'),find=document.getElementById('findRoutesBtn');
  const row=document.createElement('div');row.className='navue-location-actions';
@@ -2943,15 +2943,16 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
  };
  window.show=function(id){if(id!==active()){if(dialog.open)closeImage();pendingAddress=''}return oldShow.apply(this,arguments)};
  window.handleVoice=function(raw,mode){
-  const t=String(raw||'').toLowerCase().replace(/[^a-z0-9 ]/g,'').trim().replace(/^please /,'');
+  const t=String(raw||'').toLowerCase().replace(/[^a-z0-9 ]/g,'').trim().replace(/^please /,'').replace(/ please$/,'').replace(/\s+/g,' ');
   if(active()==='destination'){
-   if(dialog.open&&/^(close|close image|close location image|go back|back|cancel)$/.test(t)){closeImage();return}
+   if(dialog.open&&/^(close(?: (?:the |this )?(?:window|image|photo|popup|pop up|location image))?|go back|back|cancel|dismiss)$/.test(t)){closeImage();return}
    if(dialog.open&&/^(open |show )?(360|360 view|street view)$/.test(t)){if(open360)open360();else tell('360 degree view is not available.');return}
-   if(/^(view |show |open )?(location image|image|photo)$/.test(t)){viewImage();return}
+   if(/^(view|(?:view|show|open)(?: me)?(?: the)?(?: location)? (?:image|photo|picture)|(?:location )?(?:image|photo|picture)|view it|show it)$/.test(t)){if(input.value.trim())viewImage();else tell('Enter an address first.');return}
    if(/^(find routes?|show routes?|routes?)$/.test(t)){
     if(dialog.open)closeImage();bypass=true;
     try{if(pendingAddress&&pendingAddress===input.value.trim()){p.destination=pendingAddress;pendingAddress='';return oldBuild.call(window,true)}return window.resolveDestination()}finally{bypass=false}
    }
+   if(dialog.open&&!/\b(microphone|mic|speaker|voice|mute|unmute|settings)\b/.test(t)){tell('Say close window, open 360, or find routes.');return}
   }
   return oldHandle.apply(this,arguments);
  };
