@@ -1185,7 +1185,7 @@ Prototype road split is temporary demo data until live route-segment classificat
        renderRecentV5();
        if(document.querySelector('#savedRoutesPage.active')&&typeof window.renderSavedRoutesPage==='function')window.renderSavedRoutesPage();
      };
-     d.onclick=function(){p.destination=a||raw;save();buildRoutes(false)};box.appendChild(d);
+     d.onclick=function(){/* NAVUE_RECENT_DESTINATION_CHOICE_V1 */p.destination=a||raw;save();show('destination');var input=document.getElementById('destinationInput');if(input){input.value=p.destination;destinationChanged()}};box.appendChild(d);
    });
    delete p.recentLabels;save();
  }
