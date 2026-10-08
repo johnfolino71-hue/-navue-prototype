@@ -2868,3 +2868,93 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
 #navigation .c3-traffic .c3-actions{margin-top:5px;gap:8px}
 #navigation .c3-traffic button{font-size:14px;font-weight:700}
 </style>
+<style>/* NAVUE_LOCATION_IMAGE_CHOICE_V1 */
+#destination .navue-location-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:center;margin:8px 0}
+#destination .navue-location-actions #findRoutesBtn{width:100%!important;margin:0!important;min-height:44px;font-size:16px;padding:10px 8px!important}
+#destination #navueLocationImage{display:flex;align-items:center;gap:7px;background:none;color:#1769e0;text-decoration:underline;text-align:left;padding:6px 0!important;margin:0;min-height:44px;font-size:15px;border-radius:6px}
+#navueLocationImage svg{width:20px;height:20px;flex-shrink:0}
+#navueLocationImage:disabled{opacity:.4}
+#navueImageDialog{width:calc(100% - 28px);max-width:450px;border:0;border-radius:18px;padding:16px;max-height:85dvh;overflow:auto;color:#172126;box-shadow:0 10px 40px #17212640}
+#navueImageDialog::backdrop{background:#15233866}
+#navueImageDialog header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+#navueImageDialog h2{margin:0;font-size:20px}
+#navueImageDialog header button{width:auto;margin:0;min-height:44px;padding:8px 12px;font-size:14px}
+#navueImageDialog p{font-size:15px;overflow-wrap:anywhere}
+#navueImageDialog img{display:block;width:100%;height:auto;border-radius:8px}
+#navueImageDialog .image-open{padding:0;background:none;border-radius:8px}
+#navueImageDialog .image-viewer{height:320px;width:100%}
+</style>
+<script>/* NAVUE_LOCATION_IMAGE_CHOICE_V1 */
+(function(){
+ const page=document.getElementById('destination'),input=document.getElementById('destinationInput'),find=document.getElementById('findRoutesBtn');
+ const row=document.createElement('div');row.className='navue-location-actions';
+ const link=document.createElement('button');link.id='navueLocationImage';link.type='button';link.disabled=true;
+ link.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m3 18 6-6 4 4 3-3 5 5"/></svg><span>Location image</span>';
+ row.append(link,find);page.querySelector('.searchrow').after(row);
+ const dialog=document.createElement('dialog');dialog.id='navueImageDialog';dialog.setAttribute('aria-labelledby','navueImageTitle');
+ dialog.innerHTML='<header><h2 id="navueImageTitle">Location image</h2><button type="button" class="secondary">Close</button></header><p class="image-address"></p><div class="image-content" role="status"></div>';
+ document.body.append(dialog);
+ let request=0,pendingAddress='',bypass=false,open360=null,cleanup=null;
+ const active=()=>document.querySelector('.screen.active')?.id;
+ const oldBuild=window.buildRoutes,oldHandle=window.handleVoice,oldShow=window.show,oldChange=window.destinationChanged;
+ function sync(){link.disabled=!input.value.trim();if(pendingAddress&&pendingAddress!==input.value.trim())pendingAddress=''}
+ window.destinationChanged=function(){const r=oldChange.apply(this,arguments);sync();return r};input.addEventListener('input',sync);
+ function closeImage(){request++;open360=null;if(cleanup)cleanup();cleanup=null;if(dialog.open)dialog.close();link.focus()}
+ dialog.querySelector('header button').onclick=closeImage;
+ dialog.addEventListener('cancel',e=>{e.preventDefault();closeImage()});
+ function tell(text){if(p.voice)speak(text,false,p.voiceStyle,()=>{if(p.micEnabled)rearmVoice(active())})}
+ async function viewImage(){
+  const address=input.value.trim();if(!address)return;
+  const token=++request;open360=null;
+  const body=dialog.querySelector('.image-content');body.replaceChildren();dialog.querySelector('.image-address').textContent=address;
+  if(!dialog.open)dialog.showModal();
+  // Integration contract: resolve a verified place, return its static image and optional
+  // 360 renderer using the SAME panorama. Preserve Google's attribution in both views.
+  // No provider/key is installed in this prototype. Never substitute fictional photos.
+  const provider=window.navueLocationImagery;
+  if(!provider||typeof provider.lookup!=='function'){body.textContent='Google imagery is not connected yet.';tell(body.textContent);return}
+  body.textContent='Loading image…';
+  try{
+   const result=await provider.lookup(address);
+   if(token!==request||!dialog.open)return;
+   body.replaceChildren();
+   if(!result||!result.imageUrl){body.textContent='No location image available.';tell(body.textContent);return}
+   dialog.querySelector('.image-address').textContent=result.address||address;
+   const img=document.createElement('img');img.alt='Street View near '+(result.address||address);
+   img.onerror=()=>{if(token===request){body.textContent='Image unavailable. Please try again.';open360=null}};
+   img.src=result.imageUrl;
+   if(typeof result.open360==='function'){
+    const button=document.createElement('button');button.type='button';button.className='image-open';button.setAttribute('aria-label','Open 360 degree Street View');button.append(img);body.append(button);
+    open360=async()=>{if(token!==request)return;open360=null;body.replaceChildren();const view=document.createElement('div');view.className='image-viewer';body.append(view);try{const release=await result.open360(view);if(token!==request){if(typeof release==='function')release()}else cleanup=typeof release==='function'?release:null}catch(e){if(token===request)body.textContent='360° view unavailable.'}};
+    button.onclick=()=>open360&&open360();const hint=document.createElement('p');hint.textContent='Tap for 360°';body.append(hint);
+   }else body.append(img);
+   if(result.nearby){const note=document.createElement('p');note.textContent='Nearby Street View';body.append(note)}
+  }catch(e){if(token===request)body.textContent='Location image unavailable. Please try again.'}
+ }
+ link.onclick=viewImage;
+ // The existing button, onclick handler and destination validation stay intact.
+ find.addEventListener('click',()=>{bypass=true;pendingAddress='';queueMicrotask(()=>{bypass=false})},true);
+ window.buildRoutes=function(converse){
+  if(converse&&!bypass&&/^(home|destination|ambiguity|savedRoutesPage)$/.test(active())&&p.destination){
+   const address=p.destination;window.show('destination');input.value=address;pendingAddress=address;window.destinationChanged();
+   tell(address+'. Find routes or view image?');return;
+  }
+  return oldBuild.apply(this,arguments);
+ };
+ window.show=function(id){if(id!==active()){if(dialog.open)closeImage();pendingAddress=''}return oldShow.apply(this,arguments)};
+ window.handleVoice=function(raw,mode){
+  const t=String(raw||'').toLowerCase().replace(/[^a-z0-9 ]/g,'').trim().replace(/^please /,'');
+  if(active()==='destination'){
+   if(dialog.open&&/^(close|close image|close location image|go back|back|cancel)$/.test(t)){closeImage();return}
+   if(dialog.open&&/^(open |show )?(360|360 view|street view)$/.test(t)){if(open360)open360();else tell('360 degree view is not available.');return}
+   if(/^(view |show |open )?(location image|image|photo)$/.test(t)){viewImage();return}
+   if(/^(find routes?|show routes?|routes?)$/.test(t)){
+    if(dialog.open)closeImage();bypass=true;
+    try{if(pendingAddress&&pendingAddress===input.value.trim()){p.destination=pendingAddress;pendingAddress='';return oldBuild.call(window,true)}return window.resolveDestination()}finally{bypass=false}
+   }
+  }
+  return oldHandle.apply(this,arguments);
+ };
+ sync();
+})();
+</script>
