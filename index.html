@@ -2287,10 +2287,13 @@ Prototype road split is temporary demo data until live route-segment classificat
  }
 
  const trip=el('div','','c3-trip');nav.querySelector('.nav-bottom').prepend(trip);
- const controls=el('div',null,'c3-actions');controls.append(button('Search along route',()=>openSearch()),button('Stops',()=>openStops()));function installTripMenu(){
+ const controls=el('div',null,'c3-actions');controls.append(button('Search along route',()=>openSearch()));function installTripMenu(){
   const sheet=document.getElementById('navueManualSheet');
   if(sheet&&!overview.contains(sheet)){
-   overview.appendChild(sheet);sheet.appendChild(controls);
+   overview.appendChild(sheet);
+   const grid=sheet.querySelector('.sheet-grid');
+   grid.querySelectorAll('[data-a=destination],[data-a=saved],[data-a=settings]').forEach(b=>b.remove());
+   grid.appendChild(controls.firstElementChild);
    sheet.querySelector('.sheet-handle')?.remove();sheet.querySelector('.sheet-title')?.remove();
    document.getElementById('navueManualButton').onclick=()=>{if(expanded)closePanel();else expandDrawer()};
   }
@@ -2546,14 +2549,21 @@ Prototype road split is temporary demo data until live route-segment classificat
  const panel=el('section',null,'c3-panel');panel.id='navue3cPanel';panel.hidden=true;panel.setAttribute('aria-label','Trip options');nav.appendChild(panel);
  const drawer=nav.querySelector('.nav-bottom');
  const grip=button('','c3-unused');grip.onclick=null;grip.className='c3-grip';grip.setAttribute('aria-label','Expand trip panel');grip.setAttribute('aria-expanded','false');
- grip.append(el('span','','c3-handle'),el('span','Trip options','c3-grip-label'));
+ grip.append(el('span','','c3-handle'));
  const reminder=el('div','','c3-reminder');
  const summary=el('div',null,'c3-summary');
- summary.append(grip,reminder,nav.querySelector('.nav-metrics'));
+ // NAVUE_COMPACT_TRIP_HEADER_V1 — approved B destination icon and centred stops.
+ const header=el('div',null,'c3-header-row');
+ const whereButton=button('',()=>openDestination(),'c3-header-icon');whereButton.id='navueWhereTo';whereButton.setAttribute('aria-label','Where to? Home, Work, Saved and Recent');
+ whereButton.innerHTML='<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 27v-6c0-7-9-7-9-15M16 21c0-7 9-7 9-15" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><path d="M2 9l5-7 5 7zM20 9l5-7 5 7z" fill="currentColor"/></svg>';
+ const settingsButton=button('',()=>{window.openPreferences();prefReturn='navigation';window.navueSettingsReturn='navigation'},'c3-header-icon');settingsButton.id='navueTripSettings';settingsButton.setAttribute('aria-label','Settings');
+ settingsButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l.6 3 2 .9 2.7-1 3 5.2-2.2 2 .2 2.2 2 2-3 5.2-2.8-.9-2 .9-.5 3H9l-.6-3-2-.9-2.7 1-3-5.2 2.2-2-.2-2.2-2-2 3-5.2 2.8.9 2-.9z" transform="translate(2 0) scale(.83)" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
+ header.append(whereButton,trip,settingsButton);
+ summary.append(grip,header,nav.querySelector('.nav-metrics'));
  const drawerBody=el('div',null,'c3-drawer-body');
  const overview=el('div',null,'c3-overview');
  const destination=nav.querySelector('#navDestination').parentElement;
- overview.append(trip,destination,nav.querySelector('.finish'));
+ overview.append(destination,nav.querySelector('.finish'));
  drawerBody.append(overview,panel);drawer.replaceChildren(summary,drawerBody);
  let expanded=false,drag=null,suppressTap=false;
  function limits(){
@@ -2567,9 +2577,9 @@ Prototype road split is temporary demo data until live route-segment classificat
  function refreshDrawer(){drawer.style.height=(expanded?limits().max:limits().min)+'px';nav.style.setProperty('--c3-summary-height',summary.offsetHeight+'px')}
  function expandDrawer(){expanded=true;drawer.classList.add('c3-expanded');grip.setAttribute('aria-expanded','true');grip.setAttribute('aria-label','Collapse trip panel');drawerBody.inert=false;refreshDrawer()}
  function collapseDrawer(){expanded=false;drawer.classList.remove('c3-expanded');grip.setAttribute('aria-expanded','false');grip.setAttribute('aria-label','Expand trip panel');drawerBody.inert=true;drawerBody.scrollTop=0;refreshDrawer()}
- grip.onclick=null;summary.onclick=()=>{if(suppressTap){suppressTap=false;return}if(expanded)closePanel();else expandDrawer()};
+ grip.onclick=null;summary.onclick=e=>{if(e.target.closest('button')&& !grip.contains(e.target))return;if(suppressTap){suppressTap=false;return}if(expanded)closePanel();else expandDrawer()};
  // A short swipe commits once; no continuous height/layout work under the finger.
- summary.addEventListener('pointerdown',e=>{if(e.button!==0)return;drag={y:e.clientY,delta:0};suppressTap=false;summary.setPointerCapture?.(e.pointerId)});
+ summary.addEventListener('pointerdown',e=>{if(e.button!==0||(e.target.closest('button')&&!grip.contains(e.target)))return;drag={y:e.clientY,delta:0};suppressTap=false;summary.setPointerCapture?.(e.pointerId)});
  summary.addEventListener('pointermove',e=>{if(!drag||drag.done)return;drag.delta=drag.y-e.clientY;if(Math.abs(drag.delta)>=12){drag.done=true;suppressTap=true;if(drag.delta>0)expandDrawer();else closePanel()}});
  summary.addEventListener('pointerup',()=>{drag=null;if(suppressTap)setTimeout(()=>{suppressTap=false},350)});
  summary.addEventListener('pointercancel',()=>{drag=null;suppressTap=false});
@@ -2629,7 +2639,7 @@ Prototype road split is temporary demo data until live route-segment classificat
    row.setAttribute('aria-label','Stop '+(i+1)+': '+stop.name+'. Manage stop');
    trip.append(row);
   });
-  reminder.textContent=state.stops.length?(state.atStop?'At stop · ':'')+state.stops.length+' stop'+(state.stops.length===1?'':'s')+' · '+next.name:'No stops';
+  reminder.textContent=state.stops.length?(state.atStop?'At stop · ':'')+state.stops.length+' stop'+(state.stops.length===1?'':'s')+' · '+next.name:'';
   fitViewport();
   installTripMenu();
   const turn=nav.querySelector('.turn-card');
@@ -3232,4 +3242,16 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
 
 <style>/* NAVUE_TEMPORARY_ALERT_MIC_V1 */
 #navigation .c3-listening{font-size:12px;font-weight:700;color:#1769e0;line-height:18px;margin:3px 0 6px}
+</style>
+
+<style>/* NAVUE_COMPACT_TRIP_HEADER_V1 */
+#navigation .c3-grip{height:20px;min-height:20px;padding:6px;margin:0}
+#navigation .c3-header-row{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:8px;margin:0 0 8px}
+#navigation .c3-header-icon{width:44px;height:44px;min-height:44px;padding:10px;margin:0;border-radius:50%;background:#e6f0ff;color:#1769e0;display:grid;place-items:center;touch-action:manipulation}
+#navigation .c3-header-icon svg{width:26px;height:26px}
+#navigation .c3-header-row .c3-trip{margin:0;min-width:0;grid-column:2}
+#navigation .c3-header-row .c3-trip[hidden]{display:block;visibility:hidden}
+#navigation .c3-header-row .c3-itinerary-stop{justify-content:center;min-height:36px;font-size:12px;padding:4px;margin:2px 0;background:transparent;touch-action:manipulation}
+#navigation .c3-header-row .c3-itinerary-stop span:last-child{white-space:normal;overflow-wrap:anywhere}
+#navueTripSettings{grid-column:3}
 </style>
