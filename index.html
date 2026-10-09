@@ -2312,6 +2312,7 @@ Prototype road split is temporary demo data until live route-segment classificat
  help:'<path d="M9 32l6-17h27l6 17v22H7V32z" fill="#1769e0"/><path d="M18 20h21l4 12H13z" fill="white"/><path d="M13 41h7m15 0h7" stroke="white" stroke-width="4"/><path d="M42 53l12-19c-7-9-1-18 6-17l-3 8 5 3 5-6c3 9-1 14-8 13L48 58z" fill="#183b5a" transform="translate(-4 0)"/><path d="M52 4v10m-5-5h10" stroke="#ffc83d" stroke-width="4"/>'
  };
  function alertIcon(id){const wrap=el('span',null,'c3-alert-icon');wrap.innerHTML='<svg viewBox="0 0 68 64" aria-hidden="true" focusable="false">'+alertArt[id]+'</svg>';return wrap}
+ // NAVUE_ALERT_PERMISSION_HANDOFF_V3
  // NAVUE_ALERT_DIALOGUE_V2 — temporary speaker + contextual aliases, not a connected AI service.
  // NAVUE_TEMPORARY_ALERT_MIC_V1 — restore the driver's setting when this interaction ends.
  let alertMic=null;const readyRecognizers=new WeakSet(),watchedRecognizers=new WeakSet();
@@ -2325,6 +2326,7 @@ Prototype road split is temporary demo data until live route-segment classificat
  function syncAlertMic(){document.querySelectorAll('#navigation .mic').forEach(b=>{b.classList.toggle('listening',!!p.micEnabled);b.classList.toggle('navue-mic-enabled',!!p.micEnabled);b.setAttribute('aria-pressed',String(!!p.micEnabled))})}
  function readyAlertMic(){
   if(!alertMic||alertMic.failed||!p.micEnabled)return;
+  if(alertMic.pendingPrompt){const text=alertMic.pendingPrompt;alertMic.pendingPrompt=null;notify(text);return}
   alertMicStatus('Listening');if(!alertMic.beeped){alertMic.beeped=true;beep()}
  }
  function endAlertMic(kind){
@@ -2343,9 +2345,9 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(alertMic.failed){alertMicStatus('Microphone unavailable · Tap an option');return}
   try{unlockAudio()}catch(e){}
   if(!(window.SpeechRecognition||window.webkitSpeechRecognition)){alertMic.failed=true;alertMicStatus('Voice unavailable · Tap an option');return}
-  p.micEnabled=true;voiceFlow=true;syncAlertMic();alertMicStatus('Starting microphone…');
-  startListen('navigation',navMic,true);
-  if(rec&&readyRecognizers.has(rec))readyAlertMic();
+  p.micEnabled=true;voiceFlow=true;syncAlertMic();
+  // Speak from the initiating tap first. Starting recognition here races its permission dialog.
+  alertMicStatus('Preparing voice…');
  }
  const startBeforeAlerts=window.startListen,stopBeforeAlerts=window.stopListen,saveBeforeAlerts=window.save;
  window.save=function(){
@@ -2369,12 +2371,12 @@ Prototype road split is temporary demo data until live route-segment classificat
  };
  document.addEventListener('visibilitychange',()=>{if(document.hidden)endAlertMic()});
  let reportChoice=null;
- const roadLauncher=button('',()=>openRoadAlerts(),'c3-road-launcher');roadLauncher.id='navueRoadAlerts';roadLauncher.setAttribute('aria-label','Road alerts');roadLauncher.setAttribute('aria-controls','navue3cPanel');roadLauncher.append(alertIcon('hazard'));nav.append(roadLauncher);
- function openRoadAlerts(){
+ const roadLauncher=button('',()=>openRoadAlerts(true),'c3-road-launcher');roadLauncher.id='navueRoadAlerts';roadLauncher.setAttribute('aria-label','Road alerts');roadLauncher.setAttribute('aria-controls','navue3cPanel');roadLauncher.append(alertIcon('hazard'));nav.append(roadLauncher);
+ function openRoadAlerts(fromTap=false){
   reportChoice=null;const box=shell('Road alerts','road-alerts');box.querySelector('.c3-label').textContent='SIMULATED · Not shared with other drivers';
   const grid=el('div',null,'c3-alert-grid');
   alertTypes.forEach(([id,label])=>{const b=button('',()=>previewReport(id),'c3-alert-choice');b.dataset.alert=id;b.setAttribute('aria-label',label);b.append(alertIcon(id),el('span',label,'c3-alert-name'));grid.append(b)});
-  box.append(grid);beginAlertMic('report');notify('Which alert?');drawerBody.scrollTop=0;refreshDrawer();
+  box.append(grid);if(fromTap||alertMic)beginAlertMic('report');notify('Which alert?');drawerBody.scrollTop=0;refreshDrawer();
  }
  // NAVUE_ROAD_SUBOPTIONS_V1 — NaVue-only simulated reporting, not Google's report panel.
  const alertOptions={
@@ -2445,7 +2447,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   const special={map:'Demo feedback only. Not sent to Google.',gas:'Price reporting is not connected.',help:'Demo only. No call or assistance request is made.'};
   if(special[id])box.append(el('p',special[id],'c3-label'));
   const row=el('div',null,'c3-actions');row.append(button(id==='help'?'Preview request':id==='map'?'Preview feedback':id==='gas'?'Preview price':'Report',confirmReport),button('Cancel',()=>{reportChoice=null;reportSub=null;closePanel()},'secondary'));box.append(row);drawerBody.scrollTop=0;refreshDrawer();
-  beginAlertMic('report');notify(type[1]+'—which one?');
+  notify(type[1]+'—which one?');
  }
  function selectReportSub(key){
   if(!reportChoice||!alertOptions[reportChoice].some(x=>x[0]===key))return;reportSub=key;
@@ -2521,7 +2523,7 @@ Prototype road split is temporary demo data until live route-segment classificat
    reportPrompt.replaceChildren(el('small','DEMO · Approaching driver','c3-incident-source'),el('strong',report.label+' ahead'));
    const row=el('div',null,'c3-actions');row.append(button('Still there',()=>voteReport(true)),button('Not there',()=>voteReport(false),'secondary'));reportPrompt.append(row);reportPrompt.hidden=false;
    const expire=()=>{if(!activeReport||activeReport.run!==run)return;clearTimeout(approachExpiry);approachExpiry=setTimeout(()=>dismissReportPrompt(),12000)};expire();
-   beginAlertMic('verification');
+   // Approaching-alert prompts respect existing audio settings; only the launcher overrides them.
    if(tripVoice)speak('Demo. '+report.label+' ahead. Still there or not there?',true,p.voiceStyle,()=>{expire();if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});else expire();
   },2000);
  }
@@ -2593,6 +2595,9 @@ Prototype road split is temporary demo data until live route-segment classificat
  collapseDrawer();
  function notify(text){
   status.textContent=text;status.hidden=false;clearTimeout(statusTimer);statusTimer=setTimeout(()=>{status.hidden=true},4000);
+  // Never stop a recognizer whose permission/start handshake has not completed.
+  if(alertMic&&rec&&!readyRecognizers.has(rec)&&!alertMic.failed){alertMic.pendingPrompt=text;alertMicStatus('Waiting for microphone permission…');return}
+  if(alertMic&&!alertMic.failed){alertMic.beeped=false;alertMicStatus('Speaking…')}
   if(active()==='navigation'&&tripVoice)speak(text,true,p.voiceStyle,()=>{if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});
  }
  function closePanel(){endAlertMic('report');state.suggestion=null;panel.hidden=true;panel.replaceChildren();state.panel='';state.candidate=null;state.results=[];overview.hidden=false;collapseDrawer();}
@@ -2884,7 +2889,7 @@ Prototype road split is temporary demo data until live route-segment classificat
    if(key){selectReportSub(key);confirmSubPrompt();return}
   }
   const reportText=t.replace(/^report (?:a |an )?/,'');
-  if(/^report /.test(t)){
+  if(/^report /.test(t)||state.panel==='road-alerts'){
    const direct={construction:['hazard','construction'],pothole:['hazard','pothole'],'mobile camera':['police','camera'],'hidden police':['police','hidden'],'left lane':['blocked','left'],'right lane':['blocked','right'],'centre lane':['blocked','center'],'center lane':['blocked','center'],flood:['weather','flood'],fog:['weather','fog'],'icy road':['weather','ice'],'slippery road':['weather','slippery']};
    if(direct[reportText]){const [category,key]=direct[reportText];previewReport(category);selectReportSub(key);confirmSubPrompt();return}
   }
