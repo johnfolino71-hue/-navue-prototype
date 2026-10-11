@@ -3070,7 +3070,7 @@ Prototype road split is temporary demo data until live route-segment classificat
  var s=document.getElementById('preferences');if(!s||s.querySelector('.navue-settings-menu'))return;
  var menu=document.createElement('div');menu.className='navue-settings-menu';
  var groups=[
-  ['Settings',[['general','⚙','General'],['map','▧','Map Display'],['voice','🔊','Voice & Sound'],['location','⌖','Location']]],
+  ['Settings',[['general','⚙','Profile'],['map','▧','Map Display'],['voice','🔊','Voice & Sound'],['location','⌖','Location']]],
   ['Driving preferences',[['navigation','↱','Navigation & Driving Preferences'],['tolls','◇','Toll & HOV Passes'],['alerts','!','Alerts & Reports'],['fuel','⛽','Fuel & Cost'],['speed','◴','Speedometer']]],
   ['Notifications',[['notifications','🔔','Notifications'],['planned','◷','Planned Drives'],['reminders','⏰','Reminders']]],
   ['Account',[['account','●','Account & Login'],['privacy','◆','Privacy']]],
@@ -3661,3 +3661,7 @@ button.gear svg{width:26px;height:26px;display:block}
  const originalShow=window.show;window.show=function(){const result=originalShow.apply(this,arguments);styleSettings();return result};
 })();
 </script>
+
+<style>/* NAVUE_PROFILE_EXACT_FIX_V6 */
+#preferences .fuel-field:has(#navueGuidanceLevel){display:none!important}
+</style>
