@@ -3255,3 +3255,69 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
 #navigation .c3-header-row .c3-itinerary-stop span:last-child{white-space:normal;overflow-wrap:anywhere}
 #navueTripSettings{grid-column:3}
 </style>
+<style>/* NAVUE_DESTINATION_MIC_HANDSFREE_V1 */
+#home .searchrow,#destination .searchrow{position:relative!important;display:block!important;width:100%!important;margin-left:0!important;margin-right:0!important}
+#home .searchrow input.search,#destination .searchrow input.search{box-sizing:border-box!important;width:100%!important;max-width:none!important;height:48px!important;min-height:48px!important;padding:10px 102px 10px 14px!important;margin:0!important;font-size:16px!important;border-radius:14px!important}
+#home .searchrow .mic,#destination .searchrow .mic{position:absolute!important;display:grid!important;place-items:center;right:3px!important;top:2px!important;width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important;margin:0!important;padding:11px!important;border-radius:50%!important;background:#eef1f3!important;color:#52616b!important;box-shadow:none!important}
+#home .searchrow .mic.navue-mic-enabled,#destination .searchrow .mic.navue-mic-enabled{background:#1769e0!important;color:white!important}
+#home .searchrow .mic svg,#destination .searchrow .mic svg{width:22px;height:22px;fill:currentColor}
+.navue-input-listening{position:absolute;right:51px;top:17px;font-size:10px;color:#647789;pointer-events:none;line-height:14px}
+#destination>.navue-session-controls .mic,#home .top-actions .mic,#navigation #navMic{display:none!important}
+</style>
+<script>/* NAVUE_DESTINATION_MIC_HANDSFREE_V1 */
+(function(){
+ const page=()=>document.querySelector('.screen.active')?.id;
+ let inputSession=false,hideListening=false;
+ const oldStart=window.startListen,oldShow=window.show,oldHandle=window.handleVoice,oldSpeak=window.speak;
+ function indicator(ready){document.querySelectorAll('.navue-input-listening').forEach(e=>{e.hidden=!(ready&&p.micEnabled&&!hideListening&&e.closest('.screen')?.id===page())})}
+ function sync(){
+  document.querySelectorAll('.searchrow .mic').forEach(b=>{b.classList.toggle('navue-mic-enabled',!!p.micEnabled);b.classList.toggle('listening',!!p.micEnabled);b.setAttribute('aria-pressed',String(!!p.micEnabled));b.setAttribute('aria-label',p.micEnabled?'Turn microphone off':'Speak destination')});
+  setSpeaker();updateHomeSpeaker();
+ }
+ function off(){p.micEnabled=false;voiceFlow=false;inputSession=false;hideListening=true;stopListen(false);indicator(false);sync();save()}
+ function install(){
+  ['home','destination'].forEach(id=>{
+   const host=document.getElementById(id),row=host.querySelector('.searchrow');if(!row)return;
+   const b=id==='home'?host.querySelector('.home-map-mic,.mic'):document.getElementById('destMic');if(!b)return;
+   if(b.parentElement!==row)row.append(b);
+   b.innerHTML=typeof MIC!=='undefined'?MIC:b.innerHTML;
+   b.onclick=()=>{if(p.micEnabled){off();return}inputSession=true;hideListening=false;p.micEnabled=true;voiceFlow=true;sync();startListen(id,b,false)};
+   let label=row.querySelector('.navue-input-listening');if(!label){label=document.createElement('span');label.className='navue-input-listening';label.textContent='Listening…';label.hidden=true;label.setAttribute('role','status');row.append(label)}
+   const input=row.querySelector('input');if(!input.dataset.navueListening){input.dataset.navueListening='true';input.addEventListener('input',()=>{hideListening=true;indicator(false)});input.addEventListener('focus',()=>{hideListening=true;indicator(false)})}
+  });
+  sync();
+ }
+ window.startListen=function(){const r=oldStart.apply(this,arguments),session=rec;if(session&&!session.navueInputWatched){session.navueInputWatched=true;const start=session.onstart,end=session.onend,error=session.onerror;session.onstart=function(e){if(start)start.call(this,e);if(rec===session)indicator(true)};session.onend=function(e){indicator(false);if(end)end.call(this,e)};session.onerror=function(e){indicator(false);if(error)error.call(this,e)}}return r};
+ // Capture before the existing Find routes handler. Validation and imagery choice are unchanged.
+ document.getElementById('findRoutesBtn').addEventListener('click',off,true);
+ window.handleVoice=function(raw,mode){
+  const t=String(raw||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+  if(/^(home|destination)$/.test(page())){hideListening=true;indicator(false);if(/^(?:please )?(?:find|show) routes?(?: please)?$|^routes?$/.test(t))off()}
+  if(page()==='navigation'&&/^(mute|unmute)(?: (?:speaker|voice|guidance))?$/.test(t)){handsFree(/^unmute/.test(t));return}
+  if(page()==='navigation'&&/^(?:turn )?(?:speaker|voice|voice guidance|hands free)(?: turn)? (on|off)$/.test(t)){handsFree(/ on$/.test(t));return}
+  return oldHandle.apply(this,arguments);
+ };
+ window.show=function(id){if(id==='routes'&&inputSession)off();const r=oldShow.apply(this,arguments);if(id==='home'||id==='destination')install();if(id==='preferences')document.getElementById('navueGuidanceLevel').value=p.voiceMode||'full';if(!/^(home|destination)$/.test(id))indicator(false);return r};
+ function handsFree(on){
+  p.voice=!!on;tripVoice=!!on;p.micEnabled=!!on;voiceFlow=!!on;inputSession=false;sync();save();
+  if(on)speak('Voice guidance on.',true,p.voiceStyle,()=>{if(p.micEnabled&&page()==='navigation')rearmVoice('navigation')});
+  else{window.navueSpeechTurn=(window.navueSpeechTurn||0)+1;window.navueSpeechPending=false;try{speechSynthesis.cancel()}catch(e){}stopListen(false)}
+ }
+ window.toggleTripVoice=function(){handsFree(!tripVoice)};
+ document.getElementById('speakerBtn').onclick=()=>window.toggleTripVoice();
+ const settings=document.getElementById('preferences'),section=document.createElement('div');section.className='fuel-field';
+ section.innerHTML='<label for="navueGuidanceLevel">VOICE GUIDANCE</label><select id="navueGuidanceLevel"><option value="full">Normal</option><option value="brief">Less chatty</option><option value="alerts">Alerts only</option></select>';
+ settings.querySelector('.pref-title').before(section);
+ const level=section.querySelector('select');level.value=['full','brief','alerts'].includes(p.voiceMode)?p.voiceMode:'full';
+ level.onchange=()=>{p.voiceMode=level.value;save()};
+ // Keep explicit questions/answers and hazard dialogue audible in every mode.
+ // Only unsolicited routine navigation announcements are filtered.
+ window.speak=function(text,force,style,after){
+  const routine=page()==='navigation'&&/^(?:Route [ABC] selected\. )?Continue (?:straight|for)|^Route [ABC] selected\./i.test(text);
+  if(routine&&p.voiceMode==='alerts'){if(after)after();return}
+  if(routine&&p.voiceMode==='brief')text=String(text).replace(/^Route [ABC] selected\.\s*/i,'');
+  return oldSpeak.call(this,text,force,style,after);
+ };
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(install,0));else setTimeout(install,0);
+})();
+</script>
