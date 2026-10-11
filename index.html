@@ -218,7 +218,7 @@ function navueExceptionEligible(r){
 function navueSelectionAllowed(r){return navueRouteAllowed(r)||(navueApprovedException===r&&navueExceptionEligible(r))}
 function navueRoutePrompt(){
  var routes=currentRoutes.filter(navueRouteAllowed),extra=currentRoutes.find(r=>!navueRouteAllowed(r)&&navueExceptionEligible(r));
- return routes.length?'Available routes: '+routes.map(r=>'Route '+r.id).join(', ')+'.'+(extra?' Last, optional Route '+extra.id+' '+navueRestrictionReasons(extra).join(' and ')+', outside your preferences. Confirmation required.':'')+' Say the letter to choose.':'No route meeting your restrictions is available. Your restrictions remain unchanged.';
+ return routes.length?'Available routes: '+routes.map(r=>'Route '+r.id).join(', ')+'.'+(extra?' Last, optional Route '+extra.id+' '+navueRestrictionReasons(extra).join(' and ')+', outside your preferences. Confirmation required.':'')+(p.micEnabled?' Say the letter to choose.':' Tap a route to choose.'):'No route meeting your restrictions is available. Your restrictions remain unchanged.';
 }
 function navueRouteNotice(){
  var hint=document.querySelector('#routes .route-voice .small');
@@ -3319,5 +3319,22 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
   return oldSpeak.call(this,text,force,style,after);
  };
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(install,0));else setTimeout(install,0);
+})();
+</script>
+
+<style>/* NAVUE_PLAIN_DESTINATION_MIC_V2 */
+#home>.searchrow{position:absolute!important;left:14px!important;right:14px!important;width:auto!important;box-sizing:border-box!important;height:48px!important}
+#destination>.searchrow{left:auto!important;right:auto!important;box-sizing:border-box!important}
+#home .searchrow .mic,#destination .searchrow .mic{background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;color:#64717b!important}
+#home .searchrow .mic.navue-mic-enabled,#destination .searchrow .mic.navue-mic-enabled{background:transparent!important;color:#1769e0!important}
+#home .searchrow .mic:focus-visible,#destination .searchrow .mic:focus-visible{outline:2px solid #1769e0;outline-offset:-4px}
+#routes .navue-session-mic,#routes #routeMic,#routes .route-voice .mic{display:none!important}
+#voiceStatus.navue-redundant-status{display:none!important}
+</style>
+<script>
+(function(){
+ const status=document.getElementById('voiceStatus');
+ function cleanStatus(){status.classList.toggle('navue-redundant-status',/^(Listening[.…]*|Type it or speak naturally while the microphone is ON\.)$/i.test(status.textContent.trim()))}
+ new MutationObserver(cleanStatus).observe(status,{childList:true,subtree:true,characterData:true});cleanStatus();
 })();
 </script>
