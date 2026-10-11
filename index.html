@@ -3338,3 +3338,14 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
  new MutationObserver(cleanStatus).observe(status,{childList:true,subtree:true,characterData:true});cleanStatus();
 })();
 </script>
+<style>/* NAVUE_MAP_SPEAKER_POSITION_V1 */
+/* Keep the existing controls and handlers; position below each map header. */
+#navigation #speakerBtn{top:130px!important;right:12px!important;z-index:40!important}
+#home>#homeSpeaker{position:absolute!important;top:calc(var(--navue-home-shade-height,180px) + 12px)!important;right:14px!important;left:auto!important;z-index:6!important;margin:0!important}
+</style>
+<script>
+(function(){
+ function placeHomeSpeaker(){const home=document.getElementById('home'),button=document.getElementById('homeSpeaker');if(home&&button&&button.parentElement!==home)home.appendChild(button)}
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',placeHomeSpeaker);else placeHomeSpeaker();
+})();
+</script>
