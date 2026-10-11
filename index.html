@@ -3074,7 +3074,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   ['Driving preferences',[['navigation','↱','Navigation & Driving Preferences'],['tolls','◇','Toll & HOV Passes'],['alerts','!','Alerts & Reports'],['fuel','⛽','Fuel & Cost'],['speed','◴','Speedometer']]],
   ['Notifications',[['notifications','🔔','Notifications'],['planned','◷','Planned Drives'],['reminders','⏰','Reminders']]],
   ['Account',[['account','●','Account & Login'],['privacy','◆','Privacy']]],
-  ['NaVue',[['about','i','About NaVue'],['help','?','Help']]]
+  ['NaVue',[['about','i','About NaVue'],['invite','↗','Invite a Friend'],['help','?','Help']]]
  ];
  groups.forEach(function(g){
   var box=document.createElement('div');box.className='navue-settings-group';
@@ -3088,8 +3088,15 @@ Prototype road split is temporary demo data until live route-segment classificat
  function collect(start,endTexts){
   var out=[],n=start;while(n){var next=n.nextElementSibling;if(n===menu||n===detail||n.classList.contains('navue-session-controls')){n=next;continue}if(n.classList&&n.classList.contains('pref-title')&&endTexts.indexOf(n.textContent.trim())>=0)break;out.push(n);n=next}return out
  }
+ function inviteFriend(){
+  var shareData={title:'NaVue',text:'Try NaVue — Drive Smarter Every Day.',url:window.location.origin+window.location.pathname};
+  if(navigator.share){navigator.share(shareData).catch(function(){})}
+  else if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(shareData.url).then(function(){alert('NaVue link copied. Share it with a friend.')})}
+  else{window.prompt('Copy this NaVue link to share:',shareData.url)}
+ }
  function placeholder(title){detail.innerHTML='<div class="navue-settings-detail-head"><button class="navue-settings-back" type="button" aria-label="Back">‹</button><div class="navue-settings-detail-title">'+title+'</div></div><div class="navue-coming">This setting is planned for NaVue and will be available in a future build.</div>';detail.querySelector('.navue-settings-back').onclick=showMenu}
  function openDetail(key,title){
+  if(key==='invite'){inviteFriend();return}
   detail.innerHTML='<div class="navue-settings-detail-head"><button class="navue-settings-back" type="button" aria-label="Back">‹</button><div class="navue-settings-detail-title">'+title+'</div></div>';
   detail.querySelector('.navue-settings-back').onclick=showMenu;
   var nodes=[];
