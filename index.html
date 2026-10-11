@@ -3200,6 +3200,42 @@ Prototype road split is temporary demo data until live route-segment classificat
   syncMic();s.classList.remove('navue-settings-menu-mode');s.classList.add('navue-settings-detail-mode');s.querySelector('h1').textContent='Settings';scrollTo(0,0)
  };
 })();
+</script><style>/* NAVUE_MAP_DISPLAY_AND_VIEW_V1 */
+#navigation .navue-map-view-btn{position:absolute;top:190px;left:14px;z-index:36;width:50px;height:50px;border-radius:50%;margin:0;padding:0;background:#fff;color:#1769e0;border:1px solid #d7e1ea;box-shadow:0 2px 10px #17212622;font-weight:850;font-size:13px}
+#navigation .navue-map-view-pop{position:absolute;top:246px;left:14px;z-index:45;width:154px;background:#fff;border:1px solid #d7e1ea;border-radius:14px;box-shadow:0 6px 20px #1721262b;padding:7px}
+#navigation .navue-map-view-pop button{margin:0!important;width:100%;background:#fff!important;color:#172126!important;border:0!important;border-radius:9px!important;text-align:left!important;padding:10px!important}
+#navigation .navue-map-view-pop button.active{background:#eaf3ff!important;color:#1769e0!important}
+#preferences .navue-map-display-card{background:#fff;border:1px solid #d9e1e8;border-radius:16px;padding:16px;margin-bottom:14px}
+#preferences .navue-map-display-card label{display:block;font-weight:800;margin:8px 0 6px}
+#preferences .navue-map-toggle-row{display:flex;justify-content:space-between;align-items:center;min-height:58px;border-top:1px solid #e6ebef}
+</style>
+<script>/* NAVUE_MAP_DISPLAY_AND_VIEW_V1 */
+(function(){
+ function persist(){try{save()}catch(e){}}
+ var s=document.getElementById('preferences'),mapBtn=s&&s.querySelector('.navue-settings-menu [data-setting="map"]');
+ if(mapBtn)mapBtn.onclick=function(){
+  var d=s.querySelector('.navue-settings-detail');if(!d)return;
+  d.innerHTML='<div class="navue-settings-detail-head"><button class="navue-settings-back" type="button" aria-label="Back">‹</button><div class="navue-settings-detail-title">Map Display</div></div>'+
+   '<div class="navue-map-display-card"><label>Map Type</label><select id="nvMapType"><option value="standard">Standard</option><option value="satellite">Satellite</option><option value="terrain">Terrain</option></select>'+
+   '<label style="margin-top:18px">Map Details</label><div class="navue-map-toggle-row"><strong>Traffic</strong><button type="button" class="navue-mini-toggle" id="nvTraffic"></button></div><div class="navue-map-toggle-row"><strong>3D Buildings</strong><button type="button" class="navue-mini-toggle" id="nvBuildings"></button></div></div>';
+  d.querySelector('.navue-settings-back').onclick=function(){s.classList.remove('navue-settings-detail-mode');s.classList.add('navue-settings-menu-mode');s.querySelector('h1').textContent='Settings';scrollTo(0,0)};
+  p.mapType=p.mapType||'standard';p.mapTraffic=p.mapTraffic!==false;p.mapBuildings=p.mapBuildings!==false;
+  var type=d.querySelector('#nvMapType'),traffic=d.querySelector('#nvTraffic'),build=d.querySelector('#nvBuildings');
+  function tog(el,on){el.textContent=on?'ON':'OFF';el.classList.toggle('voice-on',!!on)}
+  type.value=p.mapType;type.onchange=function(){p.mapType=type.value;persist()};
+  traffic.onclick=function(){p.mapTraffic=!p.mapTraffic;persist();tog(traffic,p.mapTraffic)};
+  build.onclick=function(){p.mapBuildings=!p.mapBuildings;persist();tog(build,p.mapBuildings)};
+  tog(traffic,p.mapTraffic);tog(build,p.mapBuildings);
+  s.classList.remove('navue-settings-menu-mode');s.classList.add('navue-settings-detail-mode');s.querySelector('h1').textContent='Settings';scrollTo(0,0)
+ };
+ var nav=document.getElementById('navigation');if(!nav||nav.querySelector('.navue-map-view-btn'))return;
+ var v=document.createElement('button');v.type='button';v.className='navue-map-view-btn';v.textContent='VIEW';v.setAttribute('aria-label','Navigation view');
+ var pop=document.createElement('div');pop.className='navue-map-view-pop';pop.hidden=true;
+ ['2D','3D','Automatic'].forEach(function(name){var x=document.createElement('button');x.type='button';x.textContent=name;x.dataset.view=name.toLowerCase();x.onclick=function(){p.navigationView=x.dataset.view;persist();sync();pop.hidden=true};pop.appendChild(x)});
+ function sync(){var mode=p.navigationView||'automatic';pop.querySelectorAll('button').forEach(function(x){x.classList.toggle('active',x.dataset.view===mode)})}
+ v.onclick=function(){sync();pop.hidden=!pop.hidden};
+ nav.appendChild(v);nav.appendChild(pop);
+})();
 </script></body></html>
 <style>/* NAVUE_3C_DRAGGABLE_TRIP_PANEL */
 body:has(#navigation.active){overflow:hidden;height:100dvh;overscroll-behavior:none}
