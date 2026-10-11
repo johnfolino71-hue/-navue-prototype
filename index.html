@@ -3177,6 +3177,29 @@ Prototype road split is temporary demo data until live route-segment classificat
   sync();s.classList.remove('navue-settings-menu-mode');s.classList.add('navue-settings-detail-mode');s.querySelector('h1').textContent='Settings';scrollTo(0,0)
  };
 })();
+</script><script>/* NAVUE_VOICE_GUIDANCE_SPEAKER_FINAL_V5 */
+(function(){
+ var s=document.getElementById('preferences');if(!s)return;
+ var row=s.querySelector('.navue-settings-menu [data-setting="voice"]');if(!row)return;
+ var label=row.querySelector('.navue-settings-label');if(label)label.textContent='Voice Guidance / Speaker';
+ row.onclick=function(){
+  var d=s.querySelector('.navue-settings-detail');if(!d)return;
+  d.innerHTML='<div class="navue-settings-detail-head"><button class="navue-settings-back" type="button" aria-label="Back">‹</button><div class="navue-settings-detail-title">Voice Guidance / Speaker</div></div>'+
+  '<div class="navue-voice-control">'+
+   '<div class="navue-voice-sound-row"><div class="navue-voice-sound-copy"><strong>Voice Guidance</strong><span>Choose how much NaVue speaks while driving.</span></div></div>'+
+   '<select id="nvGuidance"><option value="full">Normal</option><option value="brief">Less Chatty</option></select>'+
+   '<div class="navue-voice-sound-row"><div class="navue-voice-sound-copy"><strong>Microphone</strong><span>Turn NaVue voice input on or off.</span></div><button type="button" class="navue-mini-toggle" id="nvGuidanceMic"></button></div>'+
+  '</div>';
+  d.querySelector('.navue-settings-back').onclick=function(){s.classList.remove('navue-settings-detail-mode');s.classList.add('navue-settings-menu-mode');s.querySelector('h1').textContent='Settings';scrollTo(0,0)};
+  var level=d.querySelector('#nvGuidance'),mic=d.querySelector('#nvGuidanceMic');
+  level.value=p.voiceMode==='brief'?'brief':'full';
+  if(p.voiceMode==='alerts'){p.voiceMode='full';try{save()}catch(e){}}
+  level.onchange=function(){p.voiceMode=level.value;p.voice=true;tripVoice=true;try{save()}catch(e){}try{updateHomeSpeaker()}catch(e){}try{setSpeaker()}catch(e){}};
+  function syncMic(){mic.textContent=p.micEnabled?'ON':'OFF';mic.classList.toggle('voice-on',!!p.micEnabled)}
+  mic.onclick=function(){p.micEnabled=!p.micEnabled;voiceFlow=!!p.micEnabled;if(!p.micEnabled){try{stopListen(false)}catch(e){}}try{save()}catch(e){}syncMic()};
+  syncMic();s.classList.remove('navue-settings-menu-mode');s.classList.add('navue-settings-detail-mode');s.querySelector('h1').textContent='Settings';scrollTo(0,0)
+ };
+})();
 </script></body></html>
 <style>/* NAVUE_3C_DRAGGABLE_TRIP_PANEL */
 body:has(#navigation.active){overflow:hidden;height:100dvh;overscroll-behavior:none}
