@@ -3145,6 +3145,38 @@ Prototype road split is temporary demo data until live route-segment classificat
   s.classList.remove('navue-settings-menu-mode');s.classList.add('navue-settings-detail-mode');s.querySelector('h1').textContent='Settings';window.scrollTo(0,0);
  };
 })();
+</script><style>/* NAVUE_VOICE_SOUND_VERIFIED_V4 */
+#preferences .navue-voice-control{background:#fff;border:1px solid #d9e1e8;border-radius:16px;padding:6px 16px;margin-bottom:14px}
+#preferences .navue-voice-control .navue-voice-sound-row{min-height:62px}
+#preferences .navue-voice-control select{margin:6px 0 14px}
+</style>
+<script>/* NAVUE_VOICE_SOUND_VERIFIED_V4 */
+(function(){
+ var s=document.getElementById('preferences');if(!s)return;
+ var b=s.querySelector('.navue-settings-menu [data-setting="voice"]');if(!b)return;
+ function saveNow(){try{save()}catch(e){}}
+ function toggleButton(btn,on){btn.textContent=on?'ON':'OFF';btn.classList.toggle('voice-on',!!on)}
+ b.onclick=function(){
+  var d=s.querySelector('.navue-settings-detail');if(!d)return;
+  d.innerHTML='<div class="navue-settings-detail-head"><button class="navue-settings-back" type="button" aria-label="Back">‹</button><div class="navue-settings-detail-title">Voice &amp; Sound</div></div>'+
+  '<div class="navue-voice-control">'+
+   '<div class="navue-voice-sound-row"><div class="navue-voice-sound-copy"><strong>Microphone</strong><span>Turn microphone access for NaVue voice input on or off.</span></div><button type="button" class="navue-mini-toggle" id="nvMic"></button></div>'+
+   '<div class="navue-voice-sound-row"><div class="navue-voice-sound-copy"><strong>Sound / Speaker</strong><span>Turn spoken navigation sound on or off.</span></div><button type="button" class="navue-mini-toggle" id="nvSpeaker"></button></div>'+
+   '<div class="navue-voice-sound-row"><div class="navue-voice-sound-copy"><strong>Voice Commands</strong><span>Turn hands-free voice commands on or off.</span></div><button type="button" class="navue-mini-toggle" id="nvCommands"></button></div>'+
+   '<div class="navue-voice-sound-row"><div class="navue-voice-sound-copy"><strong>Let’s Chat</strong><span>Choose how conversational NaVue should be.</span></div></div>'+
+   '<select id="nvChat"><option value="full">Normal</option><option value="brief">Less Chatty</option><option value="alerts">Alerts Only</option></select>'+
+  '</div>';
+  d.querySelector('.navue-settings-back').onclick=function(){s.classList.remove('navue-settings-detail-mode');s.classList.add('navue-settings-menu-mode');s.querySelector('h1').textContent='Settings';scrollTo(0,0)};
+  var mic=d.querySelector('#nvMic'),speaker=d.querySelector('#nvSpeaker'),commands=d.querySelector('#nvCommands'),chat=d.querySelector('#nvChat');
+  var commandsOn=!!p.micEnabled;
+  function sync(){toggleButton(mic,!!p.micEnabled);toggleButton(speaker,!!p.voice);toggleButton(commands,commandsOn)}
+  mic.onclick=function(){p.micEnabled=!p.micEnabled;if(!p.micEnabled){commandsOn=false;voiceFlow=false;try{stopListen(false)}catch(e){}}else{commandsOn=true;voiceFlow=true}saveNow();sync()};
+  speaker.onclick=function(){p.voice=!p.voice;tripVoice=p.voice;if(!p.voice){try{speechSynthesis.cancel()}catch(e){}}saveNow();try{updateHomeSpeaker()}catch(e){}try{setSpeaker()}catch(e){}sync()};
+  commands.onclick=function(){commandsOn=!commandsOn;p.micEnabled=commandsOn;voiceFlow=commandsOn;if(!commandsOn){try{stopListen(false)}catch(e){}}saveNow();sync()};
+  chat.value=['full','brief','alerts'].includes(p.voiceMode)?p.voiceMode:'full';chat.onchange=function(){p.voiceMode=chat.value;saveNow()};
+  sync();s.classList.remove('navue-settings-menu-mode');s.classList.add('navue-settings-detail-mode');s.querySelector('h1').textContent='Settings';scrollTo(0,0)
+ };
+})();
 </script></body></html>
 <style>/* NAVUE_3C_DRAGGABLE_TRIP_PANEL */
 body:has(#navigation.active){overflow:hidden;height:100dvh;overscroll-behavior:none}
