@@ -3103,7 +3103,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(key==='general'){var profile=s.querySelector(':scope > .navue-settings-profile')||detail.querySelector('.navue-settings-profile');if(!profile)profile=s.querySelector('.navue-settings-profile');if(profile)nodes=[profile]}
   if(key==='location'){var loc=s.querySelector(':scope > .navue-settings-location');if(loc)nodes=[loc]}
   if(key==='navigation'){var road=nodeByTitle('Roads');if(road)nodes=collect(road,['Fuel & Cost'])}
-  if(key==='fuel'){var fuel=nodeByTitle('Fuel & Cost');if(fuel)nodes=collect(fuel,[]).filter(function(n){return !(n.matches&&n.matches('button'))})}
+  if(key==='fuel'){var fuel=nodeByTitle('Fuel & Cost');if(fuel)nodes=collect(fuel,[]).filter(function(n){return !(n.matches&&n.matches('button'))&&!(n.classList&&n.classList.contains('navue-settings-profile'))})}
   if(key==='voice'){var vg=document.getElementById('navueGuidanceLevel');if(vg)nodes=[vg.closest('.fuel-field')]}
   if(key==='tolls'){var paid=nodeByTitle('Tolls & paid ferries');if(paid){nodes=[paid];if(paid.nextElementSibling)nodes.push(paid.nextElementSibling)}}
   if(nodes.length){nodes.forEach(function(n){detail.appendChild(n)});var save=document.createElement('button');save.type='button';save.textContent='Save Changes';save.onclick=function(){window.savePreferences();showMenu()};detail.appendChild(save)}
