@@ -3661,3 +3661,27 @@ button.gear svg{width:26px;height:26px;display:block}
  const originalShow=window.show;window.show=function(){const result=originalShow.apply(this,arguments);styleSettings();return result};
 })();
 </script>
+<script>/* NAVUE_PROFILE_SETTINGS_REENTRY_FIX_V6 */
+(function(){
+ var s=document.getElementById('preferences');if(!s)return;
+ var row=s.querySelector('.navue-settings-menu [data-setting="general"]');if(!row)return;
+ var label=row.querySelector('.navue-settings-label');if(label)label.textContent='Profile';
+ function saveNow(){try{savePreferences()}catch(e){try{save()}catch(_) {}}}
+ row.onclick=function(){
+  var d=s.querySelector('.navue-settings-detail');if(!d)return;
+  var profile=s.querySelector(':scope > .navue-settings-profile')||s.querySelector('.navue-settings-detail .navue-settings-profile');
+  d.innerHTML='<div class="navue-settings-detail-head"><button class="navue-settings-back" type="button" aria-label="Back">‹</button><div class="navue-settings-detail-title">Profile</div></div>';
+  if(profile)d.appendChild(profile);
+  var ids={navuePrefFirstName:'firstName',navuePrefLastName:'lastName',navuePrefEmail:'email',navuePrefCell:'cell',navuePrefCountry:'country'};
+  Object.keys(ids).forEach(function(id){var el=document.getElementById(id);if(el)el.value=p[ids[id]]||''});
+  var saveBtn=document.createElement('button');saveBtn.type='button';saveBtn.textContent='Save Changes';saveBtn.onclick=function(){saveNow();showMenu()};d.appendChild(saveBtn);
+  d.querySelector('.navue-settings-back').onclick=showMenu;
+  s.classList.remove('navue-settings-menu-mode');s.classList.add('navue-settings-detail-mode');s.querySelector('h1').textContent='Settings';scrollTo(0,0);
+ };
+ function showMenu(){
+  var profile=s.querySelector('.navue-settings-detail .navue-settings-profile');
+  if(profile)s.appendChild(profile);
+  s.classList.remove('navue-settings-detail-mode');s.classList.add('navue-settings-menu-mode');s.querySelector('h1').textContent='Settings';scrollTo(0,0);
+ }
+})();
+</script>
