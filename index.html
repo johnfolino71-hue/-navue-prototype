@@ -3100,7 +3100,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   detail.innerHTML='<div class="navue-settings-detail-head"><button class="navue-settings-back" type="button" aria-label="Back">‹</button><div class="navue-settings-detail-title">'+title+'</div></div>';
   detail.querySelector('.navue-settings-back').onclick=showMenu;
   var nodes=[];
-  if(key==='general'){var profile=s.querySelector(':scope > .navue-settings-profile');if(profile)nodes=[profile]}
+  if(key==='general'){var profile=s.querySelector(':scope > .navue-settings-profile')||detail.querySelector('.navue-settings-profile');if(!profile)profile=s.querySelector('.navue-settings-profile');if(profile)nodes=[profile]}
   if(key==='location'){var loc=s.querySelector(':scope > .navue-settings-location');if(loc)nodes=[loc]}
   if(key==='navigation'){var road=nodeByTitle('Roads');if(road)nodes=collect(road,['Fuel & Cost'])}
   if(key==='fuel'){var fuel=nodeByTitle('Fuel & Cost');if(fuel)nodes=collect(fuel,[]).filter(function(n){return !(n.matches&&n.matches('button'))})}
@@ -3110,7 +3110,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   else placeholder(title);
   s.classList.remove('navue-settings-menu-mode');s.classList.add('navue-settings-detail-mode');s.querySelector('h1').textContent='Settings';window.scrollTo(0,0)
  }
- function showMenu(){s.classList.remove('navue-settings-detail-mode');s.classList.add('navue-settings-menu-mode');s.querySelector('h1').textContent='Settings';window.scrollTo(0,0)}
+ function showMenu(){var profile=detail.querySelector('.navue-settings-profile');if(profile)s.appendChild(profile);s.classList.remove('navue-settings-detail-mode');s.classList.add('navue-settings-menu-mode');s.querySelector('h1').textContent='Settings';window.scrollTo(0,0)}
  var oldShow=window.show;window.show=function(id){var r=oldShow.apply(this,arguments);if(id==='preferences')setTimeout(showMenu,0);return r};
  s.classList.add('navue-settings-menu-mode');s.querySelector('h1').textContent='Settings';
 })();
