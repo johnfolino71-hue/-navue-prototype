@@ -2983,6 +2983,66 @@ Prototype road split is temporary demo data until live route-segment classificat
  window.navueSetMapHeading=setHeading;setHeading(0);
  window.addEventListener('navue-map-heading',function(e){if(e&&e.detail&&Number.isFinite(Number(e.detail.heading)))setHeading(Number(e.detail.heading))});
 })();
+</script><style>/* NAVUE_SETTINGS_PROFILE_CLEANUP_V1 */
+#preferences .navue-settings-profile{margin:10px 0 18px}
+#preferences .navue-settings-profile .pref-title{margin-top:12px}
+#preferences .navue-settings-location{margin:8px 0 18px;padding:14px;border:1px solid #d6dde3;border-radius:14px;background:#fff}
+#preferences .navue-settings-location strong{display:block;font-size:17px}
+#preferences .navue-settings-location .small{margin-top:4px}
+#preferences .navue-settings-location button{margin-top:10px}
+</style>
+<script>/* NAVUE_SETTINGS_PROFILE_CLEANUP_V1 */
+(function(){
+ var settings=document.getElementById('preferences');if(!settings)return;
+ function byText(selector,text){return Array.from(settings.querySelectorAll(selector)).find(function(el){return el.textContent.trim()===text})}
+ var firstTitle=byText('.pref-title','First name'),prefName=document.getElementById('prefName');
+ if(firstTitle&&prefName){
+  var profile=document.createElement('div');profile.className='navue-settings-profile';
+  profile.innerHTML='<div class="pref-title">First name</div><input id="navuePrefFirstName" class="search" autocomplete="given-name"><div class="pref-title">Last name</div><input id="navuePrefLastName" class="search" autocomplete="family-name"><div class="pref-title">Email</div><input id="navuePrefEmail" class="search" type="email" autocomplete="email"><div class="pref-title">Cell number</div><input id="navuePrefCell" class="search" type="tel" autocomplete="tel"><div class="pref-title">Country</div><input id="navuePrefCountry" class="search" autocomplete="country-name">';
+  firstTitle.before(profile);firstTitle.remove();prefName.remove();
+ }
+ var voiceTitle=byText('.pref-title','Voice Guidance');
+ if(voiceTitle){var card=voiceTitle.nextElementSibling;if(card&&card.classList.contains('card'))card.remove();voiceTitle.remove()}
+ var testingTitle=byText('.pref-title','Prototype Testing');
+ if(testingTitle){
+  var n=testingTitle.nextElementSibling;
+  while(n&&!(n.matches&&n.matches('button[onclick*="savePreferences"]'))){var next=n.nextElementSibling;n.remove();n=next}
+  testingTitle.remove();
+ }
+ var roadsTitle=byText('.pref-title','Roads');
+ if(roadsTitle){
+  var loc=document.createElement('div');loc.className='navue-settings-location';
+  loc.innerHTML='<strong>Location</strong><div id="navueLocationStatus" class="small">Checking location access…</div><button id="navueLocationButton" type="button" class="secondary">Location Settings</button>';
+  roadsTitle.before(loc);
+  loc.querySelector('button').onclick=function(){
+   var status=loc.querySelector('#navueLocationStatus');
+   status.textContent='Location permission is controlled by your phone. Open your browser/app location permissions for NaVue and allow location while using it.';
+   if(navigator.permissions&&navigator.permissions.query){navigator.permissions.query({name:'geolocation'}).then(function(r){updateLocation(r.state)}).catch(function(){})}
+  };
+ }
+ function updateLocation(state){
+  var s=document.getElementById('navueLocationStatus');if(!s)return;
+  s.textContent=state==='granted'?'Location: On':state==='denied'?'Location: Off — enable location permission for NaVue in your phone settings.':'Location: Permission not yet granted.';
+ }
+ function checkLocation(){
+  if(navigator.permissions&&navigator.permissions.query){navigator.permissions.query({name:'geolocation'}).then(function(r){updateLocation(r.state);r.onchange=function(){updateLocation(r.state)}}).catch(function(){updateLocation('prompt')})}
+  else updateLocation('prompt');
+ }
+ function fillProfile(){
+  var map={navuePrefFirstName:'firstName',navuePrefLastName:'lastName',navuePrefEmail:'email',navuePrefCell:'cell',navuePrefCountry:'country'};
+  Object.keys(map).forEach(function(id){var el=document.getElementById(id);if(el)el.value=p[map[id]]||''});checkLocation();
+ }
+ var priorRender=window.renderPreferences;
+ window.renderPreferences=function(){var r=priorRender.apply(this,arguments);fillProfile();return r};
+ var priorSave=window.savePreferences;
+ window.savePreferences=function(){
+  var map={navuePrefFirstName:'firstName',navuePrefLastName:'lastName',navuePrefEmail:'email',navuePrefCell:'cell',navuePrefCountry:'country'};
+  Object.keys(map).forEach(function(id){var el=document.getElementById(id);if(el)p[map[id]]=el.value.trim()});
+  var old=document.getElementById('prefName');if(old)old.value=p.firstName;
+  return priorSave.apply(this,arguments)
+ };
+ fillProfile();
+})();
 </script></body></html>
 <style>/* NAVUE_3C_DRAGGABLE_TRIP_PANEL */
 body:has(#navigation.active){overflow:hidden;height:100dvh;overscroll-behavior:none}
