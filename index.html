@@ -3684,16 +3684,4 @@ button.gear svg{width:26px;height:26px;display:block}
   s.classList.remove('navue-settings-detail-mode');s.classList.add('navue-settings-menu-mode');s.querySelector('h1').textContent='Settings';scrollTo(0,0);
  }
 })();
-</script><script>/* NAVUE_PROFILE_LABEL_HARD_FIX_V7 */
-(function(){
- function fix(){
-  var s=document.getElementById('preferences');if(!s)return;
-  var row=s.querySelector('.navue-settings-menu [data-setting="general"]');
-  if(row){var l=row.querySelector('.navue-settings-label');if(l)l.textContent='Profile';row.setAttribute('aria-label','Profile')}
-  var d=s.querySelector('.navue-settings-detail-title');if(d&&d.textContent.trim()==='General')d.textContent='Profile';
- }
- fix();
- document.addEventListener('click',function(e){if(e.target&&e.target.closest&&e.target.closest('#preferences'))setTimeout(fix,0)},true);
- var s=document.getElementById('preferences');if(s)new MutationObserver(fix).observe(s,{childList:true,subtree:true});
-})();
 </script>
