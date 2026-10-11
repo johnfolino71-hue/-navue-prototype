@@ -3043,6 +3043,70 @@ Prototype road split is temporary demo data until live route-segment classificat
  };
  fillProfile();
 })();
+</script><style>/* NAVUE_SETTINGS_MENU_ARCHITECTURE_V2 */
+#preferences.navue-settings-menu-mode{padding-left:18px!important;padding-right:18px!important}
+#preferences.navue-settings-menu-mode>h1{margin-bottom:18px}
+#preferences .navue-settings-menu{margin:0 -4px 22px}
+#preferences .navue-settings-group{margin:20px 0}
+#preferences .navue-settings-group-title{font-size:14px;font-weight:800;color:#66737d;text-transform:uppercase;letter-spacing:.04em;margin:0 10px 7px}
+#preferences .navue-settings-row{width:100%;min-height:64px;margin:0!important;padding:10px 12px!important;border:0!important;border-bottom:1px solid #e3e8ed!important;border-radius:0!important;background:#fff!important;color:#172126!important;display:grid!important;grid-template-columns:42px 1fr 22px;align-items:center;gap:10px;text-align:left!important;box-shadow:none!important}
+#preferences .navue-settings-row:first-of-type{border-radius:16px 16px 0 0!important}
+#preferences .navue-settings-row:last-of-type{border-bottom:0!important;border-radius:0 0 16px 16px!important}
+#preferences .navue-settings-icon{width:38px;height:38px;border-radius:50%;background:#eaf3ff;color:#1769e0;display:grid;place-items:center;font-size:19px;font-weight:800}
+#preferences .navue-settings-label{font-size:17px;font-weight:700}
+#preferences .navue-settings-chevron{font-size:30px;font-weight:400;color:#7c8790;text-align:right}
+#preferences .navue-settings-detail{display:none}
+#preferences.navue-settings-detail-mode>.navue-settings-menu{display:none}
+#preferences.navue-settings-detail-mode>.navue-settings-detail{display:block}
+#preferences.navue-settings-menu-mode>:not(.mini-brand):not(h1):not(.navue-session-controls):not(.navue-settings-menu):not(style):not(script){display:none!important}
+#preferences.navue-settings-detail-mode>:not(.mini-brand):not(h1):not(.navue-session-controls):not(.navue-settings-detail):not(style):not(script){display:none!important}
+#preferences .navue-settings-detail-head{display:flex;align-items:center;gap:10px;margin:0 0 16px}
+#preferences .navue-settings-back{width:42px!important;height:42px!important;margin:0!important;padding:0!important;border-radius:50%!important;background:#eef4fa!important;color:#1769e0!important;font-size:28px!important;line-height:1!important}
+#preferences .navue-settings-detail-title{font-size:25px;font-weight:850}
+#preferences .navue-coming{background:#fff;border:1px solid #d9e1e8;border-radius:16px;padding:18px;font-size:16px;color:#66737d}
+</style>
+<script>/* NAVUE_SETTINGS_MENU_ARCHITECTURE_V2 */
+(function(){
+ var s=document.getElementById('preferences');if(!s||s.querySelector('.navue-settings-menu'))return;
+ var menu=document.createElement('div');menu.className='navue-settings-menu';
+ var groups=[
+  ['Settings',[['general','⚙','General'],['map','▧','Map Display'],['voice','🔊','Voice & Sound'],['location','⌖','Location']]],
+  ['Driving preferences',[['navigation','↱','Navigation & Driving Preferences'],['tolls','◇','Toll & HOV Passes'],['alerts','!','Alerts & Reports'],['fuel','⛽','Fuel & Cost'],['speed','◴','Speedometer']]],
+  ['Notifications',[['notifications','🔔','Notifications'],['planned','◷','Planned Drives'],['reminders','⏰','Reminders']]],
+  ['Account',[['account','●','Account & Login'],['privacy','◆','Privacy']]],
+  ['NaVue',[['about','i','About NaVue'],['help','?','Help']]]
+ ];
+ groups.forEach(function(g){
+  var box=document.createElement('div');box.className='navue-settings-group';
+  var title=document.createElement('div');title.className='navue-settings-group-title';title.textContent=g[0];box.appendChild(title);
+  g[1].forEach(function(x){var b=document.createElement('button');b.type='button';b.className='navue-settings-row';b.dataset.setting=x[0];b.innerHTML='<span class="navue-settings-icon">'+x[1]+'</span><span class="navue-settings-label">'+x[2]+'</span><span class="navue-settings-chevron">›</span>';b.onclick=function(){openDetail(x[0],x[2])};box.appendChild(b)});
+  menu.appendChild(box)
+ });
+ var detail=document.createElement('div');detail.className='navue-settings-detail';
+ s.querySelector('h1').after(menu);menu.after(detail);
+ function nodeByTitle(text){return Array.from(s.querySelectorAll(':scope > .pref-title')).find(function(e){return e.textContent.trim()===text})}
+ function collect(start,endTexts){
+  var out=[],n=start;while(n){var next=n.nextElementSibling;if(n===menu||n===detail||n.classList.contains('navue-session-controls')){n=next;continue}if(n.classList&&n.classList.contains('pref-title')&&endTexts.indexOf(n.textContent.trim())>=0)break;out.push(n);n=next}return out
+ }
+ function placeholder(title){detail.innerHTML='<div class="navue-settings-detail-head"><button class="navue-settings-back" type="button" aria-label="Back">‹</button><div class="navue-settings-detail-title">'+title+'</div></div><div class="navue-coming">This setting is planned for NaVue and will be available in a future build.</div>';detail.querySelector('.navue-settings-back').onclick=showMenu}
+ function openDetail(key,title){
+  detail.innerHTML='<div class="navue-settings-detail-head"><button class="navue-settings-back" type="button" aria-label="Back">‹</button><div class="navue-settings-detail-title">'+title+'</div></div>';
+  detail.querySelector('.navue-settings-back').onclick=showMenu;
+  var nodes=[];
+  if(key==='general'){var profile=s.querySelector(':scope > .navue-settings-profile');if(profile)nodes=[profile]}
+  if(key==='location'){var loc=s.querySelector(':scope > .navue-settings-location');if(loc)nodes=[loc]}
+  if(key==='navigation'){var road=nodeByTitle('Roads');if(road)nodes=collect(road,['Fuel & Cost'])}
+  if(key==='fuel'){var fuel=nodeByTitle('Fuel & Cost');if(fuel)nodes=collect(fuel,[]).filter(function(n){return !(n.matches&&n.matches('button'))})}
+  if(key==='voice'){var vg=document.getElementById('navueGuidanceLevel');if(vg)nodes=[vg.closest('.fuel-field')]}
+  if(key==='tolls'){var paid=nodeByTitle('Tolls & paid ferries');if(paid){nodes=[paid];if(paid.nextElementSibling)nodes.push(paid.nextElementSibling)}}
+  if(nodes.length){nodes.forEach(function(n){detail.appendChild(n)});var save=document.createElement('button');save.type='button';save.textContent='Save Changes';save.onclick=function(){window.savePreferences();showMenu()};detail.appendChild(save)}
+  else placeholder(title);
+  s.classList.remove('navue-settings-menu-mode');s.classList.add('navue-settings-detail-mode');s.querySelector('h1').textContent='Settings';window.scrollTo(0,0)
+ }
+ function showMenu(){s.classList.remove('navue-settings-detail-mode');s.classList.add('navue-settings-menu-mode');s.querySelector('h1').textContent='Settings';window.scrollTo(0,0)}
+ var oldShow=window.show;window.show=function(id){var r=oldShow.apply(this,arguments);if(id==='preferences')setTimeout(showMenu,0);return r};
+ s.classList.add('navue-settings-menu-mode');s.querySelector('h1').textContent='Settings';
+})();
 </script></body></html>
 <style>/* NAVUE_3C_DRAGGABLE_TRIP_PANEL */
 body:has(#navigation.active){overflow:hidden;height:100dvh;overscroll-behavior:none}
