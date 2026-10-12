@@ -3829,12 +3829,13 @@ button.gear svg{width:26px;height:26px;display:block}
 #preferences .navue-speed-setting-row .navue-mini-toggle.off{background:#eef2f5!important;color:#66737d!important}
 #preferences .navue-speed-threshold span{font-size:14px;color:#66737d;text-align:right;font-weight:700}
 #navigation.navue-speedometer-off .c3-speed{display:none!important}
+#navigation:not(.navue-speedometer-off) .c3-speed{display:flex!important}
 #navigation.navue-speedlimit-off .c3-limit-sign{display:none!important}
 #navigation.navue-speedalert-off .c3-speed-alert,#navigation.navue-speedalert-off .c3-limit-sign{display:none!important}
 </style>
 <script>/* NAVUE_SPEED_PREFS_LIVE_SAFE_V2 */
 (function(){
- function apply(){var n=document.getElementById('navigation');if(!n)return;n.classList.toggle('navue-speedometer-off',p.showSpeedometer===false);n.classList.toggle('navue-speedlimit-off',p.showSpeedLimit===false);n.classList.toggle('navue-speedalert-off',p.speedAlert===false)}
+ function apply(){var n=document.getElementById('navigation');if(!n)return;var speedOff=p.showSpeedometer===false;n.classList.toggle('navue-speedometer-off',speedOff);n.classList.toggle('navue-speedlimit-off',p.showSpeedLimit===false);n.classList.toggle('navue-speedalert-off',p.speedAlert===false);var badge=n.querySelector('.c3-speed');if(badge)badge.style.setProperty('display',speedOff?'none':'flex','important')}
  window.addEventListener('navueSpeedPrefsChanged',apply);document.addEventListener('click',function(){setTimeout(apply,0)});apply();
 })();
 </script>
