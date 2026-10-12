@@ -4876,6 +4876,28 @@ button.gear svg{width:26px;height:26px;display:block}
     function sync(){var eligible=fuelCostConfigured(),on=eligible&&!p.fuelReminderDisabled;b.textContent=on?'ON':'OFF';b.disabled=!eligible;b.title=eligible?'':'Enter fuel economy and average fuel price to enable this reminder.';b.classList.toggle('voice-on',on);b.setAttribute('aria-pressed',on?'true':'false')}
     b.onclick=function(){p.fuelReminderDisabled=!p.fuelReminderDisabled;if(!p.fuelReminderDisabled)p.fuelPriceLastConfirmedAt=Date.now();save();sync()};
     sync();
+
+    /* NAVUE7_TEMP_FUEL_REMINDER_TEST_TRIGGER_V1 — temporary prototype-only test access */
+    var test=document.createElement('button');
+    test.type='button';
+    test.id='navueFuelReminderTestNow';
+    test.className='secondary';
+    test.textContent='Test 7-day reminder now';
+    test.style.width='100%';
+    test.style.marginTop='10px';
+    test.onclick=function(){
+      if(!fuelCostConfigured()){
+        alert('Enter an average fuel price and at least one fuel-economy value first.');
+        return;
+      }
+      if(p.fuelReminderDisabled){
+        alert('Turn the 7-day fuel price reminder ON first.');
+        return;
+      }
+      sessionDismissed=false;
+      openPanel();
+    };
+    card.insertAdjacentElement('afterend',test);
   }
 
   document.addEventListener('click',function(e){
