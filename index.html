@@ -5908,3 +5908,62 @@ button.gear svg{width:26px;height:26px;display:block}
  if(typeof window.navueRenderCurrentMonthlySummary==='function')setTimeout(window.navueRenderCurrentMonthlySummary,20);
 })();
 </script>
+<script>/* NAVUE_MONTHLY_LEGACY_FUEL_RESTORE_V3 — restore pre-snapshot legacy trip fuel totals once, then freeze them */
+(function(){
+ 'use strict';
+ var LEDGER_KEY='navueMonthlyTripLedgerV1';
+ var DONE_KEY='navueMonthlyLegacyFuelRestoreV3';
+
+ function readLedger(){try{var a=JSON.parse(localStorage.getItem(LEDGER_KEY)||'[]');return Array.isArray(a)?a:[]}catch(e){return []}}
+ function writeLedger(a){try{localStorage.setItem(LEDGER_KEY,JSON.stringify(a))}catch(e){}}
+ function num(v){if(v===null||v===undefined||v==='')return null;var x=Number(v);return Number.isFinite(x)?x:null}
+ function currentSetting(key){
+  try{return (typeof p!=='undefined'&&p)?p[key]:null}catch(e){return null}
+ }
+ function calc(km,units,cityRaw,hwyRaw,priceRaw){
+  var city=parseFloat(cityRaw),hwy=parseFloat(hwyRaw),price=parseFloat(priceRaw);
+  if(!(city>0)&&!(hwy>0))return {litres:null,cost:null};
+  var use=(city>0&&hwy>0)?city*.35+hwy*.65:(city>0?city:hwy),litres;
+  if((units||'metric')==='us'){
+   var mpg=use,miles=km*0.621371,gallons=miles/mpg;litres=gallons*3.78541;
+  }else litres=km*use/100;
+  return {litres:litres,cost:price>0?((units||'metric')==='us'?(litres/3.78541)*price:litres*price):null};
+ }
+
+ function restore(){
+  try{if(localStorage.getItem(DONE_KEY)==='1')return}catch(e){}
+  var a=readLedger(),changed=false;
+
+  a.forEach(function(rec){
+   if(!rec)return;
+   var km=Math.max(0,Number(rec.actualKm)||0);
+   var storedPrice=num(rec.fuelPrice);
+   if(!(km>0&&storedPrice>0))return;
+
+   var storedLitres=num(rec.fuelLitres),storedCost=num(rec.fuelCost);
+   var needsLitres=storedLitres===null||storedLitres===0;
+   var needsCost=storedCost===null||storedCost===0;
+   if(!needsLitres&&!needsCost)return;
+
+   /* These are only legacy Step 1 records created before city/highway snapshots existed.
+      Use the trip's own historical price, while borrowing unchanged vehicle economy once
+      to reconstruct the original estimate; then persist/freeze the result. */
+   var units=rec.fuelUnits||currentSetting('fuelUnits')||'metric';
+   var city=(rec.cityFuel!=null&&rec.cityFuel!=='')?rec.cityFuel:currentSetting('cityFuel');
+   var hwy=(rec.highwayFuel!=null&&rec.highwayFuel!=='')?rec.highwayFuel:currentSetting('highwayFuel');
+   var f=calc(km,units,city,hwy,rec.fuelPrice);
+
+   if(needsLitres&&f.litres!=null){rec.fuelLitres=Number(f.litres.toFixed(3));changed=true}
+   if(needsCost&&f.cost!=null){rec.fuelCost=Number(f.cost.toFixed(2));changed=true}
+   if((rec.cityFuel==null||rec.cityFuel==='')&&city!=null){rec.cityFuel=String(city);changed=true}
+   if((rec.highwayFuel==null||rec.highwayFuel==='')&&hwy!=null){rec.highwayFuel=String(hwy);changed=true}
+  });
+
+  if(changed)writeLedger(a);
+  try{localStorage.setItem(DONE_KEY,'1')}catch(e){}
+ }
+
+ restore();
+ if(typeof window.navueRenderCurrentMonthlySummary==='function')setTimeout(window.navueRenderCurrentMonthlySummary,30);
+})();
+</script>
