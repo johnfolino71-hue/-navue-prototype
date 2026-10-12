@@ -5627,3 +5627,98 @@ button.gear svg{width:26px;height:26px;display:block}
  if(typeof window.navueRenderCurrentMonthlySummary==='function')setTimeout(window.navueRenderCurrentMonthlySummary,0);
 })();
 </script>
+<script>/* NAVUE_MONTHLY_ROLLOVER_STEP4_V1 — month finalization/rollover only; no new UI */
+(function(){
+ 'use strict';
+ var STATE_KEY='navueMonthlyRolloverStateV1';
+ var PREVIOUS_KEY='navuePreviousMonthlySummaryV1';
+
+ function read(key,fallback){
+  try{var v=JSON.parse(localStorage.getItem(key)||'null');return v==null?fallback:v}catch(e){return fallback}
+ }
+ function write(key,value){
+  try{localStorage.setItem(key,JSON.stringify(value))}catch(e){}
+ }
+ function monthKey(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+ }
+ function previousMonthReference(d){
+  return new Date(d.getFullYear(),d.getMonth()-1,15,12,0,0,0);
+ }
+ function fullMonthBounds(d){
+  var start=new Date(d.getFullYear(),d.getMonth(),1,0,0,0,0);
+  var end=new Date(d.getFullYear(),d.getMonth()+1,1,0,0,0,0).getTime()-1;
+  return {start:start.getTime(),end:end};
+ }
+ function finalizeMonth(ref){
+  if(typeof window.navueCurrentMonthlySummary!=='function')return null;
+  var totals=window.navueCurrentMonthlySummary(ref);
+  if(!totals)return null;
+  var bounds=fullMonthBounds(ref);
+  return {
+   version:1,
+   finalized:true,
+   monthKey:monthKey(ref),
+   year:ref.getFullYear(),
+   month:ref.getMonth()+1,
+   periodStart:bounds.start,
+   periodEnd:bounds.end,
+   tripsCompleted:Number(totals.tripsCompleted)||0,
+   recordsCount:Number(totals.recordsCount)||0,
+   distanceKm:Number(totals.distanceKm)||0,
+   drivingSeconds:Number(totals.drivingSeconds)||0,
+   fuelLitres:totals.fuelLitres==null?null:Number(totals.fuelLitres),
+   fuelCost:totals.fuelCost==null?null:Number(totals.fuelCost),
+   finalizedAt:Date.now()
+  };
+ }
+ function run(referenceDate){
+  var now=referenceDate instanceof Date?new Date(referenceDate):new Date(referenceDate||Date.now());
+  if(!Number.isFinite(now.getTime()))now=new Date();
+  var currentKey=monthKey(now);
+  var state=read(STATE_KEY,null);
+
+  /* First installation/open establishes the live month without fabricating a prior snapshot. */
+  if(!state||!state.currentMonthKey){
+   state={version:1,currentMonthKey:currentKey,lastCheckedAt:Date.now()};
+   write(STATE_KEY,state);
+   return {rolled:false,currentMonthKey:currentKey,previous:read(PREVIOUS_KEY,null)};
+  }
+
+  if(state.currentMonthKey!==currentKey){
+   /* Always finalize the most recently completed calendar month.
+      If NaVue was not opened for several months, this is still the month
+      immediately before the current one, which is the required retained month. */
+   var prevRef=previousMonthReference(now);
+   var finalized=finalizeMonth(prevRef);
+   if(finalized)write(PREVIOUS_KEY,finalized);
+   state.currentMonthKey=currentKey;
+   state.lastFinalizedMonthKey=finalized&&finalized.monthKey||null;
+   state.lastFinalizedAt=finalized&&finalized.finalizedAt||Date.now();
+   state.lastCheckedAt=Date.now();
+   write(STATE_KEY,state);
+   return {rolled:true,currentMonthKey:currentKey,previous:finalized};
+  }
+
+  state.lastCheckedAt=Date.now();
+  write(STATE_KEY,state);
+  return {rolled:false,currentMonthKey:currentKey,previous:read(PREVIOUS_KEY,null)};
+ }
+
+ window.navueMonthlyRunRollover=run;
+ window.navuePreviousMonthlyFinalized=function(){
+  var x=read(PREVIOUS_KEY,null);
+  return x?Object.assign({},x):null;
+ };
+ window.navueMonthlyRolloverState=function(){
+  var x=read(STATE_KEY,null);
+  return x?Object.assign({},x):null;
+ };
+
+ /* Check on app startup and whenever the app returns to the foreground. */
+ setTimeout(function(){run(new Date())},0);
+ document.addEventListener('visibilitychange',function(){
+  if(!document.hidden)run(new Date());
+ });
+})();
+</script>
