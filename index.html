@@ -4320,10 +4320,10 @@ button.gear svg{width:26px;height:26px;display:block}
 }
 </style>
 
-<style>/* NAVUE7_OWNER_LIVE_NETWORK_PANEL_V1 */
+<style>/* NAVUE7_OWNER_LIVE_NETWORK_PANEL_V2 */
 #navueOwnerOverlay{display:none;position:fixed;inset:0;z-index:99999;background:#0c1723aa;align-items:center;justify-content:center;padding:18px}
 #navueOwnerOverlay.open{display:flex}
-#navueOwnerPanel{width:min(440px,100%);max-height:88dvh;overflow:auto;background:#fff;border-radius:18px;padding:18px;box-shadow:0 18px 50px #0005;color:#172126}
+#navueOwnerPanel{width:min(520px,100%);max-height:90dvh;overflow:auto;background:#fff;border-radius:0;padding:20px;box-shadow:0 18px 50px #0005;color:#172126}
 #navueOwnerPanel h2{margin:0 0 4px;font-size:26px}
 #navueOwnerPanel .owner-sub{font-size:13px;color:#607078;margin-bottom:14px}
 #navueOwnerPanel .owner-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
@@ -4334,9 +4334,12 @@ button.gear svg{width:26px;height:26px;display:block}
 #navueOwnerPanel .owner-country-list{display:grid;gap:7px;margin-top:7px}
 #navueOwnerPanel .owner-country-row{display:flex;justify-content:space-between;gap:12px;font-size:14px}
 #navueOwnerPanel .owner-status{margin:12px 0 0;font-size:12px;color:#607078}
-#navueOwnerClose{margin-top:14px!important}
+#navueOwnerPanel .owner-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px}
+#navueOwnerPanel .owner-actions button{margin:0!important;min-height:44px}
+#navueOwnerClose{margin-top:10px!important}
+@media(max-width:520px){#navueOwnerPanel .owner-actions{grid-template-columns:1fr}}
 </style>
-<script>/* NAVUE7_OWNER_LIVE_NETWORK_PANEL_V1 */
+<script>/* NAVUE7_OWNER_LIVE_NETWORK_PANEL_V2 */
 (function(){
   var tapCount=0,lastTap=0;
   var TELEMETRY_ENDPOINT=window.NAVUE_TELEMETRY_ENDPOINT||'';
@@ -4352,6 +4355,11 @@ button.gear svg{width:26px;height:26px;display:block}
     return id;
   }
 
+  function monthRange(){
+    var n=new Date(),y=n.getFullYear(),m=n.getMonth(),last=new Date(y,m+1,0).getDate();
+    return n.toLocaleString([], {month:'long'})+' 1–'+last;
+  }
+
   function ensurePanel(){
     var o=document.getElementById('navueOwnerOverlay');
     if(o)return o;
@@ -4361,18 +4369,22 @@ button.gear svg{width:26px;height:26px;display:block}
       '<div class="owner-grid">'+
        '<div class="owner-card"><div class="owner-label">New users today</div><div class="owner-value" id="nvOwnToday">—</div></div>'+
        '<div class="owner-card"><div class="owner-label">New users this week</div><div class="owner-value" id="nvOwnWeek">—</div></div>'+
-       '<div class="owner-card"><div class="owner-label">New users this month</div><div class="owner-value" id="nvOwnMonth">—</div></div>'+
+       '<div class="owner-card"><div class="owner-label" id="nvOwnMonthLabel">New Users — '+monthRange()+'</div><div class="owner-value" id="nvOwnMonth">—</div></div>'+
        '<div class="owner-card"><div class="owner-label">Active online now · Worldwide</div><div class="owner-value" id="nvOwnOnline">—</div></div>'+
        '<div class="owner-card"><div class="owner-label">Peak online today</div><div class="owner-value" id="nvOwnPeak">—</div></div>'+
        '<div class="owner-card"><div class="owner-label">Active users today</div><div class="owner-value" id="nvOwnActiveToday">—</div></div>'+
        '<div class="owner-card"><div class="owner-label">Active users · Last 30 days</div><div class="owner-value" id="nvOwnActive30">—</div></div>'+
        '<div class="owner-card"><div class="owner-label">Total users worldwide</div><div class="owner-value" id="nvOwnTotal">—</div></div>'+
-       '<div class="owner-card owner-wide"><div class="owner-label">Total users per country</div><div class="owner-country-list" id="nvOwnCountries"><div class="owner-country-row"><span>Waiting for data</span><strong>—</strong></div></div></div>'+
+       '<div class="owner-card owner-wide"><div class="owner-label">Users by country</div><div class="owner-country-list" id="nvOwnCountries"><div class="owner-country-row"><span>No country data yet</span><strong>—</strong></div></div></div>'+
        '<div class="owner-card owner-wide"><div class="owner-label">Live Network reports today</div><div class="owner-value" id="nvOwnReports">—</div></div>'+
       '</div><div class="owner-status" id="nvOwnStatus">Prototype telemetry service not connected yet.</div>'+
-      '<button id="navueOwnerClose" type="button">Close</button></div>';
+      '<div class="owner-actions"><button id="navueOwnerShare" type="button">Share Report</button><button id="navueOwnerSave" type="button">Save Report</button><button id="navueOwnerPrint" type="button">Print</button></div>'+
+      '<button id="navueOwnerClose" type="button" class="secondary">Close</button></div>';
     document.body.appendChild(o);
     document.getElementById('navueOwnerClose').onclick=closePanel;
+    document.getElementById('navueOwnerShare').onclick=shareReport;
+    document.getElementById('navueOwnerSave').onclick=saveReport;
+    document.getElementById('navueOwnerPrint').onclick=printReport;
     o.addEventListener('click',function(e){if(e.target===o)closePanel()});
     return o;
   }
@@ -4380,6 +4392,7 @@ button.gear svg{width:26px;height:26px;display:block}
   function closePanel(){var o=document.getElementById('navueOwnerOverlay');if(o)o.classList.remove('open')}
 
   function setText(id,v){var n=document.getElementById(id);if(n)n.textContent=(v===0||v)?String(v):'—'}
+
   function render(d){
     d=d||{};
     setText('nvOwnToday',d.new_today);
@@ -4393,9 +4406,61 @@ button.gear svg{width:26px;height:26px;display:block}
     setText('nvOwnReports',d.reports_today);
     var box=document.getElementById('nvOwnCountries');
     if(box){
-      var rows=Array.isArray(d.countries)?d.countries:[];
+      var rows=Array.isArray(d.countries)?d.countries.filter(function(x){return Number(x&&x.users)>0}):[];
       box.innerHTML=rows.length?rows.map(function(x){return '<div class="owner-country-row"><span>'+String(x.country||'Unknown').replace(/[&<>"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]})+'</span><strong>'+Number(x.users||0).toLocaleString()+'</strong></div>'}).join(''):'<div class="owner-country-row"><span>No country data yet</span><strong>—</strong></div>';
     }
+  }
+
+  function reportText(){
+    var val=function(id){var n=document.getElementById(id);return n?n.textContent:'—'};
+    var countryLines=[];
+    document.querySelectorAll('#nvOwnCountries .owner-country-row').forEach(function(r){
+      var a=r.children[0],b=r.children[1];
+      if(a&&b&&b.textContent.trim()!=='—')countryLines.push(a.textContent.trim()+': '+b.textContent.trim());
+    });
+    return [
+      'NaVue Live Network — Owner',
+      'Prototype users only',
+      '',
+      'New users today: '+val('nvOwnToday'),
+      'New users this week: '+val('nvOwnWeek'),
+      'New Users — '+monthRange()+': '+val('nvOwnMonth'),
+      'Active online now — Worldwide: '+val('nvOwnOnline'),
+      'Peak online today: '+val('nvOwnPeak'),
+      'Active users today: '+val('nvOwnActiveToday'),
+      'Active users — Last 30 days: '+val('nvOwnActive30'),
+      'Total users worldwide: '+val('nvOwnTotal'),
+      '',
+      'Users by country:',
+      countryLines.length?countryLines.join('\n'):'No country data yet',
+      '',
+      'Live Network reports today: '+val('nvOwnReports'),
+      '',
+      'Generated: '+new Date().toLocaleString()
+    ].join('\n');
+  }
+
+  async function shareReport(){
+    var txt=reportText();
+    try{
+      if(navigator.share){await navigator.share({title:'NaVue Live Network — Owner Report',text:txt});return}
+      if(navigator.clipboard&&navigator.clipboard.writeText){await navigator.clipboard.writeText(txt);alert('Owner report copied.');return}
+    }catch(e){if(e&&e.name==='AbortError')return}
+    window.prompt('Copy this owner report:',txt);
+  }
+
+  function saveReport(){
+    var url=URL.createObjectURL(new Blob([reportText()],{type:'text/plain;charset=utf-8'}));
+    var a=document.createElement('a');a.href=url;a.download='NaVue-Live-Network-Owner-Report-'+new Date().toISOString().slice(0,10)+'.txt';
+    document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url)},1000);
+  }
+
+  function printReport(){
+    var w=window.open('','_blank');
+    if(!w){alert('Please allow pop-ups to print the report.');return}
+    var safe=reportText().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    w.document.write('<!doctype html><html><head><title>NaVue Live Network — Owner Report</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Arial,sans-serif;padding:32px;color:#172126}pre{white-space:pre-wrap;font:16px/1.5 Arial,sans-serif}</style></head><body><pre>'+safe+'</pre><script>window.onload=function(){window.print()}<\/script></body></html>');
+    w.document.close();
   }
 
   async function callTelemetry(action){
@@ -4414,6 +4479,7 @@ button.gear svg{width:26px;height:26px;display:block}
   async function openPanel(){
     var o=ensurePanel();o.classList.add('open');
     var s=document.getElementById('nvOwnStatus');
+    var ml=document.getElementById('nvOwnMonthLabel');if(ml)ml.textContent='New Users — '+monthRange();
     if(!TELEMETRY_ENDPOINT){if(s)s.textContent='Prototype telemetry service not connected yet.';return}
     if(s)s.textContent='Loading prototype Live Network data…';
     var d=await callTelemetry('owner_stats');
@@ -4438,6 +4504,7 @@ button.gear svg{width:26px;height:26px;display:block}
     if(!TELEMETRY_ENDPOINT)return;
     await callTelemetry('heartbeat');
   }
+
   document.addEventListener('DOMContentLoaded',function(){bindSecret();heartbeat()});
   setTimeout(bindSecret,0);setTimeout(bindSecret,700);
   setInterval(heartbeat,60000);
