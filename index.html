@@ -3454,6 +3454,40 @@ button.gear{
  background:#fff!important;
 }
 </style>
+<style>/* NAVUE_ROUND_CONTROL_SIZE_WHITE_STANDARD_V3 — presentation only */
+:root{--navue-round-control:46px}
+#home #homeSpeaker,
+#home .home-map-mic,
+#home .top-actions .gear,
+#home>.gear,
+.navue-session-controls .navue-session-speaker,
+.navue-session-controls .navue-session-mic,
+#navigation #speakerBtn,
+#navigation #navMic,
+#navigation .speaker,
+#navigation .nav-mic,
+#destination .topbar>.gear,
+#routes .topbar>.gear{
+ width:var(--navue-round-control)!important;
+ min-width:var(--navue-round-control)!important;
+ height:var(--navue-round-control)!important;
+ min-height:var(--navue-round-control)!important;
+ border-radius:50%!important;
+ box-sizing:border-box!important;
+}
+#home .top-actions .gear,
+#home>.gear,
+#destination .topbar>.gear,
+#routes .topbar>.gear,
+#home #homeSpeaker:not(.voice-on),
+#navigation #speakerBtn:not(.voice-on),
+.navue-session-speaker:not(.voice-on),
+#home .home-map-mic:not(.navue-mic-enabled),
+#navigation #navMic:not(.navue-mic-enabled),
+.navue-session-mic:not(.navue-mic-enabled){
+ background:#fff!important;
+}
+</style>
 </body></html>
 <style>/* NAVUE_3C_DRAGGABLE_TRIP_PANEL */
 body:has(#navigation.active){overflow:hidden;height:100dvh;overscroll-behavior:none}
