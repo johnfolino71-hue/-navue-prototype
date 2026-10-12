@@ -3122,6 +3122,7 @@ Prototype road split is temporary demo data until live route-segment classificat
       if(!p.selectedRoute){alert('Start a simulated trip first, then return here.');return}
       if(typeof window.navueOpenDemos==='function')window.navueOpenDemos();
     };
+    s.classList.remove('navue-settings-menu-mode');s.classList.add('navue-settings-detail-mode');s.querySelector('h1').textContent='Settings';window.scrollTo(0,0);
     return
   }
   var nodes=[];
