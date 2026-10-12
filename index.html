@@ -2530,8 +2530,8 @@ Prototype road split is temporary demo data until live route-segment classificat
    reportPrompt.replaceChildren(el('small','DEMO · Approaching driver','c3-incident-source'),el('strong',report.label+' ahead'));
    const row=el('div',null,'c3-actions');row.append(button('Still there',()=>voteReport(true)),button('Not there',()=>voteReport(false),'secondary'));reportPrompt.append(row);reportPrompt.hidden=false;
    const expire=()=>{if(!activeReport||activeReport.run!==run)return;clearTimeout(approachExpiry);approachExpiry=setTimeout(()=>dismissReportPrompt(),12000)};expire();
-   // Approaching-alert prompts respect existing audio settings; only the launcher overrides them.
-   if(tripVoice)speak('Demo. '+report.label+' ahead. Still there or not there?',true,p.voiceStyle,()=>{expire();if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});else expire();
+   // Visual alert always appears. Spoken alert follows the active voice-listening state.
+   if(tripVoice&&p.micEnabled)speak('Demo. '+report.label+' ahead. Still there or not there?',true,p.voiceStyle,()=>{expire();if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});else expire();
   },2000);
  }
  function voteReport(present){
@@ -2607,12 +2607,16 @@ Prototype road split is temporary demo data until live route-segment classificat
  const drawerObserver=new (window.ResizeObserver||class{observe(){}})(()=>{refreshDrawer()});
  drawerObserver.observe(overview);drawerObserver.observe(panel);drawerObserver.observe(summary);
  collapseDrawer();
+ function showVisualAlert(text,duration=4000){
+  status.textContent=text;status.classList.add('navue-alert-popup');status.hidden=false;
+  clearTimeout(statusTimer);statusTimer=setTimeout(()=>{status.hidden=true;status.classList.remove('navue-alert-popup')},duration);
+ }
  function notify(text){
-  status.textContent=text;status.hidden=false;clearTimeout(statusTimer);statusTimer=setTimeout(()=>{status.hidden=true},4000);
+  showVisualAlert(text,4000);
   // Never stop a recognizer whose permission/start handshake has not completed.
   if(alertMic&&rec&&!readyRecognizers.has(rec)&&!alertMic.failed){alertMic.pendingPrompt=text;alertMicStatus('Waiting for microphone permission…');return}
   if(alertMic&&!alertMic.failed){alertMic.beeped=false;alertMicStatus('Speaking…')}
-  if(active()==='navigation'&&tripVoice)speak(text,true,p.voiceStyle,()=>{if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});
+  if(active()==='navigation'&&tripVoice&&p.micEnabled)speak(text,true,p.voiceStyle,()=>{if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});
  }
  function closePanel(){endAlertMic('report');state.suggestion=null;panel.hidden=true;panel.replaceChildren();state.panel='';state.candidate=null;state.results=[];overview.hidden=false;collapseDrawer();}
  function shell(title,kind){
@@ -2799,7 +2803,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(candidate)row.append(button('Yes',()=>answerIncident(true)),button('No',()=>answerIncident(false),'secondary'));
   if(!candidate)row.append(button('Close',()=>{traffic.hidden=true},'secondary'));traffic.append(row);traffic.hidden=false;render();
   const message='Demo. '+(accident?'Accident ahead. ':'Traffic ahead. '+state.delay+' minute delay. ')+(candidate?'Alternate route saves '+saving+' minutes. Take it?':'No faster matching route available.');
-  if(tripVoice)speak(message,true,p.voiceStyle,()=>{if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});
+  if(tripVoice&&p.micEnabled)speak(message,true,p.voiceStyle,()=>{if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});
  }
  function scheduleIncident(){
   if(incidentShown||incidentTimer)return;
@@ -2827,7 +2831,10 @@ Prototype road split is temporary demo data until live route-segment classificat
    limitBadgeTimer=setTimeout(()=>{limitSign.hidden=true},3000);
   }else if(!over||p.speedAlert===false||p.showSpeedLimit===false){clearTimeout(limitBadgeTimer);limitSign.hidden=true}
   // The compact display handles the visual warning; preserve optional spoken reminders.
-  if(over&&!state.alerted&&active()==='navigation'&&tripVoice&&p.speedAlert!==false){
+  if(over&&!state.alerted&&p.speedAlert!==false){
+   showVisualAlert('Speed alert · Limit '+speedText(state.limit),2000);
+  }
+  if(over&&!state.alerted&&active()==='navigation'&&tripVoice&&p.micEnabled&&p.speedAlert!==false){
    speak('Just a friendly reminder, you are over the speed limit of '+speedText(state.limit)+'.',true,p.voiceStyle,()=>{if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});
   }
   state.alerted=over;
@@ -4320,6 +4327,50 @@ button.gear svg{width:26px;height:26px;display:block}
 }
 </style>
 
+
+<style>/* NAVUE7_GLOBAL_POPUP_ALERT_TYPOGRAPHY_V1 */
+#navigation{
+  --navue-popup-title-size:18px;
+  --navue-popup-title-weight:800;
+  --navue-popup-body-size:14px;
+  --navue-popup-body-weight:600;
+  --navue-popup-label-size:12px;
+  --navue-popup-label-weight:700;
+  --navue-popup-button-size:15px;
+  --navue-popup-button-weight:700;
+}
+#navigation .c3-panel h2,
+#navigation .c3-panel h3,
+#navigation .c3-traffic>strong,
+#navigation .c3-report-prompt>strong,
+#navigation .c3-speed-alert,
+#navigation .c3-status.navue-alert-popup{
+  font-size:var(--navue-popup-title-size)!important;
+  font-weight:var(--navue-popup-title-weight)!important;
+  line-height:1.25!important;
+}
+#navigation .c3-panel p,
+#navigation .c3-traffic>div:not(.c3-actions),
+#navigation .c3-report-prompt>div:not(.c3-actions){
+  font-size:var(--navue-popup-body-size)!important;
+  font-weight:var(--navue-popup-body-weight)!important;
+  line-height:1.4!important;
+}
+#navigation .c3-label,
+#navigation .c3-incident-source,
+#navigation .c3-listening{
+  font-size:var(--navue-popup-label-size)!important;
+  font-weight:var(--navue-popup-label-weight)!important;
+  line-height:1.3!important;
+}
+#navigation .c3-panel button,
+#navigation .c3-traffic .c3-actions button,
+#navigation .c3-report-prompt .c3-actions button{
+  font-size:var(--navue-popup-button-size)!important;
+  font-weight:var(--navue-popup-button-weight)!important;
+  line-height:1.25!important;
+}
+</style>
 <style>/* NAVUE7_OWNER_LIVE_NETWORK_PANEL_V2 */
 #navueOwnerOverlay{display:none;position:fixed;inset:0;z-index:99999;background:#0c1723aa;align-items:center;justify-content:center;padding:18px}
 #navueOwnerOverlay.open{display:flex}
