@@ -3311,6 +3311,39 @@ Prototype road split is temporary demo data until live route-segment classificat
  background:#fff!important;
 }
 </style>
+<style>/* NAVUE_ROUND_HEADER_CONTROLS_UNIFIED_V3 — presentation only */
+#home #homeSpeaker,
+#home .home-map-mic,
+#home .top-actions .gear,
+#home>.gear,
+.navue-session-controls .navue-session-speaker,
+.navue-session-controls .navue-session-mic,
+#navigation #speakerBtn,
+#navigation #navMic,
+#destination .topbar>.gear,
+#routes .topbar>.gear{
+ width:46px!important;
+ min-width:46px!important;
+ height:46px!important;
+ min-height:46px!important;
+ box-sizing:border-box!important;
+ border-radius:50%!important;
+}
+#home .top-actions .gear,
+#home>.gear,
+#destination .topbar>.gear,
+#routes .topbar>.gear{
+ background:#fff!important;
+}
+#home #homeSpeaker:not(.voice-on),
+.navue-session-controls .navue-session-speaker:not(.voice-on),
+#navigation #speakerBtn:not(.voice-on),
+#home .home-map-mic:not(.navue-mic-enabled),
+.navue-session-controls .navue-session-mic:not(.navue-mic-enabled),
+#navigation #navMic:not(.navue-mic-enabled){
+ background:#fff!important;
+}
+</style>
 </body></html>
 <style>/* NAVUE_3C_DRAGGABLE_TRIP_PANEL */
 body:has(#navigation.active){overflow:hidden;height:100dvh;overscroll-behavior:none}
