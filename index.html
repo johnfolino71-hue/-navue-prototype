@@ -4127,3 +4127,8 @@ button.gear svg{width:26px;height:26px;display:block}
  alignBack();
 })();
 </script>
+
+<style>/* NAVUE6_SPEAKER_STATE_COLOUR: tint the speaker symbol using its existing state class. */
+:is(#home,#destination,#routes,#ambiguity,#navigation,#preferences,#profile,#savedRoutesPage) button:is(.home-speaker,.speaker,.navue-session-speaker){font-size:0!important}
+:is(#home,#destination,#routes,#ambiguity,#navigation,#preferences,#profile,#savedRoutesPage) button:is(.home-speaker,.speaker,.navue-session-speaker)::before{content:'';display:inline-block;width:25px;height:25px;vertical-align:middle;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M3%209h4l5-4v14l-5-4H3z%22%2F%3E%3Cpath%20d%3D%22M16%208a6%206%200%200%201%200%208M19%205a10%2010%200%200%201%200%2014%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M3%209h4l5-4v14l-5-4H3z%22%2F%3E%3Cpath%20d%3D%22M16%208a6%206%200%200%201%200%208M19%205a10%2010%200%200%201%200%2014%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat}
+</style>
