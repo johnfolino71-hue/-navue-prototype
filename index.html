@@ -3090,10 +3090,12 @@ Prototype road split is temporary demo data until live route-segment classificat
   var out=[],n=start;while(n){var next=n.nextElementSibling;if(n===menu||n===detail||n.classList.contains('navue-session-controls')){n=next;continue}if(n.classList&&n.classList.contains('pref-title')&&endTexts.indexOf(n.textContent.trim())>=0)break;out.push(n);n=next}return out
  }
  function inviteFriend(){
-  var shareData={title:'NaVue',text:'Try NaVue — Drive Smarter Every Day.',url:window.location.origin+window.location.pathname};
+  var shareUrl=new URL(window.location.origin+window.location.pathname);
+  shareUrl.searchParams.set('navueInvite','1');
+  var shareData={title:'NaVue',text:'Try NaVue — Drive Smarter Every Day.',url:shareUrl.toString()};
   if(navigator.share){navigator.share(shareData).catch(function(){})}
-  else if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(shareData.url).then(function(){alert('NaVue link copied. Share it with a friend.')})}
-  else{window.prompt('Copy this NaVue link to share:',shareData.url)}
+  else if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(shareData.url).then(function(){alert('NaVue invite link copied. Your friend will start at onboarding.')})}
+  else{window.prompt('Copy this NaVue invite link to share:',shareData.url)}
  }
  function placeholder(title){detail.innerHTML='<div class="navue-settings-detail-head"><button class="navue-settings-back" type="button" aria-label="Back">‹</button><div class="navue-settings-detail-title">'+title+'</div></div><div class="navue-coming">This setting is planned for NaVue and will be available in a future build.</div>';detail.querySelector('.navue-settings-back').onclick=showMenu}
  function openDetail(key,title){
@@ -4440,5 +4442,37 @@ button.gear svg{width:26px;height:26px;display:block}
   setTimeout(bindSecret,0);setTimeout(bindSecret,700);
   setInterval(heartbeat,60000);
   document.addEventListener('visibilitychange',function(){if(!document.hidden)heartbeat()});
+})();
+</script>
+
+<script>/* NAVUE7_INVITE_FRESH_ONBOARDING_V1 */
+(function(){
+  try{
+    var u=new URL(window.location.href);
+    if(u.searchParams.get('navueInvite')!=='1')return;
+
+    /* A shared/invited prototype must never inherit the sharer's NaVue profile. */
+    try{
+      localStorage.removeItem('navueProfile');
+      localStorage.removeItem('navueOnboarded');
+      localStorage.removeItem('navueSpeedPrefs');
+      localStorage.removeItem('navueSpeedometerEnabled');
+      localStorage.removeItem('navuePrototypeInstallId');
+    }catch(e){}
+
+    try{
+      p={...D,recent:[],savedPlaces:[],history:[],routeStats:{A:0,B:0,C:0},completedTrips:0,onboarded:false};
+      tripVoice=false;voiceFlow=false;
+    }catch(e){}
+
+    /* Consume the invitation once so refreshes after onboarding do not restart it. */
+    u.searchParams.delete('navueInvite');
+    try{history.replaceState(null,'',u.pathname+(u.search||'')+(u.hash||''))}catch(e){}
+
+    try{show('welcome')}catch(e){
+      document.querySelectorAll('.screen').forEach(function(x){x.classList.remove('active')});
+      var w=document.getElementById('welcome');if(w)w.classList.add('active');
+    }
+  }catch(e){}
 })();
 </script>
