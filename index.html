@@ -1754,6 +1754,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(after)after()
  }
  function setSpeakerState(on){
+  if(typeof window.navueSetHandsFree==='function'){window.navueSetHandsFree(on);remember(on?'speaker-on':'speaker-off','speaker');return}
   p.voice=!!on;tripVoice=!!on;
   if(!on){try{speechSynthesis.cancel()}catch(e){}}
   try{save()}catch(e){}
@@ -3815,17 +3816,17 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
  const oldStart=window.startListen,oldShow=window.show,oldHandle=window.handleVoice,oldSpeak=window.speak;
  function indicator(ready){document.querySelectorAll('.navue-input-listening').forEach(e=>{e.hidden=!(ready&&p.micEnabled&&!hideListening&&e.closest('.screen')?.id===page())})}
  function sync(){
-  document.querySelectorAll('.searchrow .mic').forEach(b=>{b.classList.toggle('navue-mic-enabled',!!p.micEnabled);b.classList.toggle('listening',!!p.micEnabled);b.setAttribute('aria-pressed',String(!!p.micEnabled));b.setAttribute('aria-label',p.micEnabled?'Turn microphone off':'Speak destination')});
+  document.querySelectorAll('.searchrow .mic').forEach(b=>{b.classList.toggle('navue-mic-enabled',!!p.micEnabled);b.classList.toggle('listening',!!p.micEnabled);b.setAttribute('aria-pressed',String(!!p.micEnabled));b.setAttribute('aria-label','Speak destination')});
   setSpeaker();updateHomeSpeaker();
  }
- function off(){p.micEnabled=false;voiceFlow=false;inputSession=false;hideListening=true;stopListen(false);indicator(false);sync();save()}
+ function off(){inputSession=false;hideListening=true;indicator(false);if(p.voice)return;p.micEnabled=false;voiceFlow=false;stopListen(false);sync();save()}
  function install(){
   ['home','destination'].forEach(id=>{
    const host=document.getElementById(id),row=host.querySelector('.searchrow');if(!row)return;
    const b=id==='home'?host.querySelector('.home-map-mic,.mic'):document.getElementById('destMic');if(!b)return;
    if(b.parentElement!==row)row.append(b);
    b.innerHTML=typeof MIC!=='undefined'?MIC:b.innerHTML;
-   b.onclick=()=>{if(p.micEnabled){off();return}inputSession=true;hideListening=false;p.micEnabled=true;voiceFlow=true;sync();startListen(id,b,false)};
+   b.onclick=()=>{inputSession=!p.voice;hideListening=false;p.micEnabled=true;voiceFlow=true;sync();startListen(id,b,false)};
    let label=row.querySelector('.navue-input-listening');if(!label){label=document.createElement('span');label.className='navue-input-listening';label.textContent='Listening…';label.hidden=true;label.setAttribute('role','status');row.append(label)}
    const input=row.querySelector('input');if(!input.dataset.navueListening){input.dataset.navueListening='true';input.addEventListener('input',()=>{hideListening=true;indicator(false)});input.addEventListener('focus',()=>{hideListening=true;indicator(false)})}
   });
@@ -3844,10 +3845,18 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
  window.show=function(id){if(id==='routes'&&inputSession)off();const r=oldShow.apply(this,arguments);if(id==='home'||id==='destination')install();if(id==='preferences')document.getElementById('navueGuidanceLevel').value=p.voiceMode||'full';if(!/^(home|destination)$/.test(id))indicator(false);return r};
  function handsFree(on){
   p.voice=!!on;tripVoice=!!on;p.micEnabled=!!on;voiceFlow=!!on;inputSession=false;sync();save();
-  if(on)speak('Voice guidance on.',true,p.voiceStyle,()=>{if(p.micEnabled&&page()==='navigation')rearmVoice('navigation')});
+  if(on)speak(page()==='home'?greet()+' Where are you going?':'Voice guidance on.',true,p.voiceStyle,()=>{if(p.voice&&p.micEnabled)rearmVoice(page())});
   else{window.navueSpeechTurn=(window.navueSpeechTurn||0)+1;window.navueSpeechPending=false;try{speechSynthesis.cancel()}catch(e){}stopListen(false)}
  }
+ window.navueSetHandsFree=handsFree;
+ window.toggleMainVoice=function(){handsFree(!p.voice)};
  window.toggleTripVoice=function(){handsFree(!tripVoice)};
+ document.addEventListener('click',function(event){
+  const button=event.target.closest&&event.target.closest('#homeSpeaker,#speakerBtn,.navue-session-speaker');
+  if(!button)return;
+  event.preventDefault();event.stopImmediatePropagation();
+  handsFree(!(page()==='navigation'?tripVoice:p.voice));
+ },true);
  document.getElementById('speakerBtn').onclick=()=>window.toggleTripVoice();
  const settings=document.getElementById('preferences'),section=document.createElement('div');section.className='fuel-field';
  section.innerHTML='<label for="navueGuidanceLevel">VOICE GUIDANCE</label><select id="navueGuidanceLevel"><option value="full">Normal</option><option value="brief">Less chatty</option><option value="alerts">Alerts only</option></select>';
