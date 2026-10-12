@@ -4555,7 +4555,219 @@ button.gear svg{width:26px;height:26px;display:block}
     var w=window.open('','_blank');
     if(!w){alert('Please allow pop-ups to print the report.');return}
     var safe=reportText().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    w.document.write('<!doctype html><html><head><title>NaVue Live Network — Owner Report</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Arial,sans-serif;padding:32px;color:#172126}pre{white-space:pre-wrap;font:16px/1.5 Arial,sans-serif}</style></head><body><pre>'+safe+'</pre><script>window.onload=function(){window.print()}<\/script></body></html>');
+    w.document.write('<!doctype html><html><head><title>NaVue Live Network — Owner Report</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Arial,sans-serif;padding:32px;color:#172126}pre{white-space:pre-wrap;font:16px/1.5 Arial,sans-serif}</style></head><body><pre>'+safe+'</pre><script>window.onload=function(){window.print()}<\/script>
+<style>/* NAVUE7_FUEL_PRICE_7_DAY_CHECKIN_V1 */
+#navueFuelCheckOverlay{display:none;position:fixed;inset:0;z-index:99998;background:#0c172366;align-items:center;justify-content:center;padding:18px}
+#navueFuelCheckOverlay.open{display:flex}
+#navueFuelCheckPanel{width:min(430px,100%);background:#fff;border-radius:18px;padding:20px;box-shadow:0 16px 48px #0004;color:#172126}
+#navueFuelCheckPanel h2{margin:0 0 8px;font-size:18px;font-weight:800;line-height:1.25}
+#navueFuelCheckPanel p{margin:0 0 14px;font-size:14px;font-weight:600;line-height:1.4;color:#4f606c}
+#navueFuelCheckPanel label{display:block;margin:0 0 6px;font-size:12px;font-weight:700;line-height:1.3;color:#526779;text-transform:uppercase}
+#navueFuelCheckPanel input{width:100%;box-sizing:border-box;font-size:18px;font-weight:700;padding:12px 13px;border:1px solid #cbd7e2;border-radius:12px;background:#fff;color:#172126}
+#navueFuelCheckPanel .navue-fuel-current{font-size:12px;font-weight:700;line-height:1.3;color:#607078;margin:7px 0 0}
+#navueFuelCheckPanel .navue-fuel-voice-status{min-height:18px;font-size:12px;font-weight:700;line-height:1.3;color:#607078;margin:8px 0 0}
+#navueFuelCheckPanel .navue-fuel-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+#navueFuelCheckPanel button{margin:0!important;min-height:44px;font-size:15px;font-weight:700;line-height:1.25}
+#navueFuelCheckPanel .navue-fuel-wide{grid-column:1/-1}
+#preferences .navue-fuel-reminder-setting{background:#fff;border:1px solid #d9e1e8;border-radius:16px;padding:14px 16px;margin:12px 0;display:flex;align-items:center;justify-content:space-between;gap:14px}
+#preferences .navue-fuel-reminder-setting strong{display:block;font-size:16px}
+#preferences .navue-fuel-reminder-setting span{display:block;font-size:13px;color:#66737d;margin-top:3px}
+#preferences .navue-fuel-reminder-setting button{width:auto!important;min-width:68px!important;margin:0!important;padding:9px 13px!important;border-radius:22px!important;font-size:14px;font-weight:700}
+@media(max-width:420px){#navueFuelCheckPanel .navue-fuel-actions{grid-template-columns:1fr}#navueFuelCheckPanel .navue-fuel-wide{grid-column:auto}}
+</style>
+<script>/* NAVUE7_FUEL_PRICE_7_DAY_CHECKIN_V1 */
+(function(){
+  var WEEK=7*24*60*60*1000;
+  var sessionDismissed=false;
+  var fuelRecognition=null;
+
+  function unitInfo(){
+    var us=(p.fuelUnits||'metric')==='us';
+    return {us:us,short:us?'$/gallon':'$/litre',spoken:us?'per gallon':'per litre'};
+  }
+
+  function validPrice(v){
+    var s=String(v==null?'':v).trim().replace(/[$,]/g,'');
+    if(!/^\d+(?:\.\d{1,3})?$/.test(s))return null;
+    var n=Number(s);
+    if(!Number.isFinite(n)||n<=0||n>=100)return null;
+    return String(Math.round(n*1000)/1000);
+  }
+
+  function wordsNumber(text){
+    var t=String(text||'').toLowerCase().replace(/-/g,' ').replace(/\b(canadian|cad|usd|dollars?|bucks?|cents?|per|litres?|liters?|gallons?)\b/g,' ').replace(/\s+/g,' ').trim();
+    var digit=t.match(/\d+(?:[.,]\d+)?/);
+    if(digit)return validPrice(digit[0].replace(',','.'));
+    var ones={zero:0,oh:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19};
+    var tens={twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90};
+    var a=t.split(' ').filter(Boolean), point=a.indexOf('point');
+    if(point>=0){
+      var left=a.slice(0,point),right=a.slice(point+1),whole=0;
+      left.forEach(function(w){if(ones[w]!=null)whole+=ones[w];else if(tens[w]!=null)whole+=tens[w]});
+      var decimals=right.map(function(w){return ones[w]!=null?String(ones[w]):''}).join('');
+      return validPrice(String(whole)+'.'+decimals);
+    }
+    if(a.length>=2&&ones[a[0]]!=null){
+      var whole=ones[a[0]],rest=0;
+      for(var i=1;i<a.length;i++){if(tens[a[i]]!=null)rest+=tens[a[i]];else if(ones[a[i]]!=null)rest+=ones[a[i]]}
+      if(rest>0&&rest<100)return validPrice(String(whole)+'.'+String(rest).padStart(2,'0'));
+    }
+    var total=0,seen=false;
+    a.forEach(function(w){if(tens[w]!=null){total+=tens[w];seen=true}else if(ones[w]!=null){total+=ones[w];seen=true}});
+    return seen?validPrice(String(total)):null;
+  }
+
+  function stopFuelRecognition(){
+    try{if(fuelRecognition)fuelRecognition.stop()}catch(e){}
+    fuelRecognition=null;
+  }
+
+  function ensurePanel(){
+    var o=document.getElementById('navueFuelCheckOverlay');
+    if(o)return o;
+    o=document.createElement('div');o.id='navueFuelCheckOverlay';
+    o.innerHTML='<div id="navueFuelCheckPanel" role="dialog" aria-modal="true" aria-labelledby="navueFuelCheckTitle">'+
+      '<h2 id="navueFuelCheckTitle">Update your average fuel price?</h2>'+
+      '<p id="navueFuelCheckCopy"></p>'+
+      '<label id="navueFuelCheckLabel" for="navueFuelCheckInput"></label>'+
+      '<input id="navueFuelCheckInput" inputmode="decimal" autocomplete="off" aria-describedby="navueFuelVoiceStatus">'+
+      '<div class="navue-fuel-current" id="navueFuelCurrent"></div>'+
+      '<div class="navue-fuel-voice-status" id="navueFuelVoiceStatus"></div>'+
+      '<div class="navue-fuel-actions">'+
+        '<button type="button" id="navueFuelOk">OK</button>'+
+        '<button type="button" id="navueFuelNotNow" class="secondary">Not now</button>'+
+        '<button type="button" id="navueFuelVoice" class="secondary">🎙 Say price</button>'+
+        '<button type="button" id="navueFuelNever" class="secondary navue-fuel-wide">Don’t notify me again</button>'+
+      '</div></div>';
+    document.body.appendChild(o);
+    document.getElementById('navueFuelOk').onclick=confirmPrice;
+    document.getElementById('navueFuelNotNow').onclick=function(){sessionDismissed=true;closePanel()};
+    document.getElementById('navueFuelNever').onclick=function(){p.fuelReminderDisabled=true;save();closePanel()};
+    document.getElementById('navueFuelVoice').onclick=startFuelVoice;
+    return o;
+  }
+
+  function closePanel(){
+    stopFuelRecognition();
+    var o=document.getElementById('navueFuelCheckOverlay');if(o)o.classList.remove('open');
+    try{if(p.micEnabled&&typeof rearmVoice==='function'){var a=document.querySelector('.screen.active');if(a)setTimeout(function(){rearmVoice(a.id)},180)}}catch(e){}
+  }
+
+  function confirmPrice(){
+    var input=document.getElementById('navueFuelCheckInput');
+    var v=validPrice(input.value);
+    if(v===null){
+      input.setCustomValidity('Enter a valid average fuel price greater than zero.');
+      input.reportValidity();input.focus();return;
+    }
+    input.setCustomValidity('');
+    p.fuelPrice=v;
+    p.fuelPriceLastConfirmedAt=Date.now();
+    p.fuelReminderDisabled=false;
+    save();
+    var pref=document.getElementById('prefFuelPrice');if(pref)pref.value=v;
+    closePanel();
+  }
+
+  function startFuelVoice(){
+    var status=document.getElementById('navueFuelVoiceStatus');
+    var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){status.textContent='Voice entry is not available in this browser.';return}
+    try{
+      if(typeof stopListen==='function'&&window.rec)stopListen(false);
+    }catch(e){}
+    stopFuelRecognition();
+    try{
+      var r=new SR;fuelRecognition=r;r.lang='en-CA';r.interimResults=false;r.maxAlternatives=1;
+      status.textContent='Listening for the fuel price…';
+      r.onresult=function(e){
+        var spoken=e.results&&e.results[0]&&e.results[0][0]?e.results[0][0].transcript:'';
+        var value=wordsNumber(spoken);
+        if(value!==null){
+          document.getElementById('navueFuelCheckInput').value=value;
+          status.textContent='Heard '+value+'. Tap OK to confirm.';
+        }else status.textContent='I couldn’t recognize a price. Try again or type it.';
+      };
+      r.onerror=function(){status.textContent='I couldn’t hear the price. Try again or type it.'};
+      r.onend=function(){fuelRecognition=null};
+      r.start();
+    }catch(e){status.textContent='Voice entry could not start. You can type the price instead.'}
+  }
+
+  function openPanel(){
+    if(!p||!p.onboarded||p.fuelReminderDisabled||sessionDismissed)return;
+    var o=ensurePanel(),u=unitInfo(),input=document.getElementById('navueFuelCheckInput');
+    document.getElementById('navueFuelCheckCopy').textContent='It has been 7 days. Would you like to confirm or change the average fuel price NaVue uses for driving-cost estimates?';
+    document.getElementById('navueFuelCheckLabel').textContent='Average fuel price — '+u.short;
+    input.value=p.fuelPrice||'';input.setCustomValidity('');
+    document.getElementById('navueFuelCurrent').textContent=p.fuelPrice?'Current saved price: $'+p.fuelPrice+' '+u.spoken:'No average fuel price is currently saved.';
+    document.getElementById('navueFuelVoiceStatus').textContent=p.micEnabled?'You can tap “Say price” or speak when prompted.':'Type the price, or tap “Say price” for one-time voice entry.';
+    o.classList.add('open');
+    setTimeout(function(){input.focus()},80);
+    if(p.voice&&p.micEnabled&&typeof speak==='function'){
+      speak('Would you like to update your average fuel price '+u.spoken+'? Say the price, or use the box on screen.',true,p.voiceStyle,function(){startFuelVoice()});
+    }
+  }
+
+  function due(){
+    if(!p||!p.onboarded||p.fuelReminderDisabled||sessionDismissed)return false;
+    var last=Number(p.fuelPriceLastConfirmedAt||0);
+    return !last || Date.now()-last>=WEEK;
+  }
+
+  function check(){
+    if(due()&&!document.getElementById('navueFuelCheckOverlay')?.classList.contains('open'))openPanel();
+  }
+
+  /* New onboarding counts as a confirmation so the first reminder is seven days later. */
+  var priorFuelOnboarding=window.saveFuelOnboarding;
+  if(typeof priorFuelOnboarding==='function')window.saveFuelOnboarding=function(){
+    p.fuelPriceLastConfirmedAt=Date.now();
+    p.fuelReminderDisabled=false;
+    var r=priorFuelOnboarding.apply(this,arguments);
+    save();
+    return r;
+  };
+
+  /* A manual fuel-price change in Settings restarts the seven-day cycle. */
+  var priorSavePreferences=window.savePreferences;
+  if(typeof priorSavePreferences==='function')window.savePreferences=function(){
+    var before=String(p.fuelPrice||'');
+    var typed=document.getElementById('prefFuelPrice')?document.getElementById('prefFuelPrice').value.trim():before;
+    var r=priorSavePreferences.apply(this,arguments);
+    if(String(p.fuelPrice||'')===typed&&typed!==before){
+      p.fuelPriceLastConfirmedAt=Date.now();p.fuelReminderDisabled=false;save();
+    }
+    return r;
+  };
+
+  function addSettingsControl(){
+    var detail=document.querySelector('#preferences .navue-settings-detail');
+    if(!detail||document.getElementById('navueFuelReminderSetting'))return;
+    var title=detail.querySelector('.navue-settings-detail-title');
+    if(!title||title.textContent.trim()!=='Fuel & Cost')return;
+    var card=document.createElement('div');card.id='navueFuelReminderSetting';card.className='navue-fuel-reminder-setting';
+    card.innerHTML='<div><strong>7-day fuel price reminder</strong><span>Ask when NaVue opens if the saved average fuel price should be updated.</span></div><button type="button" id="navueFuelReminderToggle"></button>';
+    var saveBtn=Array.from(detail.querySelectorAll('button')).find(function(b){return b.textContent.trim()==='Save Changes'});
+    if(saveBtn)detail.insertBefore(card,saveBtn);else detail.appendChild(card);
+    var b=card.querySelector('#navueFuelReminderToggle');
+    function sync(){var on=!p.fuelReminderDisabled;b.textContent=on?'ON':'OFF';b.classList.toggle('voice-on',on);b.setAttribute('aria-pressed',on?'true':'false')}
+    b.onclick=function(){p.fuelReminderDisabled=!p.fuelReminderDisabled;if(!p.fuelReminderDisabled)p.fuelPriceLastConfirmedAt=Date.now();save();sync()};
+    sync();
+  }
+
+  document.addEventListener('click',function(e){
+    if(e.target&&e.target.closest&&e.target.closest('#preferences [data-setting="fuel"]'))setTimeout(addSettingsControl,40);
+  },true);
+  var mo=new MutationObserver(function(){setTimeout(addSettingsControl,0)});
+  var prefDetail=document.querySelector('#preferences .navue-settings-detail');if(prefDetail)mo.observe(prefDetail,{childList:true,subtree:true});
+
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(check,900)});
+  setTimeout(check,1100);
+  document.addEventListener('visibilitychange',function(){if(!document.hidden)setTimeout(check,300)});
+})();
+</script>
+</body></html>');
     w.document.close();
   }
 
