@@ -5003,3 +5003,108 @@ button.gear svg{width:26px;height:26px;display:block}
   };
 })();
 </script>
+
+
+<script>/* NAVUE7_FUEL_REMINDER_INTENT_V2 */
+(function(){
+  var STORAGE='navue7FuelReminderStateV2';
+  var priorHandle=window.handleVoice;
+
+  function clean(t){
+    return String(t||'').toLowerCase()
+      .replace(/[’']/g,'')
+      .replace(/[^a-z0-9\s]/g,' ')
+      .replace(/\s+/g,' ')
+      .trim();
+  }
+  function inFuelContext(){
+    var active=document.querySelector('.screen.active');
+    if(!active||active.id!=='preferences')return false;
+    var title=document.querySelector('#preferences .navue-settings-detail-title');
+    return !!(title&&title.textContent.trim()==='Fuel & Cost');
+  }
+  function mentionsReminder(s){
+    var fuel=/\b(fuel|gas|gasoline)\b/.test(s);
+    var reminder=/\b(remind|reminder|reminders|notification|notifications|notify)\b/.test(s);
+    var seven=/\b(seven|7)\s*day\b/.test(s);
+    return seven || (fuel&&reminder);
+  }
+  function positiveIntent(s){
+    return /\b(turn|switch|set)\s+(it|this|that|the\s+reminder|reminder|fuel\s+reminder|seven\s+day\s+reminder|7\s+day\s+reminder)?\s*on\b/.test(s) ||
+           /\b(turn|switch|set)\s+on\b/.test(s) ||
+           /\b(enable|activate|start|resume|keep|use)\b/.test(s) ||
+           /\b(remind me|start reminding me|keep reminding me)\b/.test(s) ||
+           /\b(i want|id like|i would like|please)\b.*\b(remind|reminder|notify)\b/.test(s);
+  }
+  function negativeIntent(s){
+    return /\b(turn|switch|set)\s+(it|this|that|the\s+reminder|reminder|fuel\s+reminder|seven\s+day\s+reminder|7\s+day\s+reminder)?\s*off\b/.test(s) ||
+           /\b(turn|switch|set)\s+off\b/.test(s) ||
+           /\b(disable|deactivate|stop|cancel|pause|quit)\b/.test(s) ||
+           /\b(dont|do not|no longer|never)\b.*\b(remind|reminder|notify|notification)\b/.test(s) ||
+           /\b(stop reminding me|dont remind me|do not remind me)\b/.test(s);
+  }
+  function inferIntent(s){
+    var context=inFuelContext();
+    var target=mentionsReminder(s);
+    if(!(context||target))return null;
+
+    var on=positiveIntent(s),off=negativeIntent(s);
+    if(on&&!off)return 'on';
+    if(off&&!on)return 'off';
+
+    // Context-aware shorthand while the driver is actually on Fuel & Cost.
+    if(context){
+      if(/^(on|yes turn it on|turn it on|enable it|activate it|start it|start reminder|start reminders)$/.test(s))return 'on';
+      if(/^(off|no turn it off|turn it off|disable it|deactivate it|stop it|stop reminder|stop reminders)$/.test(s))return 'off';
+    }
+    return null;
+  }
+  function readState(){
+    try{
+      var x=JSON.parse(localStorage.getItem(STORAGE)||'null');
+      if(x&&typeof x.enabled==='boolean')return x;
+    }catch(e){}
+    return {enabled:false,lastUpdateAt:Date.now()};
+  }
+  function applyState(on){
+    var x=readState();
+    x.enabled=!!on;
+    if(on&&!Number(x.lastUpdateAt))x.lastUpdateAt=Date.now();
+    try{localStorage.setItem(STORAGE,JSON.stringify(x))}catch(e){}
+    var b=document.getElementById('navue7FuelReminderToggle');
+    if(b){
+      b.textContent=on?'ON':'OFF';
+      b.setAttribute('aria-pressed',on?'true':'false');
+      b.classList.toggle('voice-on',!!on);
+      b.classList.toggle('off',!on);
+    }
+  }
+  function reply(message){
+    if(p&&p.voice&&typeof speak==='function'){
+      speak(message,true,p.voiceStyle,function(){
+        setTimeout(function(){
+          var active=document.querySelector('.screen.active');
+          if(active&&p.micEnabled&&!rec&&typeof rearmVoice==='function')rearmVoice(active.id);
+        },180);
+      });
+    }
+  }
+
+  window.handleVoice=function(text,mode){
+    if(mode==='preferences'||mode==='profile'){
+      var s=clean(text),intent=inferIntent(s);
+      if(intent==='on'){
+        applyState(true);
+        reply('Seven-day fuel reminder is on.');
+        return;
+      }
+      if(intent==='off'){
+        applyState(false);
+        reply('Seven-day fuel reminder is off.');
+        return;
+      }
+    }
+    return priorHandle.apply(this,arguments);
+  };
+})();
+</script>
