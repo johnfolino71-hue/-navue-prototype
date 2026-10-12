@@ -4932,3 +4932,74 @@ button.gear svg{width:26px;height:26px;display:block}
   document.addEventListener('visibilitychange',function(){if(!document.hidden)setTimeout(check,250)});
 })();
 </script>
+
+
+<script>/* NAVUE7_FUEL_REMINDER_VOICE_COMMANDS_V1 */
+(function(){
+  var STORAGE='navue7FuelReminderStateV2';
+  var priorHandle=window.handleVoice;
+
+  function clean(t){
+    return String(t||'').toLowerCase().replace(/[’']/g,'').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+  }
+  function isFuelReminderPhrase(s){
+    return /\b(?:seven|7)\s*day\b.*\b(?:fuel\s*)?reminder\b/.test(s) ||
+           /\bfuel\s+reminder\b/.test(s);
+  }
+  function wantsOn(s){
+    return /\b(turn|switch|set)\s+(?:the\s+)?(?:seven|7)?\s*day?\s*(?:fuel\s*)?reminder\s+on\b/.test(s) ||
+           /\b(?:activate|enable|start)\b.*\b(?:fuel\s*)?reminder\b/.test(s);
+  }
+  function wantsOff(s){
+    return /\b(turn|switch|set)\s+(?:the\s+)?(?:seven|7)?\s*day?\s*(?:fuel\s*)?reminder\s+off\b/.test(s) ||
+           /\b(?:deactivate|disable|stop)\b.*\b(?:fuel\s*)?reminder\b/.test(s);
+  }
+  function readState(){
+    try{
+      var x=JSON.parse(localStorage.getItem(STORAGE)||'null');
+      if(x&&typeof x.enabled==='boolean')return x;
+    }catch(e){}
+    return {enabled:false,lastUpdateAt:Date.now()};
+  }
+  function saveState(on){
+    var x=readState();
+    x.enabled=!!on;
+    if(on&&!Number(x.lastUpdateAt))x.lastUpdateAt=Date.now();
+    try{localStorage.setItem(STORAGE,JSON.stringify(x))}catch(e){}
+    var b=document.getElementById('navue7FuelReminderToggle');
+    if(b){
+      b.textContent=on?'ON':'OFF';
+      b.setAttribute('aria-pressed',on?'true':'false');
+      b.classList.toggle('voice-on',!!on);
+      b.classList.toggle('off',!on);
+    }
+  }
+  function reply(message){
+    if(p&&p.voice&&typeof speak==='function'){
+      speak(message,true,p.voiceStyle,function(){
+        setTimeout(function(){
+          var active=document.querySelector('.screen.active');
+          if(active&&p.micEnabled&&!rec&&typeof rearmVoice==='function')rearmVoice(active.id);
+        },180);
+      });
+    }
+  }
+
+  window.handleVoice=function(text,mode){
+    var s=clean(text);
+    if((mode==='preferences'||mode==='profile')&&isFuelReminderPhrase(s)){
+      if(wantsOn(s)){
+        saveState(true);
+        reply('Seven-day fuel reminder is on.');
+        return;
+      }
+      if(wantsOff(s)){
+        saveState(false);
+        reply('Seven-day fuel reminder is off.');
+        return;
+      }
+    }
+    return priorHandle.apply(this,arguments);
+  };
+})();
+</script>
