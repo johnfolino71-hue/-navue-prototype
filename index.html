@@ -3720,3 +3720,31 @@ button.gear svg{width:26px;height:26px;display:block}
  border-radius:18px!important;
 }
 </style>
+<style>/* NAVUE_MAP_DISPLAY_REFINED_HEADINGS_V4 — Map Display only */
+#preferences.navue-settings-detail-mode>h1{
+ font-size:22px!important;
+ line-height:1.2!important;
+ font-weight:800!important;
+ letter-spacing:-.25px!important;
+ margin-bottom:18px!important;
+}
+#preferences .navue-settings-detail>h2,
+#preferences .navue-settings-detail h2:first-child{
+ font-size:25px!important;
+ line-height:1.2!important;
+ font-weight:800!important;
+ letter-spacing:-.35px!important;
+ margin-bottom:14px!important;
+}
+</style>
+<script>/* NAVUE_LIVE_TRAFFIC_LABEL_V1 */
+(function(){
+ function renameLiveTraffic(){
+  document.querySelectorAll('#preferences .navue-map-toggle-row strong').forEach(function(el){
+   if(el.textContent.trim()==='Traffic') el.textContent='Live Traffic';
+  });
+ }
+ document.addEventListener('click',function(){setTimeout(renameLiveTraffic,0)});
+ renameLiveTraffic();
+})();
+</script>
