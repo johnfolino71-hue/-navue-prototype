@@ -4161,3 +4161,51 @@ button.gear svg{width:26px;height:26px;display:block}
  display:none!important;
 }
 </style>
+
+<style>/* NAVUE6_SAVED_LAYOUT_AND_PAGE_TITLES */
+/* Main Settings title is the typography reference; retain existing title margins. */
+#destination>h2,
+#routes>h2,
+#savedRoutesPage>h1,
+#profile>h1,
+#profile>h2,
+#preferences.navue-settings-detail-mode>h1{
+ font-family:inherit!important;font-size:34px!important;font-weight:700!important;
+ line-height:1.1!important;letter-spacing:normal!important;overflow-wrap:break-word;
+}
+/* One full-width saved entry per row, using Recent Locations card dimensions. */
+#savedRoutesPage #navueDefaults{
+ display:grid;grid-template-columns:minmax(0,1fr);gap:6px;margin:6px 0 0;
+ min-width:0;max-width:100%;
+}
+#savedRoutesPage .navue-default-box,
+#savedRoutesPage #savedRoutesList .saved-route-card{
+ width:100%;min-width:0;max-width:100%;border:1px solid #dfe6e9;border-radius:13px;
+}
+#savedRoutesPage .navue-default-box{padding:11px 58px 11px 13px;min-height:48px}
+#savedRoutesPage #savedRoutesList{min-width:0;max-width:100%}
+#savedRoutesPage #savedRoutesList .saved-route-card{padding:0!important;margin:6px 0!important}
+#savedRoutesPage #savedRoutesList .saved-compact-row{
+ width:100%;min-width:0;min-height:46px;padding:11px 58px 11px 13px!important;
+}
+#savedRoutesPage .navue-default-box strong,
+#savedRoutesPage .saved-compact-name,
+#savedRoutesPage .saved-compact-row.unnamed .saved-compact-address{
+ font-size:16px;font-weight:700;line-height:normal;color:#172126;
+}
+#savedRoutesPage .navue-default-box .small,
+#savedRoutesPage .saved-compact-address{
+ font-size:14px;line-height:normal;color:#607078;margin-top:0;
+ white-space:normal;overflow-wrap:anywhere;
+}
+#savedRoutesPage .saved-compact-row.unnamed .saved-compact-address{margin-top:0}
+#savedRoutesPage #savedRoutesList .navue-saved-remove{
+ position:absolute!important;left:auto!important;right:4px!important;top:50%!important;
+ transform:translateY(-50%);width:44px!important;min-width:44px!important;height:44px!important;
+ margin:0!important;padding:13px 15px!important;
+}
+#savedRoutesPage #savedRoutesList .navue-saved-remove:before{width:14px;height:18px}
+#savedRoutesPage #savedRoutesList .saved-compact-row>.saved-bookmark{
+ left:auto;right:20px;top:50%;transform:translateY(-50%);
+}
+</style>
