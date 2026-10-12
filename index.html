@@ -2547,9 +2547,6 @@ Prototype road split is temporary demo data until live route-segment classificat
   reportChoice=null;reportSub=null;panel.classList.remove('c3-sub-enter');closePanel();
   notify(id==='help'?label+' demo only. No assistance requested.':id==='map'?label+' demo preview. Feedback not sent.':id==='gas'?label+' selected. Price reporting is not connected.':label+' demo confirmed. Not shared with other drivers.');
  }
- const testingButton=button('Navigation demo controls',()=>{if(!p.selectedRoute){alert('Start a simulated trip first.');return}window.show('navigation');openDemos()},'secondary');
- const testingTitle=Array.from(document.querySelectorAll('#preferences .pref-title')).find(e=>e.textContent==='Prototype Testing');
- if(testingTitle)testingTitle.after(testingButton);
  const panel=el('section',null,'c3-panel');panel.id='navue3cPanel';panel.hidden=true;panel.setAttribute('aria-label','Trip options');nav.appendChild(panel);
  const drawer=nav.querySelector('.nav-bottom');
  const grip=button('','c3-unused');grip.onclick=null;grip.className='c3-grip';grip.setAttribute('aria-label','Expand trip panel');grip.setAttribute('aria-expanded','false');
@@ -2852,10 +2849,6 @@ Prototype road split is temporary demo data until live route-segment classificat
   box.append(button('Speed within limit',()=>{closePanel();setSpeed(48,50,false);notify('Simulated speed is within the limit.')}));
   box.append(button('Clear speed data',()=>{closePanel();setSpeed(null,null,false);notify('Speed-limit data unavailable.')}));
  }
- window.navueOpenDemos=function(){
-  if(!p.selectedRoute){alert('Start a simulated trip first.');return}
-  window.show('navigation');openDemos();
- };
  // Demo path identities are only for testing duplicate exclusion, never real road verification.
  window.navue3cAlternateCandidates=function(base){
   const rank=scores();
