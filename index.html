@@ -2657,7 +2657,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   limitNumber.textContent=knownLimit?String(Math.round(p.fuelUnits==='us'?state.limit*.621371:state.limit)):'—';
   speedUnit.textContent=p.fuelUnits==='us'?'mph':'km/h';
   const speeding=knownSpeed&&knownLimit&&state.speed>=state.limit+(state.highway?12:10);
-  speedBadge.classList.toggle('c3-over',speeding);
+  speedBadge.classList.toggle('c3-over',speeding&&p.speedAlert!==false);
   speedBadge.setAttribute('aria-label','Simulated speed '+(knownSpeed?speedText(state.speed):'unavailable')+'. Speed limit '+(knownLimit?speedText(state.limit):'unavailable')+(speeding?'. Over speed limit.':'.'));
  }
  function samples(query){
@@ -2824,7 +2824,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(over&&!state.alerted&&p.speedAlert!==false){
    clearTimeout(limitBadgeTimer);if(p.showSpeedLimit!==false)limitSign.hidden=false;
    limitBadgeTimer=setTimeout(()=>{limitSign.hidden=true},3000);
-  }else if(!over){clearTimeout(limitBadgeTimer);limitSign.hidden=true}
+  }else if(!over||p.speedAlert===false||p.showSpeedLimit===false){clearTimeout(limitBadgeTimer);limitSign.hidden=true}
   // The compact display handles the visual warning; preserve optional spoken reminders.
   if(over&&!state.alerted&&active()==='navigation'&&tripVoice&&p.speedAlert!==false){
    speak('Just a friendly reminder, you are over the speed limit of '+speedText(state.limit)+'.',true,p.voiceStyle,()=>{if(p.micEnabled&&active()==='navigation')rearmVoice('navigation')});
@@ -3104,7 +3104,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(key==='location'){var loc=s.querySelector(':scope > .navue-settings-location');if(loc)nodes=[loc]}
   if(key==='navigation'){nodes=[];var card=document.createElement('div');card.className='navue-driving-pref-card';card.innerHTML='<div class="navue-driving-pref-section"><strong>Route Priority</strong><div id="nvDrivePriority"></div></div><div class="navue-driving-pref-section"><strong>Road Preferences</strong><div id="nvDriveRoad"></div></div><div class="navue-driving-pref-section"><strong>Tolls & Ferries</strong><div id="nvDrivePaid"></div></div><div class="navue-driving-pref-section"><strong>Lane Guidance</strong><div id="nvDriveLane"></div></div>';nodes=[card]}
   if(key==='fuel'){var fuel=nodeByTitle('Fuel & Cost');if(fuel)nodes=collect(fuel,[]).filter(function(n){return !(n.matches&&n.matches('button'))&&!(n.classList&&n.classList.contains('navue-settings-profile'))})}
-  if(key==='speed'){var sc=document.createElement('div');sc.className='navue-speed-settings-card';function sr(label,key){var row=document.createElement('div');row.className='navue-speed-setting-row';var name=document.createElement('strong');name.textContent=label;var b=document.createElement('button');b.type='button';b.className='navue-mini-toggle';function paint(){var on=p[key]!==false;b.textContent=on?'ON':'OFF';b.classList.toggle('on',on);b.classList.toggle('off',!on)}paint();function toggle(e){if(e){e.preventDefault();e.stopPropagation()}p[key]=p[key]===false;save();paint();window.dispatchEvent(new Event('navueSpeedPrefsChanged'))}b.onclick=toggle;b.ontouchend=toggle;row.append(name,b);return row}sc.append(sr('Show Speedometer','showSpeedometer'),sr('Show Speed Limit','showSpeedLimit'),sr('Speed Alert','speedAlert'));var tr=document.createElement('div');tr.className='navue-speed-setting-row navue-speed-threshold';tr.innerHTML='<strong>Alert Threshold</strong><span>10 km/h roads · 12 km/h highways</span>';sc.appendChild(tr);nodes=[sc]}
+  if(key==='speed'){var sc=document.createElement('div');sc.className='navue-speed-settings-card';function sr(label,key){var row=document.createElement('div');row.className='navue-speed-setting-row';var name=document.createElement('strong');name.textContent=label;var b=document.createElement('button');b.type='button';b.className='navue-mini-toggle';function paint(){var on=p[key]!==false;b.textContent=on?'ON':'OFF';b.classList.toggle('on',on);b.classList.toggle('off',!on);b.setAttribute('aria-pressed',String(on))}paint();function toggle(e){if(e){e.preventDefault();e.stopPropagation()}p[key]=p[key]===false;save();paint();window.dispatchEvent(new Event('navueSpeedPrefsChanged'))}b.addEventListener('click',toggle);b.setAttribute('aria-pressed',String(p[key]!==false));row.append(name,b);return row}sc.append(sr('Show Speedometer','showSpeedometer'),sr('Show Speed Limit','showSpeedLimit'),sr('Speed Alert','speedAlert'));var tr=document.createElement('div');tr.className='navue-speed-setting-row navue-speed-threshold';tr.innerHTML='<strong>Alert Threshold</strong><span>10 km/h roads · 12 km/h highways</span>';sc.appendChild(tr);nodes=[sc]}
   if(key==='voice'){var vg=document.getElementById('navueGuidanceLevel');if(vg)nodes=[vg.closest('.fuel-field')]}
   if(key==='tolls'){var paid=nodeByTitle('Tolls & paid ferries');if(paid){nodes=[paid];if(paid.nextElementSibling)nodes.push(paid.nextElementSibling)}}
   if(nodes.length){nodes.forEach(function(n){detail.appendChild(n)});if(key!=='navigation'){var save=document.createElement('button');save.type='button';save.textContent='Save Changes';save.onclick=function(){window.savePreferences();showMenu()};detail.appendChild(save)}}
