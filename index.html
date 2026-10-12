@@ -6155,3 +6155,23 @@ Tolls/ferries remain separate from fuel.
 })();
 </script>
 
+<script>/* NAVUE_ROUTE_EXCEPTION_AFTER_RANKING_FIX_V1 — preserve single-use restricted-route confirmation after route ranking/reordering */
+(function(){
+ 'use strict';
+ window.navueExceptionEligible=function(r){
+  var c=window.navueAlternateContext;
+  return !!(
+   c &&
+   c.extra===r &&
+   c.destination===p.destination &&
+   c.road===p.road &&
+   c.paid===p.paid &&
+   Array.isArray(currentRoutes) &&
+   currentRoutes.includes(r) &&
+   currentRoutes.some(function(x){return navueRouteAllowed(x)}) &&
+   navueKnownRoadFacts(r)
+  );
+ };
+})();
+</script>
+
