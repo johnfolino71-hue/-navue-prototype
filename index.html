@@ -4450,7 +4450,7 @@ button.gear svg{width:26px;height:26px;display:block}
 
   async function loadOwnerStats(){
     try{
-      var r=await fetch(SUPABASE_URL+'/rest/v1/navue_owner_stats_view?environment=eq.'+encodeURIComponent(ENVIRONMENT)+'&select=*',{
+      var r=await fetch(SUPABASE_URL+'/rest/v1/navue_stats_summary?environment=eq.'+encodeURIComponent(ENVIRONMENT)+'&select=*',{
         headers:apiHeaders()
       });
       if(!r.ok)return null;
