@@ -3126,6 +3126,37 @@ Prototype road split is temporary demo data until live route-segment classificat
  var oldShow=window.show;window.show=function(id){var r=oldShow.apply(this,arguments);if(id==='preferences')setTimeout(showMenu,0);return r};
  s.classList.add('navue-settings-menu-mode');s.querySelector('h1').textContent='Settings';
 })();
+</script><style>/* NAVUE_SETTINGS_SAVE_ALL_CATEGORIES_V1 */
+#preferences.navue-settings-detail-mode .navue-settings-detail>.navue-global-save{display:block;width:100%;margin-top:18px!important}
+</style>
+<script>/* NAVUE_SETTINGS_SAVE_ALL_CATEGORIES_V1 */
+(function(){
+ var s=document.getElementById('preferences');if(!s)return;
+ var menu=s.querySelector('.navue-settings-menu'),detail=s.querySelector('.navue-settings-detail');if(!menu||!detail)return;
+ function backToMenu(){s.classList.remove('navue-settings-detail-mode');s.classList.add('navue-settings-menu-mode');s.querySelector('h1').textContent='Settings';window.scrollTo(0,0)}
+ function persistAll(){
+  try{save()}catch(e){try{localStorage.setItem('navueProfile',JSON.stringify(p))}catch(_e){}}
+  try{localStorage.setItem('navueSpeedPrefs',JSON.stringify({showSpeedometer:p.showSpeedometer!==false,showSpeedLimit:p.showSpeedLimit!==false,speedAlert:p.speedAlert!==false}));localStorage.setItem('navueSpeedometerEnabled',p.showSpeedometer===false?'0':'1')}catch(e){}
+ }
+ function ensureSave(){
+  if(!s.classList.contains('navue-settings-detail-mode'))return;
+  var existing=Array.from(detail.querySelectorAll('button')).find(function(b){return b.textContent.trim()==='Save Changes'});
+  if(existing){
+   existing.classList.add('navue-global-save');
+   if(existing.dataset.navueGlobalSave==='1')return;
+   existing.dataset.navueGlobalSave='1';
+   existing.addEventListener('click',function(){persistAll();setTimeout(backToMenu,0)});
+   return
+  }
+  var b=document.createElement('button');b.type='button';b.className='navue-global-save';b.textContent='Save Changes';
+  b.onclick=function(){persistAll();backToMenu()};
+  detail.appendChild(b)
+ }
+ var obs=new MutationObserver(function(){setTimeout(ensureSave,0)});
+ obs.observe(detail,{childList:true,subtree:true});
+ menu.addEventListener('click',function(e){if(e.target.closest('.navue-settings-row'))setTimeout(ensureSave,0)});
+ window.addEventListener('navueSpeedPrefsChanged',persistAll);
+})();
 </script><style>/* NAVUE_VOICE_SOUND_SETTINGS_FIX_V3 */
 #preferences .navue-voice-sound-card{background:#fff;border:1px solid #d9e1e8;border-radius:16px;padding:16px;margin:0 0 14px}
 #preferences .navue-voice-sound-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 0}
