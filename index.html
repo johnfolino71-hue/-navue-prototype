@@ -5346,7 +5346,7 @@ button.gear svg{width:26px;height:26px;display:block}
   var km=Math.max(0,Number(active.actualKm)||0);
   // In the current simulation only, completing the destination means the planned route was completed.
   // Never substitute the full planned distance for an interrupted/closed route.
-  if(completed&&km<0.05&&/Finish simulated trip/i.test((document.querySelector('#navigation .finish')||{}).textContent||''))km=Math.max(0,Number(active.plannedKm)||0);
+  if(completed&&km<0.05&&/Finish simulated trip/i.test((document.querySelector('#navigation .finish')||{}).textContent||'')){km=Math.max(0,Number(active.plannedKm)||0);if(Number(active.plannedMinutes)>0)seconds=Math.round(Number(active.plannedMinutes)*60)}
   var f=fuelFor(km);
   var rec={
    id:active.id,
@@ -5355,6 +5355,8 @@ button.gear svg{width:26px;height:26px;display:block}
    date:active.date,
    destination:active.destination,
    routeId:active.routeId,
+   plannedKm:Math.max(0,Number(active.plannedKm)||0),
+   plannedMinutes:Math.max(0,Number(active.plannedMinutes)||0),
    completed:!!completed,
    actualKm:Number(km.toFixed(3)),
    actualSeconds:seconds,
@@ -5535,5 +5537,93 @@ button.gear svg{width:26px;height:26px;display:block}
  window.addEventListener('storage',function(e){if(e.key==='navueMonthlyTripLedgerV1')render()});
  setInterval(function(){if(fuelDetailOpen())render()},15000);
  window.navueRenderCurrentMonthlySummary=render;
+})();
+</script>
+<script>/* NAVUE_MONTHLY_FORMULA_CORRECTION_STEP3_V1 — formula verification/correction; no Fuel & Cost design changes */
+(function(){
+ 'use strict';
+ var LEDGER_KEY='navueMonthlyTripLedgerV1';
+ function readLedger(){try{var a=JSON.parse(localStorage.getItem(LEDGER_KEY)||'[]');return Array.isArray(a)?a:[]}catch(e){return []}}
+ function monthStart(d){return new Date(d.getFullYear(),d.getMonth(),1,0,0,0,0)}
+ function nextMonthStart(d){return new Date(d.getFullYear(),d.getMonth()+1,1,0,0,0,0)}
+ function tripTime(rec){var t=Number(rec&&rec.startedAt);if(Number.isFinite(t)&&t>0)return t;var x=Date.parse(rec&&rec.date||'');return Number.isFinite(x)?x:0}
+ function finiteOrNull(v){if(v===null||v===undefined||v==='')return null;var n=Number(v);return Number.isFinite(n)?n:null}
+ function canonicalFuel(km){
+   var city=parseFloat(p&&p.cityFuel),hwy=parseFloat(p&&p.highwayFuel),price=parseFloat(p&&p.fuelPrice);
+   if(!(city>0)&&!(hwy>0))return {litres:null,cost:null};
+   var use=(city>0&&hwy>0)?city*.35+hwy*.65:(city>0?city:hwy),litres;
+   if((p.fuelUnits||'metric')==='us'){
+     var mpg=use,miles=km*0.621371,gallons=miles/mpg;litres=gallons*3.78541;
+   }else litres=km*use/100;
+   return {litres:litres,cost:price>0?((p.fuelUnits||'metric')==='us'?(litres/3.78541)*price:litres*price):null};
+ }
+ /* Re-establish the same canonical Fuel & Cost estimator after older prototype scripts. */
+ window.navueFuelEstimate=function(km){return canonicalFuel(Math.max(0,Number(km)||0))};
+
+ function legacyPlannedMinutes(rec){
+   var n=Number(rec&&rec.plannedMinutes);if(n>0)return n;
+   /* Backward compatibility for Step 1 test records created before plannedMinutes was persisted. */
+   var id=String(rec&&rec.routeId||'').toUpperCase();
+   return id==='A'?41:id==='B'?29:id==='C'?25:0;
+ }
+ function isCompletedSimulation(rec){
+   return !!(rec&&rec.completed&&rec.endReason==='destination-completed');
+ }
+ function correctedSeconds(rec){
+   var actual=Math.max(0,Number(rec&&rec.actualSeconds)||0);
+   if(isCompletedSimulation(rec)){
+     var planned=legacyPlannedMinutes(rec);
+     if(planned>0)return Math.round(planned*60);
+   }
+   return actual;
+ }
+ function correctedFuel(rec,km){
+   var l=finiteOrNull(rec&&rec.fuelLitres),c=finiteOrNull(rec&&rec.fuelCost);
+   /* Old Step 1 records may contain null/zero because the estimator was unavailable.
+      When distance exists and current Fuel & Cost settings are complete, recompute
+      with NaVue's canonical formula. */
+   if(km>0&&(l===null||l===0||c===null||c===0)){
+     var f=canonicalFuel(km);
+     if(l===null||l===0)l=f.litres;
+     if(c===null||c===0)c=f.cost;
+   }
+   return {litres:l,cost:c};
+ }
+ function summary(referenceDate){
+   var ref=referenceDate instanceof Date?new Date(referenceDate):new Date(referenceDate||Date.now());
+   if(!Number.isFinite(ref.getTime()))ref=new Date();
+   var start=monthStart(ref),end=nextMonthStart(ref),startMs=start.getTime(),endMs=end.getTime();
+   var completed=0,km=0,seconds=0,litres=0,cost=0,litresKnown=0,costKnown=0,records=0;
+   readLedger().forEach(function(rec){
+     var t=tripTime(rec);if(!(t>=startMs&&t<endMs))return;
+     records++;
+     var d=Math.max(0,Number(rec.actualKm)||0);
+     km+=d;seconds+=correctedSeconds(rec);if(rec.completed)completed++;
+     var f=correctedFuel(rec,d);
+     if(f.litres!==null&&Number.isFinite(Number(f.litres))){litres+=Math.max(0,Number(f.litres));litresKnown++}
+     if(f.cost!==null&&Number.isFinite(Number(f.cost))){cost+=Math.max(0,Number(f.cost));costKnown++}
+   });
+   var active=null;
+   try{if(typeof window.navueMonthlyActiveTrip==='function')active=window.navueMonthlyActiveTrip()}catch(e){}
+   if(active){
+     var at=Number(active.startedAt)||0;
+     if(at>=startMs&&at<endMs){
+       var akm=Math.max(0,Number(active.actualKm)||0),asec=Math.max(0,Math.round((Date.now()-at)/1000));
+       km+=akm;seconds+=asec;
+       var af=canonicalFuel(akm);
+       if(af.litres!==null){litres+=Math.max(0,af.litres);litresKnown++}
+       if(af.cost!==null){cost+=Math.max(0,af.cost);costKnown++}
+     }
+   }
+   return {
+     year:ref.getFullYear(),month:ref.getMonth()+1,periodStart:startMs,periodEnd:Math.min(Date.now(),endMs-1),
+     tripsCompleted:completed,recordsCount:records,distanceKm:Number(km.toFixed(3)),drivingSeconds:Math.round(seconds),
+     fuelLitres:litresKnown?Number(litres.toFixed(3)):null,fuelCost:costKnown?Number(cost.toFixed(2)):null,
+     includesActiveTrip:!!(active&&Number(active.startedAt)>=startMs&&Number(active.startedAt)<endMs)
+   };
+ }
+ window.navueCurrentMonthlySummary=summary;
+ window.navueCurrentMonthlyTotals=function(){return summary(new Date())};
+ if(typeof window.navueRenderCurrentMonthlySummary==='function')setTimeout(window.navueRenderCurrentMonthlySummary,0);
 })();
 </script>
