@@ -4713,14 +4713,20 @@ button.gear svg{width:26px;height:26px;display:block}
   }
   function setEnabled(on){
     var x=ensureState()||{enabled:false,lastUpdateAt:Date.now()};
+    var wasOn=!!x.enabled;
     x.enabled=!!on;
-    if(on)x.lastUpdateAt=Date.now();
+    if(on&&!wasOn){
+      x.activationPending=true;
+      x.lastUpdateAt=0;
+    }
+    if(!on)x.activationPending=false;
     writeState(x);
     syncToggle();
+    if(on&&!wasOn)setTimeout(openPopup,0);
   }
   function markUpdated(){
     var x=ensureState()||{enabled:true,lastUpdateAt:Date.now()};
-    x.enabled=true;x.lastUpdateAt=Date.now();writeState(x);
+    x.enabled=true;x.activationPending=false;x.lastUpdateAt=Date.now();writeState(x);
   }
 
   function fuelDetailOpen(){
@@ -4818,9 +4824,21 @@ button.gear svg{width:26px;height:26px;display:block}
     if(!speakerOn()){if(after)after();return}
     try{speak(t,false,p.voiceStyle,after)}catch(e){if(after)after()}
   }
-  function yes(s){return /\b(yes|yeah|yep|update now|update|correct|ok|okay|confirm|confirmed|right)\b/i.test(s)}
-  function no(s){return /\b(no|nope|wrong|incorrect)\b/i.test(s)}
-  function turnOffPhrase(s){return /\b(turn off|stop|disable)\b.*\b(reminder|reminders)\b/i.test(s)}
+  function popupIntent(s,stage){
+    s=String(s||'').toLowerCase().replace(/[’']/g,'').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+    var off=/\b(turn|switch|set)\s+(?:it|this|that|the\s+reminder|reminders?)?\s*off\b/.test(s) ||
+            /\b(disable|deactivate|stop|cancel|pause)\b.*\b(remind|reminder|reminders|notification|notifications)?\b/.test(s) ||
+            /\b(dont|do not|no longer|never)\b.*\b(remind|notify)\b/.test(s);
+    if(off)return 'off';
+    if(stage==='confirm'){
+      var reject=/\b(no|nope|wrong|incorrect|change|different|again|retry|redo|not right|not correct)\b/.test(s) ||
+                 /\b(thats|that is|its|it is)\s+(wrong|incorrect|not right|not correct)\b/.test(s);
+      var accept=/\b(yes|yeah|yep|correct|right|okay|ok|confirm|confirmed|update|use|save|accept|go ahead|do it|sounds good|thats right|that is right|looks good)\b/.test(s);
+      if(reject&&!accept)return 'retry';
+      if(accept&&!reject)return 'confirm';
+    }
+    return null;
+  }
 
   function ensurePopup(){
     var o=document.getElementById('navue7FuelReminderOverlay');if(o)return o;
@@ -4859,7 +4877,7 @@ button.gear svg{width:26px;height:26px;display:block}
   }
   function turnOff(){
     var x=ensureState()||{enabled:false,lastUpdateAt:Date.now()};
-    x.enabled=false;writeState(x);syncToggle();closePopup();
+    x.enabled=false;x.activationPending=false;writeState(x);syncToggle();closePopup();
   }
 
   function listen(stage){
@@ -4869,19 +4887,27 @@ button.gear svg{width:26px;height:26px;display:block}
     try{
       var r=new SR;rec=r;r.lang='en-CA';r.interimResults=false;r.maxAlternatives=1;
       var status=document.getElementById('navue7FuelReminderVoice');
-      if(status)status.textContent=stage==='confirm'?'Listening for yes or no…':'Listening for the fuel price…';
+      if(status)status.textContent=stage==='confirm'?'Listening for your response…':'Listening for the fuel price…';
       r.onresult=function(e){
         var heard=e.results&&e.results[0]&&e.results[0][0]?e.results[0][0].transcript:'';
-        if(turnOffPhrase(heard)){turnOff();return}
+        var intent=popupIntent(heard,stage);
+        if(intent==='off'){turnOff();return}
         if(stage==='confirm'){
-          if(yes(heard)){savePrice(pendingPrice);return}
-          if(no(heard)){
+          if(intent==='confirm'){savePrice(pendingPrice);return}
+          if(intent==='retry'){
             pendingPrice=null;
-            if(status)status.textContent='Say the fuel price again.';
-            say('What is your current average fuel price?',function(){listen('price')});return;
+            if(status)status.textContent='Tell me the fuel price you want to use.';
+            say('What fuel price would you like to use?',function(){listen('price')});return;
           }
-          if(status)status.textContent='Say yes to update, or no to say the price again.';
-          say('Please say yes to update, or no to say the price again.',function(){listen('confirm')});return;
+          var replacement=parseSpokenPrice(heard);
+          if(replacement!=null){
+            pendingPrice=replacement;
+            var replacementInput=document.getElementById('navue7FuelReminderInput');if(replacementInput)replacementInput.value=replacement;
+            if(status)status.textContent='I heard $'+replacement+'. Waiting for confirmation.';
+            say('I heard $'+replacement+'. Is that correct?',function(){listen('confirm')});return;
+          }
+          if(status)status.textContent='I’m not sure whether you want to use that price or change it.';
+          say('Would you like me to use that price, or change it?',function(){listen('confirm')});return;
         }
         var v=parseSpokenPrice(heard);
         if(v==null){
@@ -4911,14 +4937,18 @@ button.gear svg{width:26px;height:26px;display:block}
     o.classList.add('open');
 
     if(speakerOn()){
-      var prompt='It has been seven days. What is your current average fuel price?';
+      var state=ensureState();
+      var prompt=state&&state.activationPending?'What is your current average fuel price?':'It has been seven days. What is your current average fuel price?';
       if(voiceInputOn())say(prompt,function(){listen('price')});else say(prompt);
     }else setTimeout(function(){input.focus()},80);
   }
   function due(){
     var x=ensureState();
-    return !!(x&&x.enabled&&Number(x.lastUpdateAt)>0&&Date.now()-Number(x.lastUpdateAt)>=WEEK);
+    return !!(x&&x.enabled&&(x.activationPending||Number(x.lastUpdateAt)>0&&Date.now()-Number(x.lastUpdateAt)>=WEEK));
   }
+
+  window.navue7SetFuelReminder=setEnabled;
+  window.navue7OpenFuelReminderPopup=openPopup;
   function check(){
     if(!due())return;
     var o=document.getElementById('navue7FuelReminderOverlay');
@@ -4962,17 +4992,10 @@ button.gear svg{width:26px;height:26px;display:block}
     return {enabled:false,lastUpdateAt:Date.now()};
   }
   function saveState(on){
+    if(typeof window.navue7SetFuelReminder==='function'){window.navue7SetFuelReminder(!!on);return}
     var x=readState();
     x.enabled=!!on;
-    if(on&&!Number(x.lastUpdateAt))x.lastUpdateAt=Date.now();
     try{localStorage.setItem(STORAGE,JSON.stringify(x))}catch(e){}
-    var b=document.getElementById('navue7FuelReminderToggle');
-    if(b){
-      b.textContent=on?'ON':'OFF';
-      b.setAttribute('aria-pressed',on?'true':'false');
-      b.classList.toggle('voice-on',!!on);
-      b.classList.toggle('off',!on);
-    }
   }
   function reply(message){
     if(p&&p.voice&&typeof speak==='function'){
@@ -4990,7 +5013,6 @@ button.gear svg{width:26px;height:26px;display:block}
     if((mode==='preferences'||mode==='profile')&&isFuelReminderPhrase(s)){
       if(wantsOn(s)){
         saveState(true);
-        reply('Seven-day fuel reminder is on.');
         return;
       }
       if(wantsOff(s)){
@@ -5067,17 +5089,10 @@ button.gear svg{width:26px;height:26px;display:block}
     return {enabled:false,lastUpdateAt:Date.now()};
   }
   function applyState(on){
+    if(typeof window.navue7SetFuelReminder==='function'){window.navue7SetFuelReminder(!!on);return}
     var x=readState();
     x.enabled=!!on;
-    if(on&&!Number(x.lastUpdateAt))x.lastUpdateAt=Date.now();
     try{localStorage.setItem(STORAGE,JSON.stringify(x))}catch(e){}
-    var b=document.getElementById('navue7FuelReminderToggle');
-    if(b){
-      b.textContent=on?'ON':'OFF';
-      b.setAttribute('aria-pressed',on?'true':'false');
-      b.classList.toggle('voice-on',!!on);
-      b.classList.toggle('off',!on);
-    }
   }
   function reply(message){
     if(p&&p.voice&&typeof speak==='function'){
@@ -5095,7 +5110,6 @@ button.gear svg{width:26px;height:26px;display:block}
       var s=clean(text),intent=inferIntent(s);
       if(intent==='on'){
         applyState(true);
-        reply('Seven-day fuel reminder is on.');
         return;
       }
       if(intent==='off'){
@@ -5233,6 +5247,7 @@ button.gear svg{width:26px;height:26px;display:block}
     }
 
     try{target.btn.click()}catch(e){return false}
+    if(target.btn.id==='navue7FuelReminderToggle'&&desired)return true;
     setTimeout(function(){
       var now=stateOf(target.btn);
       speakReply(labelFor(target)+' is '+((now===null?desired:now)?'on.':'off.'));
@@ -5251,3 +5266,5 @@ button.gear svg{width:26px;height:26px;display:block}
   };
 })();
 </script>
+
+<!-- NAVUE7_FUEL_REMINDER_IMMEDIATE_POPUP_CONTEXT_INTENT_V4: OFF-to-ON opens existing popup; popup voice uses context-aware intent; locked Fuel & Cost UI unchanged. -->
