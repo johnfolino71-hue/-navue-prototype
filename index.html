@@ -4339,21 +4339,59 @@ button.gear svg{width:26px;height:26px;display:block}
 #navueOwnerClose{margin-top:10px!important}
 @media(max-width:520px){#navueOwnerPanel .owner-actions{grid-template-columns:1fr}}
 </style>
-<script>/* NAVUE7_OWNER_LIVE_NETWORK_PANEL_V2 */
+<script>/* NAVUE7_OWNER_LIVE_NETWORK_PANEL_V3_SUPABASE */
 (function(){
   var tapCount=0,lastTap=0;
-  var TELEMETRY_ENDPOINT=window.NAVUE_TELEMETRY_ENDPOINT||'';
   var ENVIRONMENT='prototype';
+  var SUPABASE_URL='https://ovwinosskbwzczwpknjt.supabase.co';
+  var SUPABASE_KEY='sb_publishable_u3dTr6otM5DBhp3XR_d7rQ_gAzYBLch';
 
-  function installId(){
-    var k='navuePrototypeInstallId',id='';
-    try{id=localStorage.getItem(k)||''}catch(e){}
-    if(!id){
-      try{id=(crypto&&crypto.randomUUID)?crypto.randomUUID():'nv-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)}catch(e){id='nv-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)}
-      try{localStorage.setItem(k,id)}catch(e){}
-    }
-    return id;
+  function apiHeaders(extra){
+    var h={
+      'apikey':SUPABASE_KEY,
+      'Authorization':'Bearer '+SUPABASE_KEY,
+      'Content-Type':'application/json'
+    };
+    if(extra)Object.keys(extra).forEach(function(k){h[k]=extra[k]});
+    return h;
   }
+
+  async function identityHash(){
+    try{
+      if(!p||!p.onboarded||!p.email||!p.cell)return '';
+      var email=String(p.email).trim().toLowerCase();
+      var cell=String(p.cell).replace(/\D/g,'');
+      if(!email||!cell)return '';
+      var bytes=new TextEncoder().encode(email+'|'+cell);
+      var digest=await crypto.subtle.digest('SHA-256',bytes);
+      return Array.from(new Uint8Array(digest)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');
+    }catch(e){return ''}
+  }
+
+  async function postActivity(eventType){
+    try{
+      var hash=await identityHash();
+      if(!hash)return false;
+      var r=await fetch(SUPABASE_URL+'/rest/v1/navue_activity',{
+        method:'POST',
+        headers:apiHeaders({'Prefer':'return=minimal'}),
+        body:JSON.stringify({
+          environment:ENVIRONMENT,
+          identity_hash:hash,
+          country:(p&&p.country)?String(p.country).trim():'',
+          event_type:eventType||'heartbeat'
+        })
+      });
+      return r.ok;
+    }catch(e){return false}
+  }
+
+  async function heartbeat(){
+    if(document.hidden)return false;
+    return await postActivity('heartbeat');
+  }
+  window.navueTelemetryHeartbeat=heartbeat;
+  window.navueTelemetryReport=function(){return postActivity('report')};
 
   function monthRange(){
     var n=new Date(),y=n.getFullYear(),m=n.getMonth(),last=new Date(y,m+1,0).getDate();
@@ -4377,7 +4415,7 @@ button.gear svg{width:26px;height:26px;display:block}
        '<div class="owner-card"><div class="owner-label">Total users worldwide</div><div class="owner-value" id="nvOwnTotal">—</div></div>'+
        '<div class="owner-card owner-wide"><div class="owner-label">Users by country</div><div class="owner-country-list" id="nvOwnCountries"><div class="owner-country-row"><span>No country data yet</span><strong>—</strong></div></div></div>'+
        '<div class="owner-card owner-wide"><div class="owner-label">Live Network reports today</div><div class="owner-value" id="nvOwnReports">—</div></div>'+
-      '</div><div class="owner-status" id="nvOwnStatus">Prototype telemetry service not connected yet.</div>'+
+      '</div><div class="owner-status" id="nvOwnStatus">Connected to NaVue prototype analytics.</div>'+
       '<div class="owner-actions"><button id="navueOwnerShare" type="button">Share Report</button><button id="navueOwnerSave" type="button">Save Report</button><button id="navueOwnerPrint" type="button">Print</button></div>'+
       '<button id="navueOwnerClose" type="button" class="secondary">Close</button></div>';
     document.body.appendChild(o);
@@ -4390,7 +4428,6 @@ button.gear svg{width:26px;height:26px;display:block}
   }
 
   function closePanel(){var o=document.getElementById('navueOwnerOverlay');if(o)o.classList.remove('open')}
-
   function setText(id,v){var n=document.getElementById(id);if(n)n.textContent=(v===0||v)?String(v):'—'}
 
   function render(d){
@@ -4409,6 +4446,17 @@ button.gear svg{width:26px;height:26px;display:block}
       var rows=Array.isArray(d.countries)?d.countries.filter(function(x){return Number(x&&x.users)>0}):[];
       box.innerHTML=rows.length?rows.map(function(x){return '<div class="owner-country-row"><span>'+String(x.country||'Unknown').replace(/[&<>"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]})+'</span><strong>'+Number(x.users||0).toLocaleString()+'</strong></div>'}).join(''):'<div class="owner-country-row"><span>No country data yet</span><strong>—</strong></div>';
     }
+  }
+
+  async function loadOwnerStats(){
+    try{
+      var r=await fetch(SUPABASE_URL+'/rest/v1/navue_owner_stats_view?environment=eq.'+encodeURIComponent(ENVIRONMENT)+'&select=*',{
+        headers:apiHeaders()
+      });
+      if(!r.ok)return null;
+      var rows=await r.json();
+      return Array.isArray(rows)?(rows[0]||null):rows;
+    }catch(e){return null}
   }
 
   function reportText(){
@@ -4463,26 +4511,12 @@ button.gear svg{width:26px;height:26px;display:block}
     w.document.close();
   }
 
-  async function callTelemetry(action){
-    if(!TELEMETRY_ENDPOINT)return null;
-    try{
-      var r=await fetch(TELEMETRY_ENDPOINT,{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({action:action,environment:ENVIRONMENT,install_id:installId(),ts:new Date().toISOString(),country:(window.p&&p.country)||''})
-      });
-      if(!r.ok)throw new Error('HTTP '+r.status);
-      return await r.json();
-    }catch(e){return null}
-  }
-
   async function openPanel(){
     var o=ensurePanel();o.classList.add('open');
     var s=document.getElementById('nvOwnStatus');
     var ml=document.getElementById('nvOwnMonthLabel');if(ml)ml.textContent='New Users — '+monthRange();
-    if(!TELEMETRY_ENDPOINT){if(s)s.textContent='Prototype telemetry service not connected yet.';return}
     if(s)s.textContent='Loading prototype Live Network data…';
-    var d=await callTelemetry('owner_stats');
+    var d=await loadOwnerStats();
     if(d){render(d);if(s)s.textContent='Prototype users only · updated '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}
     else if(s)s.textContent='Unable to load prototype Live Network data.';
   }
@@ -4500,12 +4534,16 @@ button.gear svg{width:26px;height:26px;display:block}
     });
   }
 
-  async function heartbeat(){
-    if(!TELEMETRY_ENDPOINT)return;
-    await callTelemetry('heartbeat');
+  var oldComplete=window.completeOnboarding;
+  if(typeof oldComplete==='function'){
+    window.completeOnboarding=function(){
+      var r=oldComplete.apply(this,arguments);
+      setTimeout(heartbeat,100);
+      return r;
+    };
   }
 
-  document.addEventListener('DOMContentLoaded',function(){bindSecret();heartbeat()});
+  document.addEventListener('DOMContentLoaded',function(){bindSecret();setTimeout(heartbeat,800)});
   setTimeout(bindSecret,0);setTimeout(bindSecret,700);
   setInterval(heartbeat,60000);
   document.addEventListener('visibilitychange',function(){if(!document.hidden)heartbeat()});
