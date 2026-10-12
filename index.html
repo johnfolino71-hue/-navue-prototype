@@ -5310,8 +5310,13 @@ button.gear svg{width:26px;height:26px;display:block}
   var same=active&&active.destination===String(p.destination||'')&&!active.endedAt;
   if(same){
    active.routeId=route&&route.id||active.routeId;
+   active.routeIdentity=route&&(route.navueRouteIdentity||route.simulationPath||route.name)||active.routeIdentity||'';
+   active.routeName=route&&route.name||active.routeName||'';
    active.plannedKm=Number(route&&route.km)||active.plannedKm||0;
    active.plannedMinutes=Number(route&&route.time)||active.plannedMinutes||0;
+   if(route&&typeof window.navueRouteRoadSplit==='function'){
+    var rs=window.navueRouteRoadSplit(route);active.routeHighwayShare=rs.h;active.routeLocalShare=rs.l;
+   }
    saveActive();startWatch();return
   }
   stopWatch();
@@ -5321,8 +5326,12 @@ button.gear svg{width:26px;height:26px;display:block}
    date:new Date().toISOString(),
    destination:String(p.destination||''),
    routeId:route&&route.id||'',
+   routeIdentity:route&&(route.navueRouteIdentity||route.simulationPath||route.name)||'',
+   routeName:route&&route.name||'',
    plannedKm:Number(route&&route.km)||0,
    plannedMinutes:Number(route&&route.time)||0,
+   routeHighwayShare:(route&&typeof window.navueRouteRoadSplit==='function')?window.navueRouteRoadSplit(route).h:null,
+   routeLocalShare:(route&&typeof window.navueRouteRoadSplit==='function')?window.navueRouteRoadSplit(route).l:null,
    actualKm:0,
    completed:false,
    fuelCost:null,
@@ -5332,6 +5341,10 @@ button.gear svg{width:26px;height:26px;display:block}
  }
  function fuelFor(km){
   try{
+   if(active&&typeof window.navueFuelForRoadSplit==='function'&&Number.isFinite(Number(active.routeHighwayShare))){
+    var x=window.navueFuelForRoadSplit(km,Number(active.routeHighwayShare));
+    if(x)return {litres:Number.isFinite(Number(x.litres))?Number(x.litres):null,cost:Number.isFinite(Number(x.cost))?Number(x.cost):null}
+   }
    if(typeof window.navueFuelEstimate==='function'){
     var e=window.navueFuelEstimate(km);
     if(e)return {litres:Number.isFinite(Number(e.litres))?Number(e.litres):null,cost:Number.isFinite(Number(e.cost))?Number(e.cost):null}
@@ -5355,6 +5368,10 @@ button.gear svg{width:26px;height:26px;display:block}
    date:active.date,
    destination:active.destination,
    routeId:active.routeId,
+   routeIdentity:active.routeIdentity||'',
+   routeName:active.routeName||'',
+   routeHighwayShare:Number.isFinite(Number(active.routeHighwayShare))?Number(active.routeHighwayShare):null,
+   routeLocalShare:Number.isFinite(Number(active.routeLocalShare))?Number(active.routeLocalShare):null,
    plannedKm:Math.max(0,Number(active.plannedKm)||0),
    plannedMinutes:Math.max(0,Number(active.plannedMinutes)||0),
    completed:!!completed,
@@ -5967,3 +5984,174 @@ button.gear svg{width:26px;height:26px;display:block}
  if(typeof window.navueRenderCurrentMonthlySummary==='function')setTimeout(window.navueRenderCurrentMonthlySummary,30);
 })();
 </script>
+
+<script>/* NAVUE_ROUTE_ENGINE_FORMULA_RANKING_ECO_AUDIT_V1
+Permanent route identity is independent of displayed A/B/C/D rank.
+ECO is awarded to the available route with the lowest calculated fuel quantity.
+Fuel cost shown on a route and fuel cost frozen into a completed trip use the same road-split formula.
+Tolls/ferries remain separate from fuel.
+*/
+(function(){
+ 'use strict';
+ function num(v){v=parseFloat(v);return Number.isFinite(v)&&v>0?v:null}
+ function clamp(v){return Math.max(45,Math.min(97,Math.round(v)))}
+ function identity(r){
+  if(!r)return '';
+  if(r.navueRouteIdentity)return r.navueRouteIdentity;
+  if(r.simulationPath)return r.simulationPath;
+  var n=String(r.name||'').toLowerCase();
+  if(n.indexOf('paid')>=0||((r.roadFacts||{}).tolls===true))return 'paid-highway';
+  if((r.roadFacts||{}).highways===false||n.indexOf('local')>=0)return 'local';
+  if((r.roadFacts||{}).highways===true||n.indexOf('highway')>=0)return 'highway';
+  return n||'route';
+ }
+ window.navueRouteIdentity=identity;
+
+ window.navueRouteRoadSplit=function(r){
+  if(!r)return {h:.65,l:.35};
+  var f=r.roadFacts||{},n=String(r.name||'').toLowerCase();
+  if(f.highways===false)return {h:0,l:1};
+  if(f.highways===true&&f.tolls===true)return {h:.72,l:.28};
+  if(f.highways===true||n.indexOf('highway')>=0)return {h:.82,l:.18};
+  if(n.indexOf('fastest')>=0)return {h:.72,l:.28};
+  return {h:.65,l:.35};
+ };
+
+ window.navueFuelForRoadSplit=function(km,highwayShare){
+  km=Math.max(0,Number(km)||0);
+  var h=Math.max(0,Math.min(1,Number(highwayShare)||0)),l=1-h;
+  var city=num(p&&p.cityFuel),hwy=num(p&&p.highwayFuel),price=num(p&&p.fuelPrice);
+  if(!city&&!hwy)return null;
+  if(!city)city=hwy;if(!hwy)hwy=city;
+  if((p.fuelUnits||'metric')==='us'){
+   var miles=km*0.621371,gal=(miles*l/city)+(miles*h/hwy);
+   return {litres:gal*3.78541,gallons:gal,cost:price?gal*price:null,highwayShare:h,localShare:l};
+  }
+  var litres=(km*l*city/100)+(km*h*hwy/100);
+  return {litres:litres,cost:price?litres*price:null,highwayShare:h,localShare:l};
+ };
+
+ window.navueRouteFuelCost=function(r){
+  if(!r)return null;
+  var sp=window.navueRouteRoadSplit(r),x=window.navueFuelForRoadSplit(r.km,sp.h);
+  if(!x)return null;
+  return {cost:x.cost,qty:(p.fuelUnits||'metric')==='us'?x.gallons:x.litres,litres:x.litres,highwayShare:sp.h,localShare:sp.l};
+ };
+
+ function typeBias(key){
+  var st=p.navueRouteTypeStats||{},total=Object.values(st).reduce(function(a,b){return a+(Number(b)||0)},0);
+  if(total<2)return 0;
+  return Math.round((((Number(st[key])||0)/total)-.333)*15);
+ }
+
+ // Same locked preference logic as before, except ECO is no longer hard-wired to Local roads.
+ window.scores=function(){
+  var a=78,b=76,c=72;
+  if(['avoid','local'].includes(p.road)){a+=9;b-=5;c-=6}
+  else if(p.road==='highway'){b+=8;c+=4;a-=4}
+  if(p.paid==='no'){a+=4;b+=2;c-=12}
+  if(p.priority==='fastest'){b+=5;c+=7}
+  else if(p.priority==='cost'){a+=6;c-=5}
+  else if(p.priority==='balanced')b+=5;
+  if(p.time==='short')a+=3;else b+=3;
+  return [
+   clamp(a+typeBias('local')),
+   clamp(b+typeBias('highway')),
+   clamp(c+typeBias('paid-highway'))
+  ];
+ };
+
+ function removeEco(r){
+  r.badges=(r.badges||[]).filter(function(b){return String(b).indexOf('ECO')<0});
+ }
+ function decorate(routes){
+  routes=(routes||[]).filter(Boolean);
+  routes.forEach(function(r){
+   r.navueRouteIdentity=identity(r);
+   removeEco(r);
+   var sp=window.navueRouteRoadSplit(r),fc=window.navueRouteFuelCost(r);
+   r.navueHighwayShare=sp.h;r.navueLocalShare=sp.l;
+   r.navueFuelLitres=fc&&Number.isFinite(Number(fc.litres))?Number(fc.litres):null;
+   r.navueFuelCost=fc&&Number.isFinite(Number(fc.cost))?Number(fc.cost):null;
+  });
+  var comparable=routes.filter(function(r){return Number.isFinite(Number(r.navueFuelLitres))});
+  if(comparable.length){
+   var eco=comparable.reduce(function(best,r){return !best||r.navueFuelLitres<best.navueFuelLitres?r:best},null);
+   eco.badges=eco.badges||[];eco.badges.push('🍃 ECO');eco.navueEco=true;
+   if(p.priority==='eco')eco.m=clamp((Number(eco.m)||0)+5);
+  }
+  return routes;
+ }
+
+ function tollInfo(r){
+  var bs=(r&&r.badges)||[],out=null;
+  bs.some(function(x){
+   var z=String(x).match(/\$\s*(\d+(?:\.\d+)?).*?(TOLL|FERRY)|(TOLL|FERRY).*?\$\s*(\d+(?:\.\d+)?)/i);
+   if(z){out={kind:(z[2]||z[3]||'TOLL').toUpperCase(),amount:parseFloat(z[1]||z[4])};return true}
+   return false;
+  });
+  return out;
+ }
+ function render(){
+  var box=document.getElementById('routeCards');
+  if(!box||!Array.isArray(currentRoutes))return;
+  var available=currentRoutes.filter(function(r){return typeof navueRouteAllowed!=='function'||navueRouteAllowed(r)});
+  var extra=currentRoutes.filter(function(r){return available.indexOf(r)<0});
+  available.sort(function(a,b){return (Number(b.m)||0)-(Number(a.m)||0)});
+  currentRoutes=available.concat(extra);
+  currentRoutes.forEach(function(r,i){r.id=String.fromCharCode(65+i)});
+  box.innerHTML='';
+  currentRoutes.forEach(function(r,i){
+   var d=document.createElement('div');d.className='card';
+   var badges=(r.badges||[]).map(function(b){return '<span class="badge '+(String(b).indexOf('ECO')>=0?'eco':'')+'">'+b+'</span>'}).join('');
+   var dist=typeof window.navueDistanceText==='function'?window.navueDistanceText(r.km):r.km+' km';
+   var fc=window.navueRouteFuelCost(r);
+   var fuel=fc&&fc.cost!=null?'$'+fc.cost.toFixed(2)+' fuel':'Fuel estimate unavailable';
+   var toll=tollInfo(r);
+   d.innerHTML='<div class="route-head"><strong>'+r.name+'</strong><span class="match">'+r.m+'% Match</span></div>'+
+    (i===0?'<span class="badge">NAVUE PICK</span>':'')+badges+
+    '<div class="eta">ETA '+eta(r.time)+'</div>'+
+    '<div class="route-main">'+r.time+' min • '+dist+' • '+fuel+'</div>'+
+    '<div class="trade">'+r.trade+'</div>'+
+    (toll?'<div class="route-extra-cost">'+toll.kind+'  +$'+toll.amount.toFixed(2)+'</div>':'');
+   d.onclick=function(){chooseRoute(r,false)};box.appendChild(d);
+  });
+  if(typeof window.applyApprovedRouteCardVisual==='function')window.applyApprovedRouteCardVisual();
+  if(typeof window.renderRouteBookmarks==='function')window.renderRouteBookmarks();
+  if(typeof window.navueRouteNotice==='function')window.navueRouteNotice();
+ }
+ function normalize(){
+  if(!Array.isArray(currentRoutes)||!currentRoutes.length)return;
+  decorate(currentRoutes);render();
+ }
+ window.navueNormalizePrototypeRoutes=normalize;
+
+ var oldBuild=window.buildRoutes;
+ if(typeof oldBuild==='function')window.buildRoutes=function(){
+  var out=oldBuild.apply(this,arguments);
+  normalize();setTimeout(normalize,130);
+  return out;
+ };
+ var oldAlt=window.openAlternateRoutes;
+ if(typeof oldAlt==='function')window.openAlternateRoutes=function(){
+  var out=oldAlt.apply(this,arguments);
+  normalize();setTimeout(normalize,130);
+  return out;
+ };
+
+ var oldChoose=window.chooseRoute;
+ if(typeof oldChoose==='function')window.chooseRoute=function(r){
+  if(r){
+   r.navueRouteIdentity=identity(r);
+   p.navueRouteTypeStats=p.navueRouteTypeStats||{};
+   p.navueRouteTypeStats[r.navueRouteIdentity]=(Number(p.navueRouteTypeStats[r.navueRouteIdentity])||0)+1;
+   try{save()}catch(e){}
+  }
+  return oldChoose.apply(this,arguments);
+ };
+
+ // If the route page is already open after a hot deployment, reconcile it immediately.
+ setTimeout(function(){if(document.querySelector('#routes.active'))normalize()},0);
+})();
+</script>
+
