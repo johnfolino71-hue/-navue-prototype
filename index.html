@@ -4145,3 +4145,10 @@ button.gear svg{width:26px;height:26px;display:block}
  background:#1769e0!important;color:#fff!important;
 }
 </style>
+
+<style>/* NAVUE6_REMOVE_SEPARATE_MIC_ICONS */
+/* Keep hidden controls available to the existing voice handlers; preserve search-bar microphones. */
+:is(#home,#navigation,.screen):has(#homeSpeaker,#speakerBtn,.navue-session-speaker) button.mic:not(.searchrow .mic){
+ display:none!important;
+}
+</style>
