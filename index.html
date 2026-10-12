@@ -4642,7 +4642,7 @@ button.gear svg{width:26px;height:26px;display:block}
 </script>
 
 
-<style>/* NAVUE7_SEVEN_DAY_FUEL_REMINDER_V3_IMMEDIATE_ON */
+<style>/* NAVUE7_SEVEN_DAY_FUEL_REMINDER_V2_ISOLATED */
 #preferences .navue7-fuel-reminder-row{
   display:flex;align-items:center;justify-content:space-between;gap:14px;
   background:#fff;border:1px solid #d9e1e8;border-radius:16px;padding:15px 16px;margin:14px 0 10px
@@ -4713,12 +4713,10 @@ button.gear svg{width:26px;height:26px;display:block}
   }
   function setEnabled(on){
     var x=ensureState()||{enabled:false,lastUpdateAt:Date.now()};
-    var wasOn=!!x.enabled;
     x.enabled=!!on;
-    if(on&&!wasOn)x.lastUpdateAt=0;
+    if(on)x.lastUpdateAt=Date.now();
     writeState(x);
     syncToggle();
-    if(on&&!wasOn)setTimeout(function(){openPopup(true)},0);
   }
   function markUpdated(){
     var x=ensureState()||{enabled:true,lastUpdateAt:Date.now()};
@@ -4829,7 +4827,7 @@ button.gear svg{width:26px;height:26px;display:block}
     o=document.createElement('div');o.id='navue7FuelReminderOverlay';
     o.innerHTML='<div id="navue7FuelReminderDialog" role="dialog" aria-modal="true" aria-labelledby="navue7FuelReminderTitle">'+
       '<h2 id="navue7FuelReminderTitle">Update your fuel price?</h2>'+
-      '<p class="copy" id="navue7FuelReminderCopy">It’s been 7 days since your last fuel price update. Update the average fuel price NaVue uses for your fuel-cost estimates.</p>'+
+      '<p class="copy">It’s been 7 days since your last fuel price update. Update the average fuel price NaVue uses for your fuel-cost estimates.</p>'+
       '<div id="navue7FuelReminderCurrent"><span>Current average</span><strong id="navue7FuelReminderCurrentValue"></strong></div>'+
       '<label for="navue7FuelReminderInput">New average fuel price</label>'+
       '<input id="navue7FuelReminderInput" inputmode="decimal" autocomplete="off">'+
@@ -4901,26 +4899,10 @@ button.gear svg{width:26px;height:26px;display:block}
     }catch(e){}
   }
 
-  function openPopup(immediate){
+  function openPopup(){
     var x=ensureState();if(!x||!x.enabled)return;
     var o=ensurePopup(),current=String(p.fuelPrice||'').trim();
-    var copy=document.getElementById('navue7FuelReminderCopy');
-    if(copy)copy.textContent=immediate?'Your 7-day fuel reminder is now on. Update your average fuel price to start the 7-day cycle.':'It’s been 7 days since your last fuel price update. Update the average fuel price NaVue uses for your fuel-cost estimates.';
-    document.getElementById('navue7FuelReminderCurrentValue').textContent=current?'
-  function check(){
-    if(!due())return;
-    var o=document.getElementById('navue7FuelReminderOverlay');
-    if(!o||!o.classList.contains('open'))openPopup(false);
-  }
-
-  installSettingsObserver();
-  ensureState();
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(check,800)});
-  else setTimeout(check,800);
-  document.addEventListener('visibilitychange',function(){if(!document.hidden)setTimeout(check,250)});
-})();
-</script>
-+current:'Not entered';
+    document.getElementById('navue7FuelReminderCurrentValue').textContent=current?'$'+current:'Not entered';
     var input=document.getElementById('navue7FuelReminderInput');input.value=current;input.setCustomValidity('');
     var status=document.getElementById('navue7FuelReminderVoice');
     if(!speakerOn())status.textContent='';
@@ -4929,13 +4911,13 @@ button.gear svg{width:26px;height:26px;display:block}
     o.classList.add('open');
 
     if(speakerOn()){
-      var prompt=immediate?'Your seven-day fuel reminder is now on. What is your current average fuel price?':'It has been seven days. What is your current average fuel price?';
+      var prompt='It has been seven days. What is your current average fuel price?';
       if(voiceInputOn())say(prompt,function(){listen('price')});else say(prompt);
     }else setTimeout(function(){input.focus()},80);
   }
   function due(){
-    var x=ensureState(),last=x&&Number(x.lastUpdateAt||0);
-    return !!(x&&x.enabled&&(!last||Date.now()-last>=WEEK));
+    var x=ensureState();
+    return !!(x&&x.enabled&&Number(x.lastUpdateAt)>0&&Date.now()-Number(x.lastUpdateAt)>=WEEK);
   }
   function check(){
     if(!due())return;
