@@ -3279,7 +3279,25 @@ Prototype road split is temporary demo data until live route-segment classificat
  v.onclick=function(){sync();pop.hidden=!pop.hidden};
  nav.appendChild(v);nav.appendChild(pop);
 })();
-</script></body></html>
+</script><style>/* NAVUE_ROUND_AUDIO_WHITE_BACKGROUND_V1 — presentation only */
+#home #homeSpeaker,
+#home .home-map-mic,
+.navue-session-controls .navue-session-speaker,
+.navue-session-controls .navue-session-mic,
+#navigation #speakerBtn,
+#navigation #navMic,
+#navigation .speaker,
+#navigation .nav-mic,
+#destination .navue-session-speaker,
+#destination .navue-session-mic,
+#routes .navue-session-speaker,
+#routes .navue-session-mic,
+#ambiguity .navue-session-speaker,
+#ambiguity .navue-session-mic{
+ background:#fff!important;
+}
+</style>
+</body></html>
 <style>/* NAVUE_3C_DRAGGABLE_TRIP_PANEL */
 body:has(#navigation.active){overflow:hidden;height:100dvh;overscroll-behavior:none}
 #navigation.active{position:fixed!important;inset:0;margin:0 auto;width:100%;max-width:480px;height:100dvh;min-height:0!important;overflow:hidden!important}
