@@ -4556,6 +4556,82 @@ button.gear svg{width:26px;height:26px;display:block}
     if(!w){alert('Please allow pop-ups to print the report.');return}
     var safe=reportText().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     w.document.write('<!doctype html><html><head><title>NaVue Live Network — Owner Report</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Arial,sans-serif;padding:32px;color:#172126}pre{white-space:pre-wrap;font:16px/1.5 Arial,sans-serif}</style></head><body><pre>'+safe+'</pre><script>window.onload=function(){window.print()}<\/script>
+
+</body></html>');
+    w.document.close();
+  }
+
+  async function openPanel(){
+    var o=ensurePanel();o.classList.add('open');
+    var s=document.getElementById('nvOwnStatus');
+    var ml=document.getElementById('nvOwnMonthLabel');if(ml)ml.textContent='New Users — '+monthRange();
+    if(s)s.textContent='Loading prototype Live Network data…';
+    var d=await loadOwnerStats();
+    if(d){render(d);if(s)s.textContent='Prototype users only · updated '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}
+    else if(s)s.textContent='Unable to load prototype Live Network data.';
+  }
+
+  function bindSecret(){
+    var logo=document.querySelector('#preferences>.mini-brand, #preferences .mini-brand');
+    if(!logo||logo.dataset.navueOwnerTap==='1')return;
+    logo.dataset.navueOwnerTap='1';
+    logo.addEventListener('click',function(e){
+      if(!document.querySelector('#preferences.active'))return;
+      var now=Date.now();
+      if(lastTap && now-lastTap>2000)tapCount=0;
+      tapCount++;lastTap=now;
+      if(tapCount>=8){tapCount=0;lastTap=0;openPanel();e.preventDefault();e.stopPropagation()}
+    });
+  }
+
+  var oldComplete=window.completeOnboarding;
+  if(typeof oldComplete==='function'){
+    window.completeOnboarding=function(){
+      var r=oldComplete.apply(this,arguments);
+      setTimeout(heartbeat,100);
+      return r;
+    };
+  }
+
+  document.addEventListener('DOMContentLoaded',function(){bindSecret();setTimeout(heartbeat,800)});
+  setTimeout(bindSecret,0);setTimeout(bindSecret,700);
+  setInterval(heartbeat,60000);
+  document.addEventListener('visibilitychange',function(){if(!document.hidden)heartbeat()});
+})();
+</script>
+
+<script>/* NAVUE7_INVITE_FRESH_ONBOARDING_V1 */
+(function(){
+  try{
+    var u=new URL(window.location.href);
+    if(u.searchParams.get('navueInvite')!=='1')return;
+
+    /* A shared/invited prototype must never inherit the sharer's NaVue profile. */
+    try{
+      localStorage.removeItem('navueProfile');
+      localStorage.removeItem('navueOnboarded');
+      localStorage.removeItem('navueSpeedPrefs');
+      localStorage.removeItem('navueSpeedometerEnabled');
+      localStorage.removeItem('navuePrototypeInstallId');
+    }catch(e){}
+
+    try{
+      p={...D,recent:[],savedPlaces:[],history:[],routeStats:{A:0,B:0,C:0},completedTrips:0,onboarded:false};
+      tripVoice=false;voiceFlow=false;
+    }catch(e){}
+
+    /* Consume the invitation once so refreshes after onboarding do not restart it. */
+    u.searchParams.delete('navueInvite');
+    try{history.replaceState(null,'',u.pathname+(u.search||'')+(u.hash||''))}catch(e){}
+
+    try{show('welcome')}catch(e){
+      document.querySelectorAll('.screen').forEach(function(x){x.classList.remove('active')});
+      var w=document.getElementById('welcome');if(w)w.classList.add('active');
+    }
+  }catch(e){}
+})();
+</script>
+
 <style>/* NAVUE7_FUEL_PRICE_7_DAY_CHECKIN_V1 */
 #navueFuelCheckOverlay{display:none;position:fixed;inset:0;z-index:99998;background:#0c172366;align-items:center;justify-content:center;padding:18px}
 #navueFuelCheckOverlay.open{display:flex}
@@ -4584,6 +4660,10 @@ button.gear svg{width:26px;height:26px;display:block}
   function unitInfo(){
     var us=(p.fuelUnits||'metric')==='us';
     return {us:us,short:us?'$/gallon':'$/litre',spoken:us?'per gallon':'per litre'};
+  }
+
+  function fuelCostConfigured(){
+    return !!(String(p.fuelPrice||'').trim() && (String(p.cityFuel||'').trim() || String(p.highwayFuel||'').trim()));
   }
 
   function validPrice(v){
@@ -4751,7 +4831,7 @@ button.gear svg{width:26px;height:26px;display:block}
   }
 
   function due(){
-    if(!p||!p.onboarded||p.fuelReminderDisabled||sessionDismissed)return false;
+    if(!p||!p.onboarded||p.fuelReminderDisabled||sessionDismissed||!fuelCostConfigured())return false;
     var last=Number(p.fuelPriceLastConfirmedAt||0);
     return !last || Date.now()-last>=WEEK;
   }
@@ -4760,23 +4840,27 @@ button.gear svg{width:26px;height:26px;display:block}
     if(due()&&!document.getElementById('navueFuelCheckOverlay')?.classList.contains('open'))openPanel();
   }
 
-  /* New onboarding counts as a confirmation so the first reminder is seven days later. */
+  /* Start the seven-day cycle only when Fuel & Cost is actually configured. */
   var priorFuelOnboarding=window.saveFuelOnboarding;
   if(typeof priorFuelOnboarding==='function')window.saveFuelOnboarding=function(){
-    p.fuelPriceLastConfirmedAt=Date.now();
-    p.fuelReminderDisabled=false;
     var r=priorFuelOnboarding.apply(this,arguments);
-    save();
+    if(fuelCostConfigured()){
+      p.fuelPriceLastConfirmedAt=Date.now();
+      p.fuelReminderDisabled=false;
+      save();
+    }
     return r;
   };
 
-  /* A manual fuel-price change in Settings restarts the seven-day cycle. */
+  /* Adding or changing Fuel & Cost in Settings starts/restarts the seven-day cycle. */
   var priorSavePreferences=window.savePreferences;
   if(typeof priorSavePreferences==='function')window.savePreferences=function(){
+    var wasConfigured=fuelCostConfigured();
     var before=String(p.fuelPrice||'');
     var typed=document.getElementById('prefFuelPrice')?document.getElementById('prefFuelPrice').value.trim():before;
     var r=priorSavePreferences.apply(this,arguments);
-    if(String(p.fuelPrice||'')===typed&&typed!==before){
+    var isConfigured=fuelCostConfigured();
+    if(isConfigured&&(!wasConfigured || (String(p.fuelPrice||'')===typed&&typed!==before))){
       p.fuelPriceLastConfirmedAt=Date.now();p.fuelReminderDisabled=false;save();
     }
     return r;
@@ -4792,7 +4876,7 @@ button.gear svg{width:26px;height:26px;display:block}
     var saveBtn=Array.from(detail.querySelectorAll('button')).find(function(b){return b.textContent.trim()==='Save Changes'});
     if(saveBtn)detail.insertBefore(card,saveBtn);else detail.appendChild(card);
     var b=card.querySelector('#navueFuelReminderToggle');
-    function sync(){var on=!p.fuelReminderDisabled;b.textContent=on?'ON':'OFF';b.classList.toggle('voice-on',on);b.setAttribute('aria-pressed',on?'true':'false')}
+    function sync(){var eligible=fuelCostConfigured(),on=eligible&&!p.fuelReminderDisabled;b.textContent=on?'ON':'OFF';b.disabled=!eligible;b.title=eligible?'':'Enter fuel economy and average fuel price to enable this reminder.';b.classList.toggle('voice-on',on);b.setAttribute('aria-pressed',on?'true':'false')}
     b.onclick=function(){p.fuelReminderDisabled=!p.fuelReminderDisabled;if(!p.fuelReminderDisabled)p.fuelPriceLastConfirmedAt=Date.now();save();sync()};
     sync();
   }
@@ -4806,79 +4890,5 @@ button.gear svg{width:26px;height:26px;display:block}
   document.addEventListener('DOMContentLoaded',function(){setTimeout(check,900)});
   setTimeout(check,1100);
   document.addEventListener('visibilitychange',function(){if(!document.hidden)setTimeout(check,300)});
-})();
-</script>
-</body></html>');
-    w.document.close();
-  }
-
-  async function openPanel(){
-    var o=ensurePanel();o.classList.add('open');
-    var s=document.getElementById('nvOwnStatus');
-    var ml=document.getElementById('nvOwnMonthLabel');if(ml)ml.textContent='New Users — '+monthRange();
-    if(s)s.textContent='Loading prototype Live Network data…';
-    var d=await loadOwnerStats();
-    if(d){render(d);if(s)s.textContent='Prototype users only · updated '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}
-    else if(s)s.textContent='Unable to load prototype Live Network data.';
-  }
-
-  function bindSecret(){
-    var logo=document.querySelector('#preferences>.mini-brand, #preferences .mini-brand');
-    if(!logo||logo.dataset.navueOwnerTap==='1')return;
-    logo.dataset.navueOwnerTap='1';
-    logo.addEventListener('click',function(e){
-      if(!document.querySelector('#preferences.active'))return;
-      var now=Date.now();
-      if(lastTap && now-lastTap>2000)tapCount=0;
-      tapCount++;lastTap=now;
-      if(tapCount>=8){tapCount=0;lastTap=0;openPanel();e.preventDefault();e.stopPropagation()}
-    });
-  }
-
-  var oldComplete=window.completeOnboarding;
-  if(typeof oldComplete==='function'){
-    window.completeOnboarding=function(){
-      var r=oldComplete.apply(this,arguments);
-      setTimeout(heartbeat,100);
-      return r;
-    };
-  }
-
-  document.addEventListener('DOMContentLoaded',function(){bindSecret();setTimeout(heartbeat,800)});
-  setTimeout(bindSecret,0);setTimeout(bindSecret,700);
-  setInterval(heartbeat,60000);
-  document.addEventListener('visibilitychange',function(){if(!document.hidden)heartbeat()});
-})();
-</script>
-
-<script>/* NAVUE7_INVITE_FRESH_ONBOARDING_V1 */
-(function(){
-  try{
-    var u=new URL(window.location.href);
-    if(u.searchParams.get('navueInvite')!=='1')return;
-
-    /* A shared/invited prototype must never inherit the sharer's NaVue profile. */
-    try{
-      localStorage.removeItem('navueProfile');
-      localStorage.removeItem('navueOnboarded');
-      localStorage.removeItem('navueSpeedPrefs');
-      localStorage.removeItem('navueSpeedometerEnabled');
-      localStorage.removeItem('navuePrototypeInstallId');
-    }catch(e){}
-
-    try{
-      p={...D,recent:[],savedPlaces:[],history:[],routeStats:{A:0,B:0,C:0},completedTrips:0,onboarded:false};
-      tripVoice=false;voiceFlow=false;
-    }catch(e){}
-
-    /* Consume the invitation once so refreshes after onboarding do not restart it. */
-    u.searchParams.delete('navueInvite');
-    try{history.replaceState(null,'',u.pathname+(u.search||'')+(u.hash||''))}catch(e){}
-
-    try{show('welcome')}catch(e){
-      document.querySelectorAll('.screen').forEach(function(x){x.classList.remove('active')});
-      var w=document.getElementById('welcome');if(w)w.classList.add('active');
-    }
-  }catch(e){}
 })();
 </script>
