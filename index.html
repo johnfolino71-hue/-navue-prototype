@@ -5466,3 +5466,74 @@ button.gear svg{width:26px;height:26px;display:block}
  window.navueCurrentMonthlyTotals=function(){return summary(new Date())};
 })();
 </script>
+<style>/* NAVUE_MONTHLY_CURRENT_SUMMARY_STEP3_V1 */
+#preferences .navue-monthly-current{
+  background:#fff;border:1px solid #d9e1e8;border-radius:16px;padding:16px;margin:14px 0 10px;
+}
+#preferences .navue-monthly-current-title{font-size:17px;font-weight:850;color:#172126;margin:0}
+#preferences .navue-monthly-current-range{font-size:13px;font-weight:750;color:#66737d;margin:4px 0 14px}
+#preferences .navue-monthly-current-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#preferences .navue-monthly-current-item{background:#f6f9fc;border:1px solid #e2e9ef;border-radius:13px;padding:12px}
+#preferences .navue-monthly-current-label{display:block;font-size:12px;font-weight:700;line-height:1.25;color:#66737d;margin-bottom:5px}
+#preferences .navue-monthly-current-value{display:block;font-size:20px;font-weight:850;line-height:1.15;color:#172126}
+</style>
+<script>/* NAVUE_MONTHLY_CURRENT_SUMMARY_STEP3_V1 — Current Monthly Summary UI only; existing Fuel & Cost controls remain untouched */
+(function(){
+ 'use strict';
+ function fuelDetailOpen(){
+  var t=document.querySelector('#preferences .navue-settings-detail .navue-settings-detail-title');
+  return !!(t&&t.textContent.trim()==='Fuel & Cost');
+ }
+ function fmtDate(ms){
+  var d=new Date(ms);
+  return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+ }
+ function fmtHours(seconds){
+  var h=Math.max(0,Number(seconds)||0)/3600;
+  return (h<10?h.toFixed(1):h.toFixed(1))+' hr';
+ }
+ function fmtDistance(km){
+  var us=(window.p&&p.fuelUnits||'metric')==='us';
+  var n=us?(Number(km||0)*0.621371):Number(km||0);
+  return n.toFixed(1)+' '+(us?'mi':'km');
+ }
+ function fmtCost(v){
+  var n=Number(v);
+  return Number.isFinite(n)?'$'+n.toFixed(2):'—';
+ }
+ function render(){
+  if(!fuelDetailOpen()||typeof window.navueCurrentMonthlyTotals!=='function')return;
+  var detail=document.querySelector('#preferences .navue-settings-detail');if(!detail)return;
+  var totals=window.navueCurrentMonthlyTotals();
+  var box=document.getElementById('navueMonthlyCurrentSummary');
+  if(!box){
+   box=document.createElement('div');
+   box.id='navueMonthlyCurrentSummary';
+   box.className='navue-monthly-current';
+   var reminder=document.getElementById('navue7FuelReminderRow');
+   var save=Array.from(detail.querySelectorAll('button')).find(function(b){return b.textContent.trim()==='Save Changes'});
+   if(reminder)detail.insertBefore(box,reminder);
+   else if(save)detail.insertBefore(box,save);
+   else detail.appendChild(box);
+  }
+  box.innerHTML=
+   '<div class="navue-monthly-current-title">Current Monthly Summary</div>'+
+   '<div class="navue-monthly-current-range">'+fmtDate(totals.periodStart)+' – '+fmtDate(totals.periodEnd)+'</div>'+
+   '<div class="navue-monthly-current-grid">'+
+    '<div class="navue-monthly-current-item"><span class="navue-monthly-current-label">Trips completed</span><strong class="navue-monthly-current-value">'+Number(totals.tripsCompleted||0)+'</strong></div>'+
+    '<div class="navue-monthly-current-item"><span class="navue-monthly-current-label">Estimated driving hours</span><strong class="navue-monthly-current-value">'+fmtHours(totals.drivingSeconds)+'</strong></div>'+
+    '<div class="navue-monthly-current-item"><span class="navue-monthly-current-label">Distance driven</span><strong class="navue-monthly-current-value">'+fmtDistance(totals.distanceKm)+'</strong></div>'+
+    '<div class="navue-monthly-current-item"><span class="navue-monthly-current-label">Estimated fuel cost</span><strong class="navue-monthly-current-value">'+fmtCost(totals.fuelCost)+'</strong></div>'+
+   '</div>';
+ }
+ function schedule(){setTimeout(render,0);setTimeout(render,80);setTimeout(render,180)}
+ document.addEventListener('click',function(e){
+  if(e.target&&e.target.closest&&e.target.closest('#preferences [data-setting="fuel"]'))schedule();
+ },true);
+ var detail=document.querySelector('#preferences .navue-settings-detail');
+ if(detail)new MutationObserver(function(){if(fuelDetailOpen())setTimeout(render,0)}).observe(detail,{childList:true,subtree:false});
+ window.addEventListener('storage',function(e){if(e.key==='navueMonthlyTripLedgerV1')render()});
+ setInterval(function(){if(fuelDetailOpen())render()},15000);
+ window.navueRenderCurrentMonthlySummary=render;
+})();
+</script>
