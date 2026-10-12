@@ -4093,9 +4093,9 @@ button.gear svg{width:26px;height:26px;display:block}
 }
 #preferences{position:relative}
 #preferences.navue-settings-menu-mode>#navueSettingsPageBack{
- display:inline-flex!important;align-items:center;justify-content:center;gap:5px;position:absolute;right:18px;
- width:auto!important;min-width:68px!important;height:32px!important;min-height:32px!important;margin:0!important;padding:0 11px!important;
- border:1px solid #d6dde3!important;border-radius:11px!important;background:#fff!important;color:#1769e0!important;font-size:14px!important;font-weight:700!important;line-height:1!important;
+ display:inline-flex!important;align-items:center;justify-content:center;gap:5px;position:absolute;right:auto!important;
+ width:calc((100% - 40px)/3)!important;min-width:0!important;height:auto!important;min-height:0!important;margin:0!important;padding:8px 12px!important;
+ border:0!important;border-radius:12px!important;background:#fff!important;color:#172126!important;font-size:13px!important;font-weight:700!important;line-height:normal!important;box-shadow:0 3px 12px #0002!important;
 }
 #preferences.navue-settings-detail-mode>#navueSettingsPageBack{display:none!important}
 </style>
@@ -4108,7 +4108,11 @@ button.gear svg{width:26px;height:26px;display:block}
  settings.appendChild(back);
  function alignBack(){
   const title=settings.querySelector(':scope > h1');
-  if(title&&settings.classList.contains('active'))back.style.top=(title.offsetTop+Math.max(0,(title.offsetHeight-32)/2))+'px';
+  if(!title||!settings.classList.contains('active')||!settings.classList.contains('navue-settings-menu-mode'))return;
+  const range=document.createRange();range.selectNodeContents(title);
+  const titleText=range.getBoundingClientRect(),page=settings.getBoundingClientRect();
+  back.style.left=(titleText.right-page.left+14)+'px';
+  back.style.top=(title.offsetTop+(title.offsetHeight-back.offsetHeight)/2)+'px';
  }
  back.onclick=function(){
   const target=window.navueSettingsReturn||prefReturn||'home';
