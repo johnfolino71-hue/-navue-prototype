@@ -3344,6 +3344,53 @@ Prototype road split is temporary demo data until live route-segment classificat
  background:#fff!important;
 }
 </style>
+<style>/* NAVUE_ROUND_HEADER_CONTROL_STANDARD_V3 — presentation only */
+:root{--navue-round-control-size:46px}
+button.gear,
+#home #homeSpeaker,
+#home .home-map-mic,
+.navue-session-speaker,
+.navue-session-mic,
+#navigation #speakerBtn,
+#navigation #navMic,
+#navigation .speaker,
+#navigation .nav-mic{
+ width:var(--navue-round-control-size)!important;
+ min-width:var(--navue-round-control-size)!important;
+ height:var(--navue-round-control-size)!important;
+ min-height:var(--navue-round-control-size)!important;
+ border-radius:50%!important;
+ box-sizing:border-box!important;
+}
+button.gear{
+ background:#fff!important;
+ color:#1769e0!important;
+}
+#home #homeSpeaker:not(.voice-on),
+#navigation #speakerBtn:not(.voice-on),
+.navue-session-speaker:not(.voice-on),
+#home .home-map-mic:not(.navue-mic-enabled),
+#navigation #navMic:not(.navue-mic-enabled),
+.navue-session-mic:not(.navue-mic-enabled){
+ background:#fff!important;
+}
+</style>
+<script>/* NAVUE_ROUND_HEADER_CONTROL_STANDARD_V3 */
+(function(){
+ function enforce(){
+  document.querySelectorAll('button.gear').forEach(function(button){
+   button.style.setProperty('width','46px','important');
+   button.style.setProperty('min-width','46px','important');
+   button.style.setProperty('height','46px','important');
+   button.style.setProperty('min-height','46px','important');
+   button.style.setProperty('border-radius','50%','important');
+   button.style.setProperty('background','#fff','important');
+  });
+ }
+ enforce();document.addEventListener('DOMContentLoaded',enforce);
+ var prior=window.show;if(typeof prior==='function')window.show=function(){var r=prior.apply(this,arguments);setTimeout(enforce,0);return r};
+})();
+</script>
 </body></html>
 <style>/* NAVUE_3C_DRAGGABLE_TRIP_PANEL */
 body:has(#navigation.active){overflow:hidden;height:100dvh;overscroll-behavior:none}
