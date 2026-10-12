@@ -3049,6 +3049,7 @@ Prototype road split is temporary demo data until live route-segment classificat
  fillProfile();
 })();
 </script><style>/* NAVUE_SETTINGS_MENU_ARCHITECTURE_V2 */
+/* NAVUE7_FUEL_SETTINGS_STABILITY_FIX_V1 — locked Fuel & Cost page only */
 #preferences.navue-settings-menu-mode{padding-left:18px!important;padding-right:18px!important}
 #preferences.navue-settings-menu-mode>h1{margin-bottom:18px}
 #preferences .navue-settings-menu{margin:0 -4px 22px}
@@ -3102,15 +3103,25 @@ Prototype road split is temporary demo data until live route-segment classificat
   else{window.prompt('Copy this NaVue invite link to share:',shareData.url)}
  }
  function placeholder(title){detail.innerHTML='<div class="navue-settings-detail-head"><button class="navue-settings-back" type="button" aria-label="Back">‹</button><div class="navue-settings-detail-title">'+title+'</div></div><div class="navue-coming">This setting is planned for NaVue and will be available in a future build.</div>';detail.querySelector('.navue-settings-back').onclick=showMenu}
+ function restoreFuelSettingsNodes(){
+  var moved=Array.from(detail.querySelectorAll('[data-navue-fuel-settings-node="1"]'));
+  if(!moved.length)return;
+  var anchor=nodeByTitle('Voice Guidance');
+  moved.forEach(function(n){
+    n.removeAttribute('data-navue-fuel-settings-node');
+    if(anchor)s.insertBefore(n,anchor);else s.appendChild(n);
+  });
+ }
  function openDetail(key,title){
   if(key==='invite'){inviteFriend();return}
+  restoreFuelSettingsNodes();
   detail.innerHTML='<div class="navue-settings-detail-head"><button class="navue-settings-back" type="button" aria-label="Back">‹</button><div class="navue-settings-detail-title">'+title+'</div></div>';
   detail.querySelector('.navue-settings-back').onclick=showMenu;
   var nodes=[];
   if(key==='general'){var profile=s.querySelector(':scope > .navue-settings-profile')||detail.querySelector('.navue-settings-profile');if(!profile)profile=s.querySelector('.navue-settings-profile');if(profile)nodes=[profile]}
   if(key==='location'){var loc=s.querySelector(':scope > .navue-settings-location');if(loc)nodes=[loc]}
   if(key==='navigation'){nodes=[];var card=document.createElement('div');card.className='navue-driving-pref-card';card.innerHTML='<div class="navue-driving-pref-section"><strong>Route Priority</strong><div id="nvDrivePriority"></div></div><div class="navue-driving-pref-section"><strong>Road Preferences</strong><div id="nvDriveRoad"></div></div><div class="navue-driving-pref-section"><strong>Tolls & Ferries</strong><div id="nvDrivePaid"></div></div><div class="navue-driving-pref-section"><strong>Lane Guidance</strong><div id="nvDriveLane"></div></div>';nodes=[card]}
-  if(key==='fuel'){var fuel=nodeByTitle('Fuel & Cost');if(fuel)nodes=collect(fuel,[]).filter(function(n){return !(n.matches&&n.matches('button'))&&!(n.classList&&n.classList.contains('navue-settings-profile'))})}
+  if(key==='fuel'){var fuel=nodeByTitle('Fuel & Cost');if(fuel){nodes=collect(fuel,['Voice Guidance']).filter(function(n){return !(n.matches&&n.matches('button'))&&!(n.classList&&n.classList.contains('navue-settings-profile'))});nodes.forEach(function(n){n.setAttribute('data-navue-fuel-settings-node','1')})}}
   if(key==='speed'){var sc=document.createElement('div');sc.className='navue-speed-settings-card';
  function sr(label,key){
   var row=document.createElement('div');row.className='navue-speed-setting-row';
@@ -3129,7 +3140,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   else placeholder(title);
   s.classList.remove('navue-settings-menu-mode');s.classList.add('navue-settings-detail-mode');s.querySelector('h1').textContent='Settings';window.scrollTo(0,0)
  }
- function showMenu(){var profile=detail.querySelector('.navue-settings-profile');if(profile)s.appendChild(profile);s.classList.remove('navue-settings-detail-mode');s.classList.add('navue-settings-menu-mode');s.querySelector('h1').textContent='Settings';window.scrollTo(0,0)}
+ function showMenu(){restoreFuelSettingsNodes();var profile=detail.querySelector('.navue-settings-profile');if(profile)s.appendChild(profile);s.classList.remove('navue-settings-detail-mode');s.classList.add('navue-settings-menu-mode');s.querySelector('h1').textContent='Settings';window.scrollTo(0,0)}
  var oldShow=window.show;window.show=function(id){var r=oldShow.apply(this,arguments);if(id==='preferences')setTimeout(showMenu,0);return r};
  s.classList.add('navue-settings-menu-mode');s.querySelector('h1').textContent='Settings';
 })();
