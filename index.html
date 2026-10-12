@@ -4209,3 +4209,40 @@ button.gear svg{width:26px;height:26px;display:block}
  left:auto;right:20px;top:50%;transform:translateY(-50%);
 }
 </style>
+
+<style>/* NAVUE7_VUE_REPOSITION_AND_SIM_LABEL_REMOVAL_V1 */
+#navigation .c3-demo{display:none!important}
+#navigation .navue-map-view-btn{
+ top:auto!important;left:auto!important;right:15px!important;
+ bottom:calc(var(--c3-summary-height,110px) + 76px)!important;
+ width:50px!important;height:50px!important;
+}
+#navigation .navue-map-view-pop{
+ top:auto!important;left:auto!important;right:14px!important;
+ bottom:calc(var(--c3-summary-height,110px) + 132px)!important;
+}
+#navigation:has(.c3-expanded) .navue-map-view-btn,
+#navigation:has(.c3-expanded) .navue-map-view-pop{
+ visibility:hidden!important;pointer-events:none!important;
+}
+</style>
+<script>
+(function(){
+ function sync(){
+  var b=document.querySelector('#navigation .navue-map-view-btn');
+  if(b){b.textContent='Vue';b.setAttribute('aria-label','Vue mode')}
+  var pop=document.querySelector('#navigation .navue-map-view-pop');
+  if(pop&&pop.dataset.navueVueBound!=='1'){
+   pop.dataset.navueVueBound='1';
+   pop.addEventListener('click',function(e){
+    var x=e.target&&e.target.closest&&e.target.closest('button[data-view]');
+    if(!x)return;
+    window.dispatchEvent(new CustomEvent('navueNavigationViewChanged',{detail:{mode:x.dataset.view}}));
+   });
+  }
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',sync);else sync();
+ var priorShow=window.show;
+ if(typeof priorShow==='function')window.show=function(){var r=priorShow.apply(this,arguments);setTimeout(sync,0);return r};
+})();
+</script>
