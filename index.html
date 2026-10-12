@@ -2852,6 +2852,10 @@ Prototype road split is temporary demo data until live route-segment classificat
   box.append(button('Speed within limit',()=>{closePanel();setSpeed(48,50,false);notify('Simulated speed is within the limit.')}));
   box.append(button('Clear speed data',()=>{closePanel();setSpeed(null,null,false);notify('Speed-limit data unavailable.')}));
  }
+ window.navueOpenDemos=function(){
+  if(!p.selectedRoute){alert('Start a simulated trip first.');return}
+  window.show('navigation');openDemos();
+ };
  // Demo path identities are only for testing duplicate exclusion, never real road verification.
  window.navue3cAlternateCandidates=function(base){
   const rank=scores();
@@ -3082,7 +3086,8 @@ Prototype road split is temporary demo data until live route-segment classificat
   ['Driving preferences',[['navigation','↱','Driving Preferences / Onboarding'],['tolls','◇','Toll & HOV Passes'],['alerts','!','Alerts & Reports'],['fuel','⛽','Fuel & Cost'],['speed','◴','Speedometer']]],
   ['Notifications',[['notifications','🔔','Notifications'],['planned','◷','Planned Drives'],['reminders','⏰','Reminders']]],
   ['Account',[['account','●','Account & Login'],['privacy','◆','Privacy']]],
-  ['NaVue',[['about','i','About NaVue'],['invite','↗','Invite a Friend'],['help','?','Help']]]
+  ['NaVue',[['about','i','About NaVue'],['invite','↗','Invite a Friend'],['help','?','Help']]],
+  ['Prototype Testing',[['prototype','🧪','Navigation Demo Controls']]]
  ];
  groups.forEach(function(g){
   var box=document.createElement('div');box.className='navue-settings-group';
@@ -3109,6 +3114,16 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(key==='invite'){inviteFriend();return}
   detail.innerHTML='<div class="navue-settings-detail-head"><button class="navue-settings-back" type="button" aria-label="Back">‹</button><div class="navue-settings-detail-title">'+title+'</div></div>';
   detail.querySelector('.navue-settings-back').onclick=showMenu;
+  if(key==='prototype'){
+    var demoCard=document.createElement('div');demoCard.className='navue-coming';
+    demoCard.innerHTML='<div style="margin-bottom:12px">Temporary prototype controls for testing navigation alerts.</div><button type="button" id="navuePrototypeDemoOpen">Open Navigation Demo Controls</button>';
+    detail.appendChild(demoCard);
+    demoCard.querySelector('#navuePrototypeDemoOpen').onclick=function(){
+      if(!p.selectedRoute){alert('Start a simulated trip first, then return here.');return}
+      if(typeof window.navueOpenDemos==='function')window.navueOpenDemos();
+    };
+    return
+  }
   var nodes=[];
   if(key==='general'){var profile=s.querySelector(':scope > .navue-settings-profile')||detail.querySelector('.navue-settings-profile');if(!profile)profile=s.querySelector('.navue-settings-profile');if(profile)nodes=[profile]}
   if(key==='location'){var loc=s.querySelector(':scope > .navue-settings-location');if(loc)nodes=[loc]}
@@ -4328,6 +4343,10 @@ button.gear svg{width:26px;height:26px;display:block}
 </style>
 
 
+<style>/* NAVUE7_TEMP_PROTOTYPE_TESTING_SETTINGS_V1 */
+#preferences .navue-settings-group:last-child .navue-settings-icon{font-size:22px}
+#preferences #navuePrototypeDemoOpen{width:100%;margin-top:4px}
+</style>
 <style>/* NAVUE7_GLOBAL_POPUP_ALERT_TYPOGRAPHY_V1 */
 #navigation{
   --navue-popup-title-size:18px;
