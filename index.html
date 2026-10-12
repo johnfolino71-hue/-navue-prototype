@@ -4566,7 +4566,140 @@ button.gear svg{width:26px;height:26px;display:block}
     var w=window.open('','_blank');
     if(!w){alert('Please allow pop-ups to print the report.');return}
     var safe=reportText().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    w.document.write('<!doctype html><html><head><title>NaVue Live Network — Owner Report</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Arial,sans-serif;padding:32px;color:#172126}pre{white-space:pre-wrap;font:16px/1.5 Arial,sans-serif}</style></head><body><pre>'+safe+'</pre><script>window.onload=function(){window.print()}<\/script></body></html>');
+    w.document.write('<!doctype html><html><head><title>NaVue Live Network — Owner Report</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Arial,sans-serif;padding:32px;color:#172126}pre{white-space:pre-wrap;font:16px/1.5 Arial,sans-serif}</style></head><body><pre>'+safe+'</pre><script>window.onload=function(){window.print()}<\/script><script>/* NAVUE_MONTHLY_TRIP_LEDGER_STEP1_V1 — data only; no Fuel & Cost UI changes */
+(function(){
+ 'use strict';
+ var LEDGER_KEY='navueMonthlyTripLedgerV1';
+ var ACTIVE_KEY='navueMonthlyTripActiveV1';
+ var active=null,watchId=null,lastPoint=null;
+ function now(){return Date.now()}
+ function read(key,fallback){try{var v=JSON.parse(localStorage.getItem(key)||'null');return v==null?fallback:v}catch(e){return fallback}}
+ function write(key,value){try{localStorage.setItem(key,JSON.stringify(value))}catch(e){}}
+ function clearActive(){try{localStorage.removeItem(ACTIVE_KEY)}catch(e){}}
+ function ledger(){var a=read(LEDGER_KEY,[]);return Array.isArray(a)?a:[]}
+ function hav(a,b){
+  var R=6371,toRad=Math.PI/180,dLat=(b.lat-a.lat)*toRad,dLon=(b.lon-a.lon)*toRad;
+  var q=Math.sin(dLat/2)**2+Math.cos(a.lat*toRad)*Math.cos(b.lat*toRad)*Math.sin(dLon/2)**2;
+  return 2*R*Math.atan2(Math.sqrt(q),Math.sqrt(1-q))
+ }
+ function saveActive(){if(active)write(ACTIVE_KEY,active)}
+ function stopWatch(){if(watchId!=null&&navigator.geolocation){try{navigator.geolocation.clearWatch(watchId)}catch(e){}}watchId=null;lastPoint=null}
+ function acceptPosition(pos){
+  if(!active||!pos||!pos.coords)return;
+  var c=pos.coords,acc=Number(c.accuracy),t=Number(pos.timestamp)||now();
+  if(!(Number.isFinite(c.latitude)&&Number.isFinite(c.longitude)))return;
+  if(Number.isFinite(acc)&&acc>100)return;
+  var point={lat:c.latitude,lon:c.longitude,t:t};
+  if(lastPoint){
+   var km=hav(lastPoint,point),hours=Math.max((point.t-lastPoint.t)/3600000,1/3600000),kph=km/hours;
+   if(km>=0&&km<=2.5&&kph<=180)active.actualKm=(Number(active.actualKm)||0)+km;
+  }
+  lastPoint=point;active.lastLocationAt=t;saveActive()
+ }
+ function startWatch(){
+  stopWatch();
+  if(!navigator.geolocation)return;
+  function begin(){try{watchId=navigator.geolocation.watchPosition(acceptPosition,function(){},{enableHighAccuracy:true,maximumAge:5000,timeout:15000})}catch(e){}}
+  if(navigator.permissions&&navigator.permissions.query){
+   navigator.permissions.query({name:'geolocation'}).then(function(r){if(r.state==='granted')begin()}).catch(function(){});
+  }
+ }
+ function begin(route){
+  var same=active&&active.destination===String(p.destination||'')&&!active.endedAt;
+  if(same){
+   active.routeId=route&&route.id||active.routeId;
+   active.plannedKm=Number(route&&route.km)||active.plannedKm||0;
+   active.plannedMinutes=Number(route&&route.time)||active.plannedMinutes||0;
+   saveActive();startWatch();return
+  }
+  stopWatch();
+  active={
+   id:'trip-'+now()+'-'+Math.random().toString(36).slice(2,8),
+   startedAt:now(),
+   date:new Date().toISOString(),
+   destination:String(p.destination||''),
+   routeId:route&&route.id||'',
+   plannedKm:Number(route&&route.km)||0,
+   plannedMinutes:Number(route&&route.time)||0,
+   actualKm:0,
+   completed:false,
+   fuelCost:null,
+   fuelLitres:null
+  };
+  saveActive();startWatch()
+ }
+ function fuelFor(km){
+  try{
+   if(typeof window.navueFuelEstimate==='function'){
+    var e=window.navueFuelEstimate(km);
+    if(e)return {litres:Number.isFinite(Number(e.litres))?Number(e.litres):null,cost:Number.isFinite(Number(e.cost))?Number(e.cost):null}
+   }
+  }catch(e){}
+  return {litres:null,cost:null}
+ }
+ function finalize(completed,reason){
+  if(!active)return;
+  stopWatch();
+  var ended=now(),seconds=Math.max(0,Math.round((ended-Number(active.startedAt||ended))/1000));
+  var km=Math.max(0,Number(active.actualKm)||0);
+  // In the current simulation only, completing the destination means the planned route was completed.
+  // Never substitute the full planned distance for an interrupted/closed route.
+  if(completed&&km<0.05&&/Finish simulated trip/i.test((document.querySelector('#navigation .finish')||{}).textContent||''))km=Math.max(0,Number(active.plannedKm)||0);
+  var f=fuelFor(km);
+  var rec={
+   id:active.id,
+   startedAt:active.startedAt,
+   endedAt:ended,
+   date:active.date,
+   destination:active.destination,
+   routeId:active.routeId,
+   completed:!!completed,
+   actualKm:Number(km.toFixed(3)),
+   actualSeconds:seconds,
+   fuelLitres:f.litres==null?null:Number(f.litres.toFixed(3)),
+   fuelCost:f.cost==null?null:Number(f.cost.toFixed(2)),
+   fuelUnits:(p&&p.fuelUnits)||'metric',
+   fuelPrice:p&&p.fuelPrice!=null?String(p.fuelPrice):'',
+   endReason:reason||''
+  };
+  // Ignore accidental zero-length starts, but retain genuine partial driving/time.
+  if(rec.completed||rec.actualKm>=0.05||rec.actualSeconds>=30){
+   var a=ledger();a.push(rec);if(a.length>500)a=a.slice(-500);write(LEDGER_KEY,a)
+  }
+  active=null;clearActive()
+ }
+ var priorChoose=window.chooseRoute;
+ if(typeof priorChoose==='function')window.chooseRoute=function(route){
+  var r=priorChoose.apply(this,arguments);
+  if(document.querySelector('.screen.active')?.id==='navigation')begin(route);
+  return r
+ };
+ var earlyEnd=false;
+ var priorVoice=window.handleVoice;
+ if(typeof priorVoice==='function')window.handleVoice=function(raw,mode){
+  var t=String(raw||'').toLowerCase().trim();
+  if(window.navueEndTripPending&&/^(yes|yeah|yep|sure|do it|end it|stop|confirm)$/.test(t))earlyEnd=true;
+  return priorVoice.apply(this,arguments)
+ };
+ var priorFinish=window.finishTrip;
+ if(typeof priorFinish==='function')window.finishTrip=function(){
+  finalize(!earlyEnd,earlyEnd?'ended-early':'destination-completed');earlyEnd=false;
+  return priorFinish.apply(this,arguments)
+ };
+ var priorShow=window.show;
+ if(typeof priorShow==='function')window.show=function(id){
+  var was=document.querySelector('.screen.active')?.id;
+  if(was==='navigation'&&id!=='navigation'&&id!=='routes'&&id!=='preferences'&&active){
+   finalize(false,'navigation-closed')
+  }
+  return priorShow.apply(this,arguments)
+ };
+ window.addEventListener('pagehide',function(){if(active)finalize(false,'app-closed')});
+ window.addEventListener('beforeunload',function(){if(active)finalize(false,'app-closed')});
+ window.navueMonthlyTripLedger=function(){return ledger().slice()};
+ window.navueMonthlyActiveTrip=function(){return active?Object.assign({},active):null};
+})();
+</script></body></html>');
     w.document.close();
   }
 
