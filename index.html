@@ -3906,7 +3906,7 @@ button.gear svg{width:26px;height:26px;display:block}
  function styleSettings(){document.querySelectorAll('button.gear').forEach(button=>{
   if(button.dataset.navueSettingsIcon==='v1')return;
   button.innerHTML=settingsIcon;button.dataset.navueSettingsIcon='v1';button.setAttribute('aria-label','Settings');
-  const styles={width:'44px',height:'44px','min-width':'44px','min-height':'44px',padding:'9px',margin:'0','border-radius':'50%',border:'0',background:'#e6f0ff',color:'#1769e0',display:'grid','place-items':'center','box-shadow':'none'};
+  const styles={width:'46px',height:'46px','min-width':'46px','min-height':'46px',padding:'9px',margin:'0','border-radius':'50%',border:'0',background:'#fff',color:'#1769e0',display:'grid','place-items':'center','box-shadow':'none'};
   Object.entries(styles).forEach(([key,value])=>button.style.setProperty(key,value,'important'));
  })}
  styleSettings();document.addEventListener('DOMContentLoaded',styleSettings);
@@ -4078,5 +4078,52 @@ button.gear svg{width:26px;height:26px;display:block}
  try{var savedSpeed=JSON.parse(localStorage.getItem('navueSpeedPrefs')||'null');if(savedSpeed){if(typeof savedSpeed.showSpeedometer==='boolean')p.showSpeedometer=savedSpeed.showSpeedometer;if(typeof savedSpeed.showSpeedLimit==='boolean')p.showSpeedLimit=savedSpeed.showSpeedLimit;if(typeof savedSpeed.speedAlert==='boolean')p.speedAlert=savedSpeed.speedAlert}var speedEnabled=localStorage.getItem('navueSpeedometerEnabled');if(speedEnabled==='1'||speedEnabled==='0')p.showSpeedometer=speedEnabled==='1'}catch(e){}
  function apply(){var n=document.getElementById('navigation');if(!n)return;var speedOff=p.showSpeedometer===false;n.classList.toggle('navue-speedometer-off',speedOff);n.classList.toggle('navue-speedlimit-off',p.showSpeedLimit===false);n.classList.toggle('navue-speedalert-off',p.speedAlert===false);var badge=n.querySelector('.c3-speed');if(badge)badge.style.setProperty('display',speedOff?'none':'flex','important')}
  window.addEventListener('navueSpeedPrefsChanged',apply);document.addEventListener('click',function(){setTimeout(apply,0)});apply();
+})();
+</script>
+<style>/* NAVUE6_ROUND_CONTROLS_AND_SETTINGS_BACK */
+:is(#home,#destination,#routes,#ambiguity,#navigation,#preferences,#profile,#savedRoutesPage) button:is(.gear,.home-speaker,.speaker,.home-map-mic,.navue-session-speaker,.navue-session-mic,#navMic,#navueTripSettings){
+ width:46px!important;min-width:46px!important;height:46px!important;min-height:46px!important;border-radius:50%!important;background:#fff!important;
+}
+:is(#home,#destination,#routes,#ambiguity,#navigation,#preferences,#profile,#savedRoutesPage) button:is(.home-speaker,.speaker,.navue-session-speaker,.home-map-mic,.navue-session-mic,#navMic){
+ color:#64717b!important;
+}
+:is(#home,#destination,#routes,#ambiguity,#navigation,#preferences,#profile,#savedRoutesPage) button:is(.home-speaker,.speaker,.navue-session-speaker).voice-on,
+:is(#home,#destination,#routes,#ambiguity,#navigation,#preferences,#profile,#savedRoutesPage) button:is(.home-map-mic,.navue-session-mic,#navMic).navue-mic-enabled{
+ color:#1769e0!important;
+}
+#preferences{position:relative}
+#preferences.navue-settings-menu-mode>#navueSettingsPageBack{
+ display:inline-flex!important;align-items:center;justify-content:center;gap:5px;position:absolute;right:18px;
+ width:auto!important;min-width:68px!important;height:32px!important;min-height:32px!important;margin:0!important;padding:0 11px!important;
+ border:1px solid #d6dde3!important;border-radius:11px!important;background:#fff!important;color:#1769e0!important;font-size:14px!important;font-weight:700!important;line-height:1!important;
+}
+#preferences.navue-settings-detail-mode>#navueSettingsPageBack{display:none!important}
+</style>
+<script>/* NAVUE6_SETTINGS_PAGE_BACK */
+(function(){
+ const settings=document.getElementById('preferences');
+ if(!settings||document.getElementById('navueSettingsPageBack'))return;
+ const back=document.createElement('button');
+ back.id='navueSettingsPageBack';back.type='button';back.textContent='‹ Back';back.setAttribute('aria-label','Back to previous page');
+ settings.appendChild(back);
+ function alignBack(){
+  const title=settings.querySelector(':scope > h1');
+  if(title&&settings.classList.contains('active'))back.style.top=(title.offsetTop+Math.max(0,(title.offsetHeight-32)/2))+'px';
+ }
+ back.onclick=function(){
+  const target=window.navueSettingsReturn||prefReturn||'home';
+  show(target!=='preferences'&&document.getElementById(target)?target:'home');
+ };
+ const priorShow=window.show;
+ window.show=function(id){
+  const active=document.querySelector('.screen.active');
+  if(id==='preferences'&&active&&active.id!=='preferences')window.navueSettingsReturn=active.id;
+  const result=priorShow.apply(this,arguments);
+  if(id==='preferences')alignBack();
+  return result;
+ };
+ window.addEventListener('resize',alignBack);
+ new MutationObserver(alignBack).observe(settings,{attributes:true,attributeFilter:['class']});
+ alignBack();
 })();
 </script>
