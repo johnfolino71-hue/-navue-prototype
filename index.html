@@ -4669,6 +4669,40 @@ button.gear svg{width:26px;height:26px;display:block}
     closePanel();
   }
 
+  function listenForFuelConfirmation(value){
+    var status=document.getElementById('navueFuelVoiceStatus');
+    var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){status.textContent='Voice confirmation is not available in this browser. Tap OK to confirm.';return}
+    stopFuelRecognition();
+    try{
+      var r=new SR;fuelRecognition=r;r.lang='en-CA';r.interimResults=false;r.maxAlternatives=1;
+      status.textContent='Listening for yes or no…';
+      r.onresult=function(e){
+        var spoken=(e.results&&e.results[0]&&e.results[0][0]?e.results[0][0].transcript:'').toLowerCase().trim();
+        if(/\b(yes|yeah|yep|correct|okay|ok|accept|accepted|submit|confirm|confirmed|right)\b/i.test(spoken)){
+          document.getElementById('navueFuelCheckInput').value=value;
+          status.textContent='Confirmed.';
+          confirmPrice();
+          return;
+        }
+        if(/\b(no|nope|incorrect|wrong|change|again)\b/i.test(spoken)){
+          status.textContent='Okay. Please say the fuel price again.';
+          if(typeof speak==='function'&&p.voice&&p.micEnabled){
+            speak('Okay. Please say the fuel price again.',true,p.voiceStyle,function(){startFuelVoice()});
+          }else setTimeout(startFuelVoice,250);
+          return;
+        }
+        status.textContent='Please say yes to accept it, or no to enter it again.';
+        if(typeof speak==='function'&&p.voice&&p.micEnabled){
+          speak('Please say yes to accept it, or no to enter it again.',true,p.voiceStyle,function(){listenForFuelConfirmation(value)});
+        }else setTimeout(function(){listenForFuelConfirmation(value)},250);
+      };
+      r.onerror=function(){status.textContent='I couldn’t hear that. Tap OK, or try the voice price again.'};
+      r.onend=function(){fuelRecognition=null};
+      r.start();
+    }catch(e){status.textContent='Voice confirmation could not start. Tap OK to confirm.'}
+  }
+
   function startFuelVoice(){
     var status=document.getElementById('navueFuelVoiceStatus');
     var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -4684,8 +4718,16 @@ button.gear svg{width:26px;height:26px;display:block}
         var spoken=e.results&&e.results[0]&&e.results[0][0]?e.results[0][0].transcript:'';
         var value=wordsNumber(spoken);
         if(value!==null){
+          var u=unitInfo();
           document.getElementById('navueFuelCheckInput').value=value;
-          status.textContent='Heard '+value+'. Tap OK to confirm.';
+          status.textContent='Heard '+value+'. Waiting for confirmation.';
+          var prompt='I heard $'+value+' '+u.spoken+'. Is that correct?';
+          if(typeof speak==='function'&&p.voice&&p.micEnabled){
+            speak(prompt,true,p.voiceStyle,function(){listenForFuelConfirmation(value)});
+          }else{
+            status.textContent='I heard '+value+'. Is that correct? Say yes to accept or no to try again.';
+            setTimeout(function(){listenForFuelConfirmation(value)},250);
+          }
         }else status.textContent='I couldn’t recognize a price. Try again or type it.';
       };
       r.onerror=function(){status.textContent='I couldn’t hear the price. Try again or type it.'};
@@ -4693,7 +4735,6 @@ button.gear svg{width:26px;height:26px;display:block}
       r.start();
     }catch(e){status.textContent='Voice entry could not start. You can type the price instead.'}
   }
-
   function openPanel(){
     if(!p||!p.onboarded||p.fuelReminderDisabled||sessionDismissed)return;
     var o=ensurePanel(),u=unitInfo(),input=document.getElementById('navueFuelCheckInput');
