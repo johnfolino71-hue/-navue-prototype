@@ -5364,6 +5364,8 @@ button.gear svg{width:26px;height:26px;display:block}
    fuelCost:f.cost==null?null:Number(f.cost.toFixed(2)),
    fuelUnits:(p&&p.fuelUnits)||'metric',
    fuelPrice:p&&p.fuelPrice!=null?String(p.fuelPrice):'',
+   cityFuel:p&&p.cityFuel!=null?String(p.cityFuel):'',
+   highwayFuel:p&&p.highwayFuel!=null?String(p.highwayFuel):'',
    endReason:reason||''
   };
   // Ignore accidental zero-length starts, but retain genuine partial driving/time.
@@ -5720,5 +5722,139 @@ button.gear svg{width:26px;height:26px;display:block}
  document.addEventListener('visibilitychange',function(){
   if(!document.hidden)run(new Date());
  });
+})();
+</script>
+<script>/* NAVUE_MONTHLY_FUEL_PRICE_SNAPSHOT_FIX_V1 — historical trip fuel values are immutable once recorded */
+(function(){
+ 'use strict';
+ var LEDGER_KEY='navueMonthlyTripLedgerV1';
+ var MIGRATION_KEY='navueMonthlyFuelSnapshotMigrationV1';
+
+ function readLedger(){
+  try{var a=JSON.parse(localStorage.getItem(LEDGER_KEY)||'[]');return Array.isArray(a)?a:[]}catch(e){return []}
+ }
+ function writeLedger(a){try{localStorage.setItem(LEDGER_KEY,JSON.stringify(a))}catch(e){}}
+ function finiteOrNull(v){
+  if(v===null||v===undefined||v==='')return null;
+  var n=Number(v);return Number.isFinite(n)?n:null;
+ }
+ function calcFuel(km,units,cityRaw,hwyRaw,priceRaw){
+  var city=parseFloat(cityRaw),hwy=parseFloat(hwyRaw),price=parseFloat(priceRaw);
+  if(!(city>0)&&!(hwy>0))return {litres:null,cost:null};
+  var use=(city>0&&hwy>0)?city*.35+hwy*.65:(city>0?city:hwy),litres;
+  if((units||'metric')==='us'){
+   var mpg=use,miles=km*0.621371,gallons=miles/mpg;litres=gallons*3.78541;
+  }else litres=km*use/100;
+  return {litres:litres,cost:price>0?((units||'metric')==='us'?(litres/3.78541)*price:litres*price):null};
+ }
+
+ /* One-time repair for the test records created before fuel settings were fully snapshotted.
+    Critically, the old trip's own stored fuelPrice is used, not today's price.
+    After repair, the values are persisted so later price/economy changes cannot rewrite them. */
+ function migrateLegacy(){
+  try{if(localStorage.getItem(MIGRATION_KEY)==='1')return}catch(e){}
+  var a=readLedger(),changed=false;
+  a.forEach(function(rec){
+   if(!rec)return;
+   var km=Math.max(0,Number(rec.actualKm)||0);
+   if(km<=0)return;
+   var l=finiteOrNull(rec.fuelLitres),c=finiteOrNull(rec.fuelCost);
+   if(l!==null&&c!==null)return;
+
+   var units=rec.fuelUnits||((window.p&&p.fuelUnits)||'metric');
+   var city=rec.cityFuel!=null&&rec.cityFuel!==''?rec.cityFuel:(window.p&&p.cityFuel);
+   var hwy=rec.highwayFuel!=null&&rec.highwayFuel!==''?rec.highwayFuel:(window.p&&p.highwayFuel);
+   var price=rec.fuelPrice; /* historical stored price only */
+   var f=calcFuel(km,units,city,hwy,price);
+
+   if(l===null&&f.litres!==null){rec.fuelLitres=Number(f.litres.toFixed(3));changed=true}
+   if(c===null&&f.cost!==null){rec.fuelCost=Number(f.cost.toFixed(2));changed=true}
+   if(rec.cityFuel==null||rec.cityFuel===''){rec.cityFuel=city!=null?String(city):'';changed=true}
+   if(rec.highwayFuel==null||rec.highwayFuel===''){rec.highwayFuel=hwy!=null?String(hwy):'';changed=true}
+  });
+  if(changed)writeLedger(a);
+  try{localStorage.setItem(MIGRATION_KEY,'1')}catch(e){}
+ }
+
+ function monthStart(d){return new Date(d.getFullYear(),d.getMonth(),1,0,0,0,0)}
+ function nextMonthStart(d){return new Date(d.getFullYear(),d.getMonth()+1,1,0,0,0,0)}
+ function tripTime(rec){
+  var t=Number(rec&&rec.startedAt);if(Number.isFinite(t)&&t>0)return t;
+  var x=Date.parse(rec&&rec.date||'');return Number.isFinite(x)?x:0;
+ }
+ function legacyPlannedMinutes(rec){
+  var n=Number(rec&&rec.plannedMinutes);if(n>0)return n;
+  var id=String(rec&&rec.routeId||'').toUpperCase();
+  return id==='A'?41:id==='B'?29:id==='C'?25:0;
+ }
+ function correctedSeconds(rec){
+  var actual=Math.max(0,Number(rec&&rec.actualSeconds)||0);
+  if(rec&&rec.completed&&rec.endReason==='destination-completed'){
+   var planned=legacyPlannedMinutes(rec);if(planned>0)return Math.round(planned*60);
+  }
+  return actual;
+ }
+ function storedFuel(rec){
+  var l=finiteOrNull(rec&&rec.fuelLitres),c=finiteOrNull(rec&&rec.fuelCost);
+  return {litres:l,cost:c};
+ }
+ function activeFuel(km){
+  try{
+   if(typeof window.navueFuelEstimate==='function'){
+    var e=window.navueFuelEstimate(km);
+    if(e)return {litres:finiteOrNull(e.litres),cost:finiteOrNull(e.cost)};
+   }
+  }catch(e){}
+  return {litres:null,cost:null};
+ }
+
+ function summary(referenceDate){
+  migrateLegacy();
+  var ref=referenceDate instanceof Date?new Date(referenceDate):new Date(referenceDate||Date.now());
+  if(!Number.isFinite(ref.getTime()))ref=new Date();
+  var start=monthStart(ref),end=nextMonthStart(ref),startMs=start.getTime(),endMs=end.getTime();
+  var completed=0,km=0,seconds=0,litres=0,cost=0,litresKnown=0,costKnown=0,records=0;
+
+  readLedger().forEach(function(rec){
+   var t=tripTime(rec);if(!(t>=startMs&&t<endMs))return;
+   records++;
+   var d=Math.max(0,Number(rec.actualKm)||0);
+   km+=d;seconds+=correctedSeconds(rec);if(rec.completed)completed++;
+
+   /* Historical records use only their persisted values. Current settings never rewrite them. */
+   var f=storedFuel(rec);
+   if(f.litres!==null){litres+=Math.max(0,f.litres);litresKnown++}
+   if(f.cost!==null){cost+=Math.max(0,f.cost);costKnown++}
+  });
+
+  /* Only the currently active trip uses the current Fuel & Cost settings.
+     Once finalized, Step 1 snapshots its values and they become historical/immutable. */
+  var active=null;
+  try{if(typeof window.navueMonthlyActiveTrip==='function')active=window.navueMonthlyActiveTrip()}catch(e){}
+  if(active){
+   var at=Number(active.startedAt)||0;
+   if(at>=startMs&&at<endMs){
+    var akm=Math.max(0,Number(active.actualKm)||0);
+    var asec=Math.max(0,Math.round((Date.now()-at)/1000));
+    km+=akm;seconds+=asec;
+    var af=activeFuel(akm);
+    if(af.litres!==null){litres+=Math.max(0,af.litres);litresKnown++}
+    if(af.cost!==null){cost+=Math.max(0,af.cost);costKnown++}
+   }
+  }
+
+  return {
+   year:ref.getFullYear(),month:ref.getMonth()+1,periodStart:startMs,periodEnd:Math.min(Date.now(),endMs-1),
+   tripsCompleted:completed,recordsCount:records,distanceKm:Number(km.toFixed(3)),drivingSeconds:Math.round(seconds),
+   fuelLitres:litresKnown?Number(litres.toFixed(3)):null,
+   fuelCost:costKnown?Number(cost.toFixed(2)):null,
+   includesActiveTrip:!!(active&&Number(active.startedAt)>=startMs&&Number(active.startedAt)<endMs)
+  };
+ }
+
+ window.navueCurrentMonthlySummary=summary;
+ window.navueCurrentMonthlyTotals=function(){return summary(new Date())};
+ migrateLegacy();
+ if(typeof window.navueRenderCurrentMonthlySummary==='function')setTimeout(window.navueRenderCurrentMonthlySummary,0);
 })();
 </script>
