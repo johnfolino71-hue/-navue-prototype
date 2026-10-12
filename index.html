@@ -5108,3 +5108,146 @@ button.gear svg{width:26px;height:26px;display:block}
   };
 })();
 </script>
+
+
+<script>/* NAVUE_GLOBAL_CONTEXT_INTENT_V1 */
+(function(){
+  var priorHandle=window.handleVoice;
+
+  function clean(t){
+    return String(t||'').toLowerCase()
+      .replace(/[’']/g,'')
+      .replace(/[^a-z0-9\s]/g,' ')
+      .replace(/\s+/g,' ')
+      .trim();
+  }
+  function tokens(t){
+    var stop={the:1,a:1,an:1,to:1,for:1,my:1,me:1,this:1,that:1,it:1,please:1,can:1,you:1,could:1,would:1,i:1,want:1,like:1};
+    return clean(t).split(' ').filter(function(w){return w&&!stop[w]});
+  }
+  function activePage(){
+    var el=document.querySelector('.screen.active');
+    return el?el.id:'';
+  }
+  function detail(){
+    if(activePage()!=='preferences')return null;
+    return document.querySelector('#preferences .navue-settings-detail');
+  }
+  function detailTitle(){
+    var d=detail(),t=d&&d.querySelector('.navue-settings-detail-title');
+    return t?clean(t.textContent):'';
+  }
+  function visible(el){
+    if(!el)return false;
+    var r=el.getBoundingClientRect();
+    return !!(r.width||r.height||el.getClientRects().length);
+  }
+  function stateOf(btn){
+    var a=btn.getAttribute('aria-pressed');
+    if(a==='true')return true;
+    if(a==='false')return false;
+    var txt=clean(btn.textContent);
+    if(txt==='on')return true;
+    if(txt==='off')return false;
+    return null;
+  }
+  function rowText(btn){
+    var row=btn.closest('.navue7-fuel-reminder-row,.navue-speed-setting-row,.navue-map-toggle-row,.navue-voice-sound-row,.navue-settings-row,.fuel-field,.card')||btn.parentElement;
+    return clean(row?row.textContent:btn.textContent);
+  }
+  function controls(){
+    var d=detail();if(!d)return [];
+    return Array.from(d.querySelectorAll('button[aria-pressed],button.navue-mini-toggle,#navue7FuelReminderToggle'))
+      .filter(visible)
+      .map(function(btn){return {btn:btn,text:rowText(btn),state:stateOf(btn)}});
+  }
+  function polarity(s){
+    var neg=/\b(turn|switch|set|shut)\s+(?:this|that|it|them|the\s+\w+(?:\s+\w+)*)?\s*off\b/.test(s) ||
+            /\b(disable|deactivate|stop|pause|silence|mute|cancel)\b/.test(s) ||
+            /\b(dont|do not|no longer|never)\b.*\b(remind|notify|use|enable|activate|keep)\b/.test(s);
+    var pos=/\b(turn|switch|set|power)\s+(?:this|that|it|them|the\s+\w+(?:\s+\w+)*)?\s*on\b/.test(s) ||
+            /\b(enable|activate|start|resume|unmute|use|keep)\b/.test(s) ||
+            /\b(remind me|notify me|start reminding me|keep reminding me)\b/.test(s);
+    if(pos&&!neg)return true;
+    if(neg&&!pos)return false;
+    if(/^(on|yes|do it|go ahead)$/.test(s))return true;
+    if(/^(off|no|stop it|dont|do not)$/.test(s))return false;
+    return null;
+  }
+  function scoreControl(s,c,title){
+    var st=tokens(s),ct=tokens(c.text+' '+title),score=0;
+    st.forEach(function(w){
+      if(ct.indexOf(w)>=0)score+=3;
+      if(w==='gas'&&ct.indexOf('fuel')>=0)score+=3;
+      if(w==='sound'&&ct.indexOf('speaker')>=0)score+=3;
+      if(w==='voice'&&(ct.indexOf('speaker')>=0||ct.indexOf('guidance')>=0))score+=2;
+      if((w==='remind'||w==='reminder'||w==='reminders')&&ct.some(function(x){return /^remind/.test(x)}))score+=4;
+    });
+    return score;
+  }
+  function speakReply(message){
+    if(p&&p.voice&&typeof speak==='function'){
+      speak(message,true,p.voiceStyle,function(){
+        setTimeout(function(){
+          var id=activePage();
+          if(id&&p.micEnabled&&!rec&&typeof rearmVoice==='function')rearmVoice(id);
+        },180);
+      });
+    }
+  }
+  function labelFor(c){
+    var s=c.text.replace(/\bon\b|\boff\b/g,' ').replace(/\s+/g,' ').trim();
+    if(/7 day fuel reminder/.test(s))return 'Seven-day fuel reminder';
+    if(/microphone/.test(s))return 'Microphone';
+    if(/speaker|voice guidance/.test(s))return 'Voice guidance';
+    if(/traffic/.test(s))return 'Traffic';
+    if(/3d buildings/.test(s))return '3D buildings';
+    if(/speed alert/.test(s))return 'Speed alert';
+    if(/speed limit/.test(s))return 'Speed limit';
+    if(/speedometer/.test(s))return 'Speedometer';
+    return s?s.replace(/\bturn\b.*$/,'').trim():'This setting';
+  }
+  function contextualToggleIntent(text){
+    var d=detail();if(!d)return false;
+    var s=clean(text),desired=polarity(s);
+    if(desired===null)return false;
+
+    var list=controls();
+    if(!list.length)return false;
+
+    var title=detailTitle(),ranked=list.map(function(c){return {c:c,score:scoreControl(s,c,title)}})
+      .sort(function(a,b){return b.score-a.score});
+
+    var target=null;
+    if(ranked[0]&&ranked[0].score>0&&(ranked.length===1||ranked[0].score>ranked[1].score))target=ranked[0].c;
+    else if(list.length===1)target=list[0];
+
+    if(!target){
+      speakReply('Which setting on this page do you want me to '+(desired?'turn on?':'turn off?'));
+      return true;
+    }
+
+    if(target.state===desired){
+      speakReply(labelFor(target)+' is already '+(desired?'on.':'off.'));
+      return true;
+    }
+
+    try{target.btn.click()}catch(e){return false}
+    setTimeout(function(){
+      var now=stateOf(target.btn);
+      speakReply(labelFor(target)+' is '+((now===null?desired:now)?'on.':'off.'));
+    },40);
+    return true;
+  }
+
+  window.navueContextIntent=function(text,mode){
+    if((mode==='preferences'||activePage()==='preferences')&&contextualToggleIntent(text))return true;
+    return false;
+  };
+
+  window.handleVoice=function(text,mode){
+    if(window.navueContextIntent(text,mode))return;
+    return priorHandle.apply(this,arguments);
+  };
+})();
+</script>
