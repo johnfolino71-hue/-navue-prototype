@@ -3071,7 +3071,7 @@ Prototype road split is temporary demo data until live route-segment classificat
  var menu=document.createElement('div');menu.className='navue-settings-menu';
  var groups=[
   ['Settings',[['general','⚙','Profile'],['map','▧','Map Display'],['voice','🔊','Voice & Sound'],['location','⌖','Location']]],
-  ['Driving preferences',[['navigation','↱','Navigation & Driving Preferences'],['tolls','◇','Toll & HOV Passes'],['alerts','!','Alerts & Reports'],['fuel','⛽','Fuel & Cost'],['speed','◴','Speedometer']]],
+  ['Driving preferences',[['navigation','↱','Driving Preferences / Onboarding'],['tolls','◇','Toll & HOV Passes'],['alerts','!','Alerts & Reports'],['fuel','⛽','Fuel & Cost'],['speed','◴','Speedometer']]],
   ['Notifications',[['notifications','🔔','Notifications'],['planned','◷','Planned Drives'],['reminders','⏰','Reminders']]],
   ['Account',[['account','●','Account & Login'],['privacy','◆','Privacy']]],
   ['NaVue',[['about','i','About NaVue'],['invite','↗','Invite a Friend'],['help','?','Help']]]
@@ -3102,7 +3102,7 @@ Prototype road split is temporary demo data until live route-segment classificat
   var nodes=[];
   if(key==='general'){var profile=s.querySelector(':scope > .navue-settings-profile')||detail.querySelector('.navue-settings-profile');if(!profile)profile=s.querySelector('.navue-settings-profile');if(profile)nodes=[profile]}
   if(key==='location'){var loc=s.querySelector(':scope > .navue-settings-location');if(loc)nodes=[loc]}
-  if(key==='navigation'){var road=nodeByTitle('Roads');if(road)nodes=collect(road,['Fuel & Cost']).filter(function(n){return !(n.classList&&n.classList.contains('navue-settings-profile'))})}
+  if(key==='navigation'){nodes=[];var card=document.createElement('div');card.className='navue-driving-pref-card';card.innerHTML='<div class="navue-driving-pref-section"><strong>Route Priority</strong><div id="nvDrivePriority"></div></div><div class="navue-driving-pref-section"><strong>Road Preferences</strong><div id="nvDriveRoad"></div></div><div class="navue-driving-pref-section"><strong>Tolls & Ferries</strong><div id="nvDrivePaid"></div></div><div class="navue-driving-pref-section"><strong>Lane Guidance</strong><div id="nvDriveLane"></div></div>';nodes=[card]}
   if(key==='fuel'){var fuel=nodeByTitle('Fuel & Cost');if(fuel)nodes=collect(fuel,[]).filter(function(n){return !(n.matches&&n.matches('button'))&&!(n.classList&&n.classList.contains('navue-settings-profile'))})}
   if(key==='voice'){var vg=document.getElementById('navueGuidanceLevel');if(vg)nodes=[vg.closest('.fuel-field')]}
   if(key==='tolls'){var paid=nodeByTitle('Tolls & paid ferries');if(paid){nodes=[paid];if(paid.nextElementSibling)nodes.push(paid.nextElementSibling)}}
@@ -3771,3 +3771,31 @@ button.gear svg{width:26px;height:26px;display:block}
  margin-top:0!important;
 }
 </style>
+<style>/* NAVUE_DRIVING_PREFS_ONBOARDING_V1 */
+#preferences .navue-driving-pref-card{border:1px solid #d6dde3;border-radius:16px;background:#fff;overflow:hidden}
+#preferences .navue-driving-pref-section{padding:12px 16px}
+#preferences .navue-driving-pref-section+.navue-driving-pref-section{border-top:1px solid #e6ebef}
+#preferences .navue-driving-pref-section>strong{display:block;font-size:17px;font-weight:800;margin-bottom:8px}
+#preferences .navue-driving-choice{width:100%;min-height:40px!important;margin:5px 0!important;padding:7px 12px!important;border:1px solid #d6dde3!important;border-radius:11px!important;background:#fff!important;color:#172126!important;font-size:16px!important;font-weight:700!important;text-align:left!important}
+#preferences .navue-driving-choice.selected{border-color:#1769e0!important;background:#eaf3ff!important;color:#1769e0!important}
+</style>
+<script>/* NAVUE_DRIVING_PREFS_ONBOARDING_BIND_V1 */
+(function(){
+ function opts(host,key,items){
+  if(!host)return;host.innerHTML='';
+  items.forEach(function(item){
+   var b=document.createElement('button');b.type='button';b.className='navue-driving-choice'+(p[key]===item[1]?' selected':'');b.textContent=item[0];
+   b.onclick=function(){p[key]=item[1];save();render();};host.appendChild(b);
+  });
+ }
+ function render(){
+  var root=document.querySelector('#preferences .navue-driving-pref-card');if(!root)return;
+  opts(document.getElementById('nvDrivePriority'),'priority',[['Faster Time','fastest'],['Shorter Distance','balanced'],['Eco-Friendly','eco']]);
+  opts(document.getElementById('nvDriveRoad'),'road',[['Prefer Highways / Freeways','highway'],['No Road Preference','either'],['Local Roads Only','local'],['Avoid Highways / Freeways','avoid']]);
+  opts(document.getElementById('nvDrivePaid'),'paid',[['Avoid Tolls & Paid Ferries','no'],['Use When Benefit Is Worth It','conditional'],['No Toll / Ferry Preference','either']]);
+  opts(document.getElementById('nvDriveLane'),'lane',[['Early','early'],['Normal','normal'],['Only When Necessary','late']]);
+ }
+ document.addEventListener('click',function(e){if(e.target&&e.target.closest&&e.target.closest('.navue-settings-row'))setTimeout(render,0)});
+ window.addEventListener('pageshow',function(){setTimeout(render,0)});
+})();
+</script>
