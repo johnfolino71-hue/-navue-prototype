@@ -3118,7 +3118,7 @@ Prototype road split is temporary demo data until live route-segment classificat
  var tr=document.createElement('div');tr.className='navue-speed-setting-row navue-speed-threshold';tr.innerHTML='<strong>Alert Threshold</strong><span>10 km/h roads · 12 km/h highways</span>';sc.appendChild(tr);nodes=[sc]}
   if(key==='voice'){var vg=document.getElementById('navueGuidanceLevel');if(vg)nodes=[vg.closest('.fuel-field')]}
   if(key==='tolls'){var paid=nodeByTitle('Tolls & paid ferries');if(paid){nodes=[paid];if(paid.nextElementSibling)nodes.push(paid.nextElementSibling)}}
-  if(nodes.length){nodes.forEach(function(n){detail.appendChild(n)});if(key!=='navigation'){var save=document.createElement('button');save.type='button';save.textContent='Save Changes';save.onclick=function(){window.savePreferences();showMenu()};detail.appendChild(save)}}
+  if(nodes.length){nodes.forEach(function(n){detail.appendChild(n)});if(key!=='navigation'){var save=document.createElement('button');save.type='button';save.textContent='Save Changes';save.onclick=function(){if(key==='speed'){try{localStorage.setItem('navueProfile',JSON.stringify(p));localStorage.setItem('navueSpeedPrefs',JSON.stringify({showSpeedometer:p.showSpeedometer!==false,showSpeedLimit:p.showSpeedLimit!==false,speedAlert:p.speedAlert!==false}));localStorage.setItem('navueSpeedometerEnabled',p.showSpeedometer===false?'0':'1')}catch(e){}window.dispatchEvent(new Event('navueSpeedPrefsChanged'));showMenu();return}window.savePreferences();showMenu()};detail.appendChild(save)}}
   else placeholder(title);
   s.classList.remove('navue-settings-menu-mode');s.classList.add('navue-settings-detail-mode');s.querySelector('h1').textContent='Settings';window.scrollTo(0,0)
  }
