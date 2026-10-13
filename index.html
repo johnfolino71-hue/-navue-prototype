@@ -6514,3 +6514,37 @@ No Settings, fuel, route, voice, ranking, or Steps 1–4 logic is modified.
 })();
 </script>
 
+<script>/* NAVUE_DRIVING_COST_SUMMARY_VISIBLE_RENAME_V1 — visible label/title rename only; no logic or architecture changes */
+(function(){
+ 'use strict';
+ function renameVisibleText(){
+  var prefs=document.getElementById('preferences');
+  if(!prefs)return;
+
+  var row=prefs.querySelector('.navue-settings-menu [data-setting="fuel"] .navue-settings-label');
+  if(row)row.textContent='Driving Cost Summary';
+
+  var detailTitle=prefs.querySelector('.navue-settings-detail-title');
+  if(detailTitle&&detailTitle.textContent.trim()==='Fuel & Cost'){
+    detailTitle.textContent='Driving Cost Summary';
+  }
+ }
+
+ if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',renameVisibleText);
+ }else{
+  renameVisibleText();
+ }
+
+ document.addEventListener('click',function(e){
+  var fuelRow=e.target&&e.target.closest&&e.target.closest('#preferences [data-setting="fuel"]');
+  if(fuelRow)setTimeout(renameVisibleText,0);
+ },true);
+
+ var prefs=document.getElementById('preferences');
+ if(prefs){
+  new MutationObserver(function(){renameVisibleText()}).observe(prefs,{childList:true,subtree:true});
+ }
+})();
+</script>
+
