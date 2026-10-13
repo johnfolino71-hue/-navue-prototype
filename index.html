@@ -6246,3 +6246,40 @@ Tolls/ferries remain separate from fuel.
 })();
 </script>
 
+<style>/* NAVUE_ROUTE_FINE_PRINT_MINIMAL_V2 */
+#routes .navue-route-compact-note{display:none!important}
+#routes .route-voice .small{display:none!important}
+#routes:has(#navueExceptionConsent) .route-voice .small{display:block!important;margin:4px 0 8px!important;font-size:13px!important;line-height:1.25!important}
+</style>
+<script>/* NAVUE_ROUTE_FINE_PRINT_MINIMAL_V2 */
+(function(){
+ 'use strict';
+ function trimException(){
+  var hint=document.querySelector('#routes .route-voice .small');
+  var box=document.getElementById('navueExceptionConsent');
+  if(!hint)return;
+  if(box){
+   var m=String(hint.textContent||'').match(/Route\s+([A-Z]).*?uses\s+([^\.]+)\./i);
+   if(m)hint.textContent='Route '+m[1]+' uses '+m[2]+'. Use it this time?';
+   hint.style.display='block';
+  }else{
+   hint.style.display='none';
+  }
+ }
+ var oldNotice=window.navueRouteNotice;
+ if(typeof oldNotice==='function')window.navueRouteNotice=function(){
+  var r=oldNotice.apply(this,arguments);setTimeout(trimException,0);return r;
+ };
+ var oldChoose=window.chooseRoute;
+ if(typeof oldChoose==='function')window.chooseRoute=function(){
+  var r=oldChoose.apply(this,arguments);setTimeout(trimException,0);return r;
+ };
+ var obs=new MutationObserver(function(){if(document.querySelector('#routes.active'))setTimeout(trimException,0)});
+ document.addEventListener('DOMContentLoaded',function(){
+  var routes=document.getElementById('routes');if(routes)obs.observe(routes,{childList:true,subtree:true,characterData:true});
+  trimException();
+ });
+ setTimeout(trimException,0);
+})();
+</script>
+
