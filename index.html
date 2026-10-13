@@ -6307,3 +6307,167 @@ Tolls/ferries remain separate from fuel.
 })();
 </script>
 
+<style>/* NAVUE_MONTHLY_END_POPUP_STEP5_SAFE_V1 — isolated month-end popup only */
+#navueMonthlyEndPopup{
+  display:none;position:fixed;inset:0;z-index:1600;background:rgba(18,36,58,.36);
+  align-items:center;justify-content:center;padding:20px;
+}
+#navueMonthlyEndPopup.open{display:flex}
+#navueMonthlyEndPopup .navue-monthly-popup-card{
+  width:min(368px,100%);background:#fff;border:1px solid #dfe7ee;border-radius:20px;
+  padding:16px;box-shadow:0 16px 44px rgba(20,48,76,.22);
+}
+#navueMonthlyEndPopup .navue-monthly-popup-range{
+  font-size:12px;font-weight:400;letter-spacing:.2px;color:#1769e0;text-transform:uppercase;
+}
+#navueMonthlyEndPopup h2{
+  margin:4px 0 12px;font-size:22px;line-height:1.15;font-weight:500;color:#172126;
+}
+#navueMonthlyEndPopup .navue-monthly-popup-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0 12px;
+}
+#navueMonthlyEndPopup .navue-monthly-popup-item{
+  background:#f7f9fb;border:1px solid #e2e8ed;border-radius:12px;padding:9px 10px;
+}
+#navueMonthlyEndPopup .navue-monthly-popup-label{
+  display:block;font-size:11px;line-height:1.15;color:#66737d;font-weight:400;margin-bottom:4px;
+}
+#navueMonthlyEndPopup .navue-monthly-popup-value{
+  display:block;font-size:19px;line-height:1.05;color:#172126;font-weight:500;
+}
+#navueMonthlyEndPopup .navue-monthly-popup-note{
+  font-size:12px;line-height:1.3;color:#607078;margin:0 0 11px;font-weight:400;
+}
+#navueMonthlyEndPopup .navue-monthly-popup-close{
+  width:100%;min-height:40px;margin:0;padding:10px 12px;border-radius:14px;font-size:16px;font-weight:500;
+}
+</style>
+<script>/* NAVUE_MONTHLY_END_POPUP_STEP5_SAFE_V1
+Step 5 only. Reads the locked Step 4 finalized monthly snapshot and adds a one-time popup.
+No Settings, fuel, route, voice, ranking, or Steps 1–4 logic is modified.
+*/
+(function(){
+ 'use strict';
+ var SHOWN_KEY='navueMonthlyEndPopupShownV1';
+ var popup=null,pending=null;
+
+ function read(key,fallback){
+   try{var v=JSON.parse(localStorage.getItem(key)||'null');return v==null?fallback:v}catch(e){return fallback}
+ }
+ function write(key,value){
+   try{localStorage.setItem(key,JSON.stringify(value))}catch(e){}
+ }
+ function isUS(){
+   try{return (window.p&&p.fuelUnits)==='us'}catch(e){return false}
+ }
+ function fmtDate(ms){
+   var d=new Date(Number(ms)||0);
+   return d.toLocaleDateString([],{month:'short',day:'numeric'});
+ }
+ function fmtHours(sec){
+   return (Math.max(0,Number(sec)||0)/3600).toFixed(1)+' hr';
+ }
+ function fmtDistance(km){
+   km=Math.max(0,Number(km)||0);
+   return isUS()?(km*0.621371).toFixed(1)+' mi':km.toFixed(1)+' km';
+ }
+ function fmtCost(v){
+   var n=Number(v);
+   return Number.isFinite(n)?'$'+n.toFixed(2):'—';
+ }
+ function ensure(){
+   if(popup)return popup;
+   popup=document.createElement('div');
+   popup.id='navueMonthlyEndPopup';
+   popup.setAttribute('role','dialog');
+   popup.setAttribute('aria-modal','true');
+   popup.setAttribute('aria-labelledby','navueMonthlyEndPopupTitle');
+   popup.innerHTML=
+     '<div class="navue-monthly-popup-card">'+
+       '<div class="navue-monthly-popup-range" id="navueMonthlyEndPopupRange"></div>'+
+       '<h2 id="navueMonthlyEndPopupTitle">Monthly Driving Summary</h2>'+
+       '<div class="navue-monthly-popup-grid">'+
+         '<div class="navue-monthly-popup-item"><span class="navue-monthly-popup-label">Trips completed</span><span class="navue-monthly-popup-value" data-k="trips"></span></div>'+
+         '<div class="navue-monthly-popup-item"><span class="navue-monthly-popup-label">Estimated driving hours</span><span class="navue-monthly-popup-value" data-k="hours"></span></div>'+
+         '<div class="navue-monthly-popup-item"><span class="navue-monthly-popup-label">Distance driven</span><span class="navue-monthly-popup-value" data-k="distance"></span></div>'+
+         '<div class="navue-monthly-popup-item"><span class="navue-monthly-popup-label">Estimated fuel cost</span><span class="navue-monthly-popup-value" data-k="fuel"></span></div>'+
+       '</div>'+
+       '<div class="navue-monthly-popup-note">View this summary later in Settings → Fuel &amp; Cost.</div>'+
+       '<button type="button" class="navue-monthly-popup-close">Close</button>'+
+     '</div>';
+   document.body.appendChild(popup);
+   popup.querySelector('.navue-monthly-popup-close').onclick=function(){
+     if(!pending)return;
+     popup.classList.remove('open');
+     write(SHOWN_KEY,{monthKey:pending.monthKey,closedAt:Date.now()});
+     pending=null;
+   };
+   return popup;
+ }
+ function render(summary){
+   var el=ensure();
+   el.querySelector('#navueMonthlyEndPopupRange').textContent=fmtDate(summary.periodStart)+' – '+fmtDate(summary.periodEnd);
+   el.querySelector('[data-k="trips"]').textContent=String(Number(summary.tripsCompleted)||0);
+   el.querySelector('[data-k="hours"]').textContent=fmtHours(summary.drivingSeconds);
+   el.querySelector('[data-k="distance"]').textContent=fmtDistance(summary.distanceKm);
+   el.querySelector('[data-k="fuel"]').textContent=fmtCost(summary.fuelCost);
+ }
+ function homeVisible(){
+   return !!document.querySelector('#home.active');
+ }
+ function maybeShow(){
+   if(!pending||!homeVisible())return;
+   render(pending);
+   ensure().classList.add('open');
+ }
+ function detect(){
+   var state=null,prev=null;
+   try{
+     if(typeof window.navueMonthlyRolloverState==='function')state=window.navueMonthlyRolloverState();
+     if(typeof window.navuePreviousMonthlyFinalized==='function')prev=window.navuePreviousMonthlyFinalized();
+   }catch(e){}
+   if(!state||!prev||!prev.finalized||!prev.monthKey)return;
+   if(state.lastFinalizedMonthKey!==prev.monthKey)return;
+   var shown=read(SHOWN_KEY,null);
+   if(shown&&shown.monthKey===prev.monthKey)return;
+   pending=prev;
+   maybeShow();
+ }
+ var priorShow=window.show;
+ if(typeof priorShow==='function'){
+   window.show=function(id){
+     var r=priorShow.apply(this,arguments);
+     if(id==='home')setTimeout(maybeShow,0);
+     return r;
+   };
+ }
+ document.addEventListener('visibilitychange',function(){
+   if(!document.hidden)setTimeout(detect,40);
+ });
+ setTimeout(detect,120);
+
+ /* Isolated preview hook for verification only. Does not alter rollover state or mark the month as seen. */
+ window.navueMonthlyPreviewEndPopup=function(summary){
+   var x=summary;
+   if(!x&&typeof window.navuePreviousMonthlyFinalized==='function')x=window.navuePreviousMonthlyFinalized();
+   if(!x&&typeof window.navueCurrentMonthlySummary==='function'){
+     var cur=window.navueCurrentMonthlySummary(new Date()),now=new Date();
+     x=Object.assign({},cur,{
+       finalized:true,
+       monthKey:now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'),
+       periodStart:new Date(now.getFullYear(),now.getMonth(),1).getTime(),
+       periodEnd:new Date(now.getFullYear(),now.getMonth()+1,1).getTime()-1
+     });
+   }
+   if(!x)return false;
+   render(x);
+   pending=null;
+   var el=ensure();
+   el.classList.add('open');
+   var btn=el.querySelector('.navue-monthly-popup-close');
+   btn.onclick=function(){el.classList.remove('open')};
+   return true;
+ };
+})();
+</script>
+
