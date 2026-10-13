@@ -6908,3 +6908,192 @@ No Settings, fuel, route, voice, ranking, or Steps 1–4 logic is modified.
   };
 })();
 </script>
+
+
+<script>/* NAVUE_AI_STEP1_CONTEXT_BARGEIN_FIX_V2 — approved Step 1 stability corrections only */
+(function(){
+  'use strict';
+
+  var priorHandle=window.handleVoice;
+  var priorStart=window.startListen;
+
+  function clean(v){
+    return String(v||'').toLowerCase()
+      .replace(/[’']/g,'')
+      .replace(/[^a-z0-9\s]/g,' ')
+      .replace(/\s+/g,' ')
+      .trim();
+  }
+  function activePage(){
+    var el=document.querySelector('.screen.active');
+    return el?el.id:'';
+  }
+  function namedPlace(name){
+    var key=clean(name);
+    return (p.savedPlaces||[]).find(function(r){
+      return clean(r.name)===key && r.address && !/^(home|work)$/i.test(String(r.address).trim());
+    })||null;
+  }
+  function useNamedPlace(name){
+    var rec=namedPlace(name);
+    if(!rec)return false;
+    p.destination=rec.address;
+    try{save()}catch(e){}
+    buildRoutes(false);
+    // Start listening before NaVue begins describing route choices so the driver can interrupt.
+    if(p.micEnabled&&typeof rearmVoice==='function'){
+      setTimeout(function(){if(activePage()==='routes'&&!window.rec)rearmVoice('routes')},20);
+    }
+    if(p.voice&&typeof speak==='function'){
+      setTimeout(function(){
+        if(activePage()!=='routes')return;
+        speak(navueRoutePrompt(),false,p.voiceStyle,function(){
+          if(p.micEnabled&&typeof rearmVoice==='function')setTimeout(function(){rearmVoice('routes')},120);
+        });
+      },120);
+    }
+    return true;
+  }
+  function trailingDestinationIntent(t){
+    // Current destination context carries more weight than imperfect/misheard leading words.
+    if(/(?:^|\s)(?:take me|bring me|drive me|navigate me|go|head|get)\s+(?:to\s+)?(?:my\s+)?home$/.test(t)||t==='home')
+      return 'home';
+    if(/(?:^|\s)(?:take me|bring me|drive me|navigate me|go|head|get)\s+(?:to\s+)?(?:my\s+)?(?:work|office|the office)$/.test(t)||/^(?:work|office|the office)$/.test(t))
+      return 'work';
+    return '';
+  }
+  function syncSpeaker(){
+    try{setSpeaker()}catch(e){}
+    try{updateHomeSpeaker()}catch(e){}
+    document.querySelectorAll('#homeSpeaker,#speakerBtn,.navue-session-speaker').forEach(function(button){
+      var on=activePage()==='navigation'?!!tripVoice:!!p.voice;
+      button.classList.toggle('voice-on',on);
+      button.setAttribute('aria-pressed',on?'true':'false');
+    });
+  }
+  function guidanceOff(){
+    p.voice=false;
+    tripVoice=false;
+    // Speaker OFF and microphone ON are independent states.
+    p.micEnabled=true;
+    voiceFlow=true;
+    try{save()}catch(e){}
+    window.navueSpeechPending=false;
+    window.navueVoiceQuietUntil=0;
+    try{speechSynthesis.cancel()}catch(e){}
+    syncSpeaker();
+    if(!rec&&typeof rearmVoice==='function')setTimeout(function(){rearmVoice(activePage())},80);
+  }
+  function guidanceOn(){
+    p.voice=true;
+    tripVoice=true;
+    p.micEnabled=true;
+    voiceFlow=true;
+    try{save()}catch(e){}
+    syncSpeaker();
+    if(typeof speak==='function'){
+      speak('Voice guidance on.',true,p.voiceStyle,function(){
+        if(p.micEnabled&&!rec&&typeof rearmVoice==='function')setTimeout(function(){rearmVoice(activePage())},100);
+      });
+    }else if(!rec&&typeof rearmVoice==='function'){
+      setTimeout(function(){rearmVoice(activePage())},80);
+    }
+  }
+  function alongRouteCategory(t){
+    // Strip conversational lead-ins and route/location wording before category matching.
+    t=t
+      .replace(/^(?:hey\s+)?(?:navue|nabu|nebu|navu|nephew)\s+/,'')
+      .replace(/^(?:can|could|would)\s+you\s+/,'')
+      .replace(/^please\s+/,'')
+      .replace(/^(?:find|find me|show|show me|get|get me|look for|search for|look up)\s+/,'')
+      .replace(/^(?:a|an|some)\s+/,'')
+      .replace(/\s+(?:nearby|near me|close by|along (?:my|the) route|on (?:my|the) route|on the way|ahead).*$/,'')
+      .trim();
+
+    var map={
+      'coffee':'coffee','coffee shop':'coffee','coffee shops':'coffee','cafe':'coffee','cafes':'coffee',
+      'gas':'gas','gas station':'gas','gas stations':'gas','fuel':'gas',
+      'ev':'ev charging','ev charger':'ev charging','ev chargers':'ev charging',
+      'charging':'ev charging','charging station':'ev charging','charging stations':'ev charging',
+      'restaurant':'restaurants','restaurants':'restaurants','food':'restaurants',
+      'rest area':'rest areas','rest areas':'rest areas',
+      'washroom':'washrooms','washrooms':'washrooms','restroom':'washrooms','restrooms':'washrooms',
+      'pharmacy':'pharmacy','pharmacies':'pharmacy',
+      'grocery':'groceries','groceries':'groceries','grocery store':'groceries','grocery stores':'groceries',
+      'tim hortons':'tim hortons','starbucks':'starbucks'
+    };
+    return map[t]||null;
+  }
+  function clearCommandDuringSpeech(t,mode){
+    if(mode==='routes'&&/^(?:route\s*)?(?:a|ay|aye|eh|b|be|bee|c|see|sea|first|second|third|one|two|three|1|2|3)$/.test(t))return true;
+    if(/\b(?:voice|guidance|speaker)\b/.test(t)&&/\b(?:on|off|mute|unmute)\b/.test(t))return true;
+    if(/^(?:yes|yeah|yep|no|nope|cancel|go back|back)$/.test(t))return true;
+    if(/\b(?:another|different|alternate)\b.*\b(?:route|way)\b/.test(t))return true;
+    return false;
+  }
+
+  // Allow clear driver interruption while NaVue is speaking.
+  // The existing recognition result handler remains intact; cancelling speech here
+  // prevents its "NaVue is speaking" guard from discarding the driver's result.
+  window.startListen=function(mode,button,auto){
+    var result=priorStart.apply(this,arguments),session=rec;
+    if(!session||session.navueStep1BargeIn)return result;
+    session.navueStep1BargeIn=true;
+    var previousSpeechStart=session.onspeechstart;
+    session.onspeechstart=function(e){
+      var speaking=!!(window.speechSynthesis&&(speechSynthesis.speaking||speechSynthesis.pending))||!!window.navueSpeechPending;
+      if(speaking&&p.micEnabled){
+        window.navueSpeechPending=false;
+        window.navueVoiceQuietUntil=0;
+        try{speechSynthesis.cancel()}catch(x){}
+        return;
+      }
+      if(previousSpeechStart)previousSpeechStart.call(this,e);
+    };
+    return result;
+  };
+
+  window.handleVoice=function(raw,mode){
+    var t=clean(raw),page=activePage();
+
+    // Context first: when NaVue is waiting for a destination, Home/Work are destination answers,
+    // even if speech recognition adds a noisy/misheard word before the clear command.
+    if(page==='home'||page==='destination'||mode==='home'||mode==='destination'){
+      var intent=trailingDestinationIntent(t);
+      if(intent==='home'){
+        if(useNamedPlace('home'))return;
+        return priorHandle.call(this,'home',mode);
+      }
+      if(intent==='work'){
+        if(useNamedPlace('work'))return;
+        return priorHandle.call(this,'work',mode);
+      }
+    }
+
+    // Guidance has only ON/OFF. Saying "mute" means OFF, but the microphone remains ON.
+    if(/\b(?:voice guidance|guidance|voice|speaker)\b.*\b(?:mute|off)\b|\b(?:mute|turn off|shut off|switch off)\b.*\b(?:voice guidance|guidance|voice|speaker)\b/.test(t)){
+      guidanceOff();return;
+    }
+    if(/\b(?:voice guidance|guidance|voice|speaker)\b.*\b(?:back on|on|unmute)\b|\b(?:turn|switch)\s+(?:the\s+)?(?:voice guidance|guidance|voice|speaker)\s+back\s+on\b|\bunmute\b.*\b(?:voice guidance|guidance|voice|speaker)?\b/.test(t)){
+      guidanceOn();return;
+    }
+
+    // Route choice should accept a short answer immediately, including common letter transcriptions.
+    if(page==='routes'||mode==='routes'){
+      var routeMap={a:'a',ay:'a',aye:'a',eh:'a',one:'a',first:'a','1':'a',
+                    b:'b',be:'b',bee:'b',two:'b',second:'b','2':'b',
+                    c:'c',see:'c',sea:'c',three:'c',third:'c','3':'c'};
+      var short=t.replace(/^(?:take|choose|select|pick|use)\s+(?:me\s+)?(?:to\s+)?(?:route\s+)?/,'').replace(/^route\s+/,'').trim();
+      if(routeMap[short])return priorHandle.call(this,'route '+routeMap[short],mode);
+    }
+
+    // Natural along-route category requests must use the existing prototype sample search.
+    if(page==='navigation'){
+      var cat=alongRouteCategory(t);
+      if(cat)return priorHandle.call(this,'find '+cat+' along my route',mode);
+    }
+
+    return priorHandle.apply(this,arguments);
+  };
+})();
+</script>
