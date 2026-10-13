@@ -6771,3 +6771,140 @@ No Settings, fuel, route, voice, ranking, or Steps 1–4 logic is modified.
   };
 })();
 </script>
+
+
+<script>/* NAVUE_AI_STEP1_INTENT_INTEGRATION_FIX_V1 — approved Step 1 test corrections only */
+(function(){
+  'use strict';
+  var priorHandle=window.handleVoice;
+
+  function clean(v){
+    return String(v||'').toLowerCase()
+      .replace(/[’']/g,'')
+      .replace(/[^a-z0-9\s]/g,' ')
+      .replace(/\s+/g,' ')
+      .trim();
+  }
+  function page(){
+    var el=document.querySelector('.screen.active');
+    return el?el.id:'';
+  }
+  function addressed(v){
+    return clean(v)
+      .replace(/^(?:hey\s+)?navue\s+/,'')
+      .replace(/^(?:can|could|would)\s+you\s+/,'')
+      .replace(/^please\s+/,'')
+      .replace(/\s+please$/,'')
+      .trim();
+  }
+  function savedNamed(name){
+    var key=clean(name);
+    return (p.savedPlaces||[]).find(function(r){
+      return clean(r.name)===key && r.address && !/^(home|work)$/i.test(String(r.address).trim());
+    })||null;
+  }
+  function speakRoutes(){
+    if(!p.voice||typeof speak!=='function')return;
+    setTimeout(function(){
+      speak(navueRoutePrompt(),false,p.voiceStyle,function(){
+        if(p.micEnabled&&typeof rearmVoice==='function')setTimeout(function(){rearmVoice('routes')},150);
+      });
+    },120);
+  }
+  function goNamedPlace(name){
+    var rec=savedNamed(name);
+    if(!rec)return false;
+    p.destination=rec.address;
+    try{save()}catch(e){}
+    // Known Home/Work voice requests bypass the optional destination-image question.
+    // Route choice remains unchanged: driver still receives the existing A/B/C choices.
+    buildRoutes(false);
+    speakRoutes();
+    return true;
+  }
+  function syncSpeakerOnly(){
+    try{setSpeaker()}catch(e){}
+    try{updateHomeSpeaker()}catch(e){}
+    document.querySelectorAll('#homeSpeaker,#speakerBtn,.navue-session-speaker').forEach(function(button){
+      var on=page()==='navigation'?!!tripVoice:!!p.voice;
+      button.classList.toggle('voice-on',on);
+      button.setAttribute('aria-pressed',on?'true':'false');
+    });
+  }
+  function guidanceOff(){
+    p.voice=false;
+    tripVoice=false;
+    // Important: guidance OFF is not microphone OFF. Keep the active listener alive.
+    p.micEnabled=true;
+    voiceFlow=true;
+    try{save()}catch(e){}
+    try{speechSynthesis.cancel()}catch(e){}
+    syncSpeakerOnly();
+    if(!rec&&typeof rearmVoice==='function')setTimeout(function(){rearmVoice(page())},120);
+  }
+  function guidanceOn(){
+    p.voice=true;
+    tripVoice=true;
+    p.micEnabled=true;
+    voiceFlow=true;
+    try{save()}catch(e){}
+    syncSpeakerOnly();
+    if(typeof speak==='function'){
+      speak('Voice guidance on.',true,p.voiceStyle,function(){
+        if(p.micEnabled&&!rec&&typeof rearmVoice==='function')setTimeout(function(){rearmVoice(page())},160);
+      });
+    }else if(!rec&&typeof rearmVoice==='function'){
+      setTimeout(function(){rearmVoice(page())},120);
+    }
+  }
+  function normalizedAlongRoute(t){
+    var m=t.match(/^(?:find|find me|search for|look for|look up|show me|get me)\s+(?:a |an |some )?(.+?)(?:\s+(?:nearby|near me|along (?:my |the )?route|on (?:my |the )?route|on the way|ahead))?$/);
+    if(!m)return null;
+    var q=m[1].replace(/^(?:a|an|some)\s+/,'').trim();
+    var map={
+      'coffee':'coffee','coffee shop':'coffee','coffee shops':'coffee','cafe':'coffee','cafes':'coffee',
+      'gas':'gas','gas station':'gas','gas stations':'gas','fuel':'gas',
+      'ev':'ev charging','ev charger':'ev charging','ev chargers':'ev charging','charging station':'ev charging','charging stations':'ev charging',
+      'restaurant':'restaurants','restaurants':'restaurants','food':'restaurants',
+      'rest area':'rest areas','rest areas':'rest areas',
+      'washroom':'washrooms','washrooms':'washrooms','restroom':'washrooms','restrooms':'washrooms',
+      'pharmacy':'pharmacy','pharmacies':'pharmacy',
+      'grocery':'groceries','groceries':'groceries','grocery store':'groceries','grocery stores':'groceries',
+      'tim hortons':'tim hortons','starbucks':'starbucks'
+    };
+    return map[q]||null;
+  }
+
+  window.handleVoice=function(raw,mode){
+    var t=addressed(raw),active=page();
+
+    // Known Home / Work should resolve to the saved address without the image/place-name detour.
+    if(/^(?:take me|go|drive|navigate|head|get)\s+(?:to\s+)?(?:my\s+)?home$/.test(t)){
+      if(goNamedPlace('home'))return;
+    }
+    if(/^(?:take me|go|drive|navigate|head|get)\s+(?:to\s+)?(?:my\s+)?(?:work|office)$/.test(t)){
+      if(goNamedPlace('work'))return;
+    }
+
+    // Guidance mute/unmute changes speaker guidance only; it never disables listening.
+    if(/\b(?:mute|silence|shut off|turn off|stop)\b.*\b(?:voice|guidance|directions|speaker|talking)\b|\bno more voice guidance\b/.test(t)){
+      guidanceOff();return;
+    }
+    if(/\b(?:unmute|turn on|switch on|restore)\b.*\b(?:voice|guidance|directions|speaker)\b|\bturn guidance back on\b|\bvoice guidance on\b/.test(t)){
+      guidanceOn();return;
+    }
+
+    // Natural category language maps to the existing simulated along-route categories.
+    if(active==='navigation'){
+      var category=normalizedAlongRoute(t);
+      if(category)return priorHandle.call(this,'find '+category+' along my route',mode);
+
+      // Natural route-letter wording should still use the existing A/B/C selection mechanism.
+      var route=t.match(/^(?:take|choose|select|pick|use)\s+(?:me\s+)?(?:to\s+)?(?:route\s+)?([abc])$/);
+      if(route)return priorHandle.call(this,'route '+route[1],mode);
+    }
+
+    return priorHandle.apply(this,arguments);
+  };
+})();
+</script>
