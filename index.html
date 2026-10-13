@@ -6471,3 +6471,46 @@ No Settings, fuel, route, voice, ranking, or Steps 1–4 logic is modified.
 })();
 </script>
 
+<script>/* NAVUE_MONTHLY_STEP5_TEMP_SETTINGS_PREVIEW_V1 — temporary Settings preview control only */
+(function(){
+ 'use strict';
+
+ function install(){
+  var prefs=document.getElementById('preferences');
+  if(!prefs||document.getElementById('navueMonthlyPreviewSettingsRow'))return;
+
+  var menu=prefs.querySelector('.navue-settings-menu');
+  if(!menu)return;
+
+  var groups=Array.from(menu.querySelectorAll('.navue-settings-group'));
+  var navueGroup=groups.find(function(g){
+    var t=g.querySelector('.navue-settings-group-title');
+    return t&&t.textContent.trim()==='NaVue';
+  });
+  if(!navueGroup)return;
+
+  var b=document.createElement('button');
+  b.id='navueMonthlyPreviewSettingsRow';
+  b.type='button';
+  b.className='navue-settings-row';
+  b.innerHTML='<span class="navue-settings-icon">▣</span><span class="navue-settings-label">Preview Month-End Summary</span><span class="navue-settings-chevron">›</span>';
+  b.onclick=function(){
+    var ok=false;
+    try{
+      if(typeof window.navueMonthlyPreviewEndPopup==='function'){
+        ok=window.navueMonthlyPreviewEndPopup();
+      }
+    }catch(e){}
+    if(!ok)alert('Monthly summary preview is not available yet.');
+  };
+  navueGroup.appendChild(b);
+ }
+
+ if(document.readyState==='loading'){
+   document.addEventListener('DOMContentLoaded',function(){setTimeout(install,0)});
+ }else{
+   setTimeout(install,0);
+ }
+})();
+</script>
+
