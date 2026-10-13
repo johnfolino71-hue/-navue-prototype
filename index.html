@@ -5421,6 +5421,10 @@ button.gear svg{width:26px;height:26px;display:block}
  window.addEventListener('beforeunload',function(){if(active)finalize(false,'app-closed')});
  window.navueMonthlyTripLedger=function(){return ledger().slice()};
  window.navueMonthlyActiveTrip=function(){return active?Object.assign({},active):null};
+ window.navueMonthlySyncSelectedRoute=function(route){
+  if(!route)return;
+  begin(route);
+ };
 })();
 </script>
 <script>/* NAVUE_MONTHLY_CURRENT_TOTALS_STEP2_V1 — calculation only; no Fuel & Cost UI changes */
@@ -6171,6 +6175,23 @@ Tolls/ferries remain separate from fuel.
    currentRoutes.some(function(x){return navueRouteAllowed(x)}) &&
    navueKnownRoadFacts(r)
   );
+ };
+})();
+</script>
+
+<script>/* NAVUE_ALTERNATE_ROUTE_LEDGER_HANDOFF_FIX_V1 — ensure the finally selected route is handed to the active monthly trip ledger */
+(function(){
+ 'use strict';
+ var prior=window.chooseRoute;
+ if(typeof prior!=='function')return;
+ window.chooseRoute=function(route){
+  var out=prior.apply(this,arguments);
+  try{
+   if(route&&document.querySelector('.screen.active')?.id==='navigation'&&typeof window.navueMonthlySyncSelectedRoute==='function'){
+    window.navueMonthlySyncSelectedRoute(route);
+   }
+  }catch(e){}
+  return out;
  };
 })();
 </script>
