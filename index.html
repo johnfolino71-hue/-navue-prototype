@@ -2170,11 +2170,11 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(!yes){tell('Cancelled. Your current route and preferences are unchanged. '+navueRoutePrompt());return}
   if(!navueExceptionEligible(item.route)){tell('That option is no longer available. Please request alternatives again.');return}
   navueApprovedException=item.route;
-  try{return choose.call(window,item.route,item.byVoice)}finally{navueApprovedException=null}
+  try{return window.chooseRoute.call(window,item.route,item.byVoice)}finally{navueApprovedException=null}
  }
  window.chooseRoute=function(route,byVoice){
   clear();
-  if(navueRouteAllowed(route))return choose.apply(this,arguments);
+  if(navueRouteAllowed(route)||navueApprovedException===route)return choose.apply(this,arguments);
   if(!navueExceptionEligible(route)){tell('That route is unavailable under your restrictions. '+navueRoutePrompt());return}
   pending={route:route,byVoice:byVoice};
   var message='Route '+route.id+' '+navueRestrictionReasons(route).join(' and ')+'. Allow this exception for this route only? Say yes or no.';
