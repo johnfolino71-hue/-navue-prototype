@@ -6638,3 +6638,136 @@ No Settings, fuel, route, voice, ranking, or Steps 1–4 logic is modified.
   font-size:28px!important;
 }
 </style>
+
+
+<script>/* NAVUE_AI_STEP1_INTENT_FOUNDATION_V1 — intent catalogue + natural-language normalization only */
+(function(){
+  'use strict';
+  var priorHandle=window.handleVoice;
+
+  var CATALOG=Object.freeze({
+    destination:Object.freeze(['go-to-destination','change-destination','correct-destination','home','work','saved-place']),
+    route:Object.freeze(['choose-route','alternate-route','reject-route','route-information']),
+    stops:Object.freeze(['add-stop','remove-stop','search-along-route','manage-stops']),
+    trip:Object.freeze(['eta','remaining-time','distance','arrival-time','trip-status']),
+    preferences:Object.freeze(['road-preference','toll-preference','driving-preference']),
+    controls:Object.freeze(['start-navigation','reroute','guidance-on','guidance-off','repeat','end-navigation']),
+    navueInfo:Object.freeze(['fuel-price','fuel-cost','mileage','monthly-driving-summary']),
+    conversation:Object.freeze(['correction','clarification','affirmation','rejection']),
+    nonNavigation:Object.freeze(['unrelated-speech'])
+  });
+
+  function clean(value){
+    return String(value||'').toLowerCase()
+      .replace(/[’']/g,'')
+      .replace(/[^a-z0-9\s]/g,' ')
+      .replace(/\s+/g,' ')
+      .trim();
+  }
+  function stripAddressing(text){
+    return clean(text)
+      .replace(/^(?:hey\s+)?navue\s+/,'')
+      .replace(/^(?:can|could|would)\s+you\s+/,'')
+      .replace(/^please\s+/,'')
+      .replace(/\s+please$/,'')
+      .trim();
+  }
+  function activePage(){
+    var el=document.querySelector('.screen.active');
+    return el?el.id:'';
+  }
+  function result(group,intent,confidence,canonical,raw){
+    return {group:group,intent:intent,confidence:confidence,canonical:canonical||'',raw:String(raw||''),normalized:stripAddressing(raw),page:activePage()};
+  }
+
+  function interpret(raw){
+    var t=stripAddressing(raw);
+    if(!t)return result('nonNavigation','unrelated-speech',0,'',raw);
+
+    if(/^(?:yes|yeah|yep|sure|correct|thats right|go ahead|do it)$/.test(t))
+      return result('conversation','affirmation',0.98,'yes',raw);
+    if(/^(?:no|nope|no thanks|not that|thats wrong|wrong one)$/.test(t))
+      return result('conversation','rejection',0.98,'no',raw);
+    if(/^(?:correction|correct that|no i meant|thats not what i meant|wrong address|wrong destination)/.test(t))
+      return result('conversation','correction',0.98,'correction',raw);
+
+    if(/\b(?:end|stop|cancel|finish)\b.*\b(?:trip|navigation|route|journey|drive)\b|\b(?:im|i am|were|we are)\s+done\b/.test(t))
+      return result('controls','end-navigation',0.97,'end trip',raw);
+    if(/\b(?:mute|silence|shut off|turn off|stop)\b.*\b(?:voice|guidance|directions|speaker|talking)\b|\bno more voice guidance\b/.test(t))
+      return result('controls','guidance-off',0.96,'mute',raw);
+    if(/\b(?:unmute|turn on|switch on|restore)\b.*\b(?:voice|guidance|directions|speaker)\b/.test(t))
+      return result('controls','guidance-on',0.96,'unmute',raw);
+    if(/^(?:repeat|repeat that|say that again|say it again|what did you say)$/.test(t))
+      return result('controls','repeat',0.99,'repeat',raw);
+
+    if(/\b(?:change|switch|replace)\b.*\bdestination\b|\b(?:go|take me)\s+somewhere else\b|\b(?:change|switch)\s+where\s+(?:we are|were|im|i am)\s+going\b/.test(t))
+      return result('destination','change-destination',0.97,'change my destination',raw);
+    if(/^(?:take me|go|drive|navigate)\s+(?:to\s+)?home$|^(?:head|get)\s+home$/.test(t))
+      return result('destination','home',0.99,'take me home',raw);
+    if(/^(?:take me|go|drive|navigate)\s+(?:to\s+)?(?:work|the office|my office)$|^(?:head|get)\s+to\s+(?:work|the office|my office)$/.test(t))
+      return result('destination','work',0.99,'take me to work',raw);
+
+    if(/\b(?:another|different|alternate|alternative|better)\b.*\b(?:route|way)\b|\b(?:route|way)\b.*\b(?:another|different|alternate|alternative|better)\b|\bi dont like (?:this|the) (?:route|way)\b|\bcan we go another way\b/.test(t))
+      return result('route','alternate-route',0.96,'another route',raw);
+    if(/\b(?:route\s*)?a\b|\bfirst route\b/.test(t))
+      return result('route','choose-route',0.93,'route a',raw);
+    if(/\b(?:route\s*)?b\b|\bsecond route\b/.test(t))
+      return result('route','choose-route',0.93,'route b',raw);
+    if(/\b(?:route\s*)?c\b|\bthird route\b/.test(t))
+      return result('route','choose-route',0.93,'route c',raw);
+
+    var stopSearch=t.match(/^(?:find|search for|look for|look up|get me|show me)\s+(?:a |an |some )?(.+?)(?:\s+(?:along|on)\s+(?:my|the)\s+route|\s+on\s+the\s+way|\s+ahead)?$/);
+    if(stopSearch&&/\b(?:gas|fuel|coffee|cafe|restaurant|food|parking|charger|charging|hotel|washroom|restroom)\b/.test(stopSearch[1]))
+      return result('stops','search-along-route',0.93,'find '+stopSearch[1],raw);
+    if(/\b(?:add|make)\b.*\bstop\b/.test(t))
+      return result('stops','add-stop',0.92,'add stop',raw);
+    if(/\b(?:remove|delete|skip)\b.*\bstop\b/.test(t))
+      return result('stops','remove-stop',0.94,t,raw);
+
+    if(/\bhow much longer\b|\bhow long (?:is left|until|till)\b|\b(?:when|what time) (?:will|do) (?:we|i) (?:arrive|get there)\b|\bare we (?:almost|nearly) there\b|\bwhats my eta\b|\bwhat is my eta\b/.test(t))
+      return result('trip','eta',0.97,'how much longer',raw);
+    if(/\bhow far\b.*\b(?:destination|there|left|remaining)\b|\bdistance (?:left|remaining)\b/.test(t))
+      return result('trip','distance',0.91,t,raw);
+
+    if(/\b(?:avoid|skip|stay off|no)\b.*\b(?:highway|highways|freeway|freeways)\b/.test(t))
+      return result('preferences','road-preference',0.94,t,raw);
+    if(/\b(?:avoid|skip|no)\b.*\b(?:toll|tolls|paid road|paid roads|paid ferry|paid ferries)\b/.test(t))
+      return result('preferences','toll-preference',0.94,t,raw);
+
+    if(/\b(?:fuel|gas)\b.*\bprice\b|\bprice\b.*\b(?:fuel|gas)\b/.test(t))
+      return result('navueInfo','fuel-price',0.93,t,raw);
+    if(/\b(?:fuel|gas)\b.*\bcost\b|\bcost\b.*\b(?:fuel|gas)\b/.test(t))
+      return result('navueInfo','fuel-cost',0.93,t,raw);
+    if(/\b(?:monthly|last month|this month)\b.*\b(?:summary|mileage|distance|fuel|driving)\b|\bdriving summary\b/.test(t))
+      return result('navueInfo','monthly-driving-summary',0.92,t,raw);
+    if(/\b(?:mileage|distance driven)\b/.test(t))
+      return result('navueInfo','mileage',0.88,t,raw);
+
+    var navigationWords=/\b(?:navue|navigate|navigation|route|road|street|highway|freeway|traffic|drive|driving|destination|turn|lane|eta|arrive|arrival|toll|ferry|parking|gas|fuel|charger|charging|speed|home|work|saved|microphone|mic|speaker|voice|settings|map|stop|trip|hazard)\b/;
+    if(!navigationWords.test(t))
+      return result('nonNavigation','unrelated-speech',0.84,'',raw);
+
+    return result('conversation','clarification',0.45,'',raw);
+  }
+
+  function canonicalForExisting(intent,raw,mode){
+    if(!intent||intent.confidence<0.90||!intent.canonical)return raw;
+    if(intent.intent==='choose-route'&&mode!=='routes')return raw;
+    if(intent.intent==='search-along-route'&&activePage()!=='navigation')return raw;
+    if(intent.intent==='add-stop'&&activePage()!=='navigation')return raw;
+    if(intent.intent==='remove-stop'&&activePage()!=='navigation')return raw;
+    return intent.canonical;
+  }
+
+  window.navueIntentCatalogStep1=CATALOG;
+  window.navueIntentStep1=interpret;
+  window.navueLastIntentStep1=null;
+
+  window.handleVoice=function(raw,mode){
+    var intent=interpret(raw);
+    window.navueLastIntentStep1=intent;
+    var normalized=canonicalForExisting(intent,raw,mode);
+    return priorHandle.call(this,normalized,mode);
+  };
+})();
+</script>
