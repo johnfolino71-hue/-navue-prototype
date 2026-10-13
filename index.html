@@ -3621,7 +3621,14 @@ button:not(:is(.mic,.gear,.home-speaker,.speaker,.navue-session-speaker,.navue-s
   get('prefFuelPriceLabel').textContent=us?'AVERAGE FUEL PRICE — $/GALLON':'AVERAGE FUEL PRICE — $/LITRE';
  };
  function fill(){
-  Object.entries(fields).forEach(([key,id])=>{get(id).value=p[key]??(key==='fuelUnits'?'metric':'')});
+  Object.entries(fields).forEach(([key,id])=>{
+   var value=p[key]??(key==='fuelUnits'?'metric':'');
+   if(key==='fuelPrice'&&value!==''){
+    var n=Number(value);
+    if(Number.isFinite(n))value=n.toFixed(2);
+   }
+   get(id).value=value;
+  });
   renderPrefFuelLabels();
  }
  const priorShow=window.show;
