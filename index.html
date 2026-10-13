@@ -5537,10 +5537,12 @@ button.gear svg{width:26px;height:26px;display:block}
    box.className='navue-monthly-current';
    var reminder=document.getElementById('navue7FuelReminderRow');
    var save=Array.from(detail.querySelectorAll('button')).find(function(b){return b.textContent.trim()==='Save Changes'});
-   if(reminder)detail.insertBefore(box,reminder);
+   if(reminder)reminder.insertAdjacentElement('afterend',box);
    else if(save)detail.insertBefore(box,save);
    else detail.appendChild(box);
   }
+  var liveReminder=document.getElementById('navue7FuelReminderRow');
+  if(liveReminder&&box.previousElementSibling!==liveReminder)liveReminder.insertAdjacentElement('afterend',box);
   box.innerHTML=
    '<div class="navue-monthly-current-title">Current Monthly Summary</div>'+
    '<div class="navue-monthly-current-range">'+fmtDate(totals.periodStart)+' – '+fmtDate(totals.periodEnd)+'</div>'+
