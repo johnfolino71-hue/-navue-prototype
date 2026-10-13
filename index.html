@@ -6196,3 +6196,53 @@ Tolls/ferries remain separate from fuel.
 })();
 </script>
 
+<style>/* NAVUE_ROUTE_FINE_PRINT_COMPACT_V1 */
+#routes .navue-route-compact-note{font-size:13px;line-height:1.25;color:#607078;margin:8px 0 10px}
+#routes .route-voice .small{margin:0 0 8px!important;font-size:13px!important;line-height:1.25!important}
+</style>
+<script>/* NAVUE_ROUTE_FINE_PRINT_COMPACT_V1 */
+(function(){
+ 'use strict';
+ function compact(){
+  var routes=document.getElementById('routes');if(!routes)return;
+  var dest=routes.querySelector('.card');
+  if(!dest)return;
+  var existing=routes.querySelector('.navue-route-compact-note');
+  if(!existing){
+   existing=document.createElement('div');
+   existing.className='navue-route-compact-note';
+   dest.insertAdjacentElement('afterend',existing);
+  }
+  existing.textContent='Routes follow your preferences. Restricted options may require confirmation.';
+
+  // Hide the older long explanatory paragraph and generic available-routes line.
+  var children=[].slice.call(routes.children);
+  children.forEach(function(el){
+   if(el===existing||el===dest||el.id==='routeCards'||el.classList.contains('route-voice')||el.classList.contains('navue-session-controls'))return;
+   var t=String(el.textContent||'').trim();
+   if(/^Initial routes follow your restrictions\./i.test(t))el.style.display='none';
+  });
+  var hint=routes.querySelector('.route-voice .small');
+  if(hint&&!/Allow this exception|uses toll roads|uses highways\/freeways|uses paid ferries/i.test(hint.textContent||'')){
+   hint.style.display='none';
+  }else if(hint){
+   hint.style.display='';
+  }
+ }
+ var oldNotice=window.navueRouteNotice;
+ if(typeof oldNotice==='function')window.navueRouteNotice=function(){
+  var r=oldNotice.apply(this,arguments);setTimeout(compact,0);return r;
+ };
+ var oldChoose=window.chooseRoute;
+ if(typeof oldChoose==='function')window.chooseRoute=function(){
+  var r=oldChoose.apply(this,arguments);setTimeout(compact,0);return r;
+ };
+ var obs=new MutationObserver(function(){if(document.querySelector('#routes.active'))setTimeout(compact,0)});
+ document.addEventListener('DOMContentLoaded',function(){
+  var routes=document.getElementById('routes');if(routes)obs.observe(routes,{childList:true,subtree:true,characterData:true});
+  compact();
+ });
+ setTimeout(compact,0);
+})();
+</script>
+
