@@ -6574,3 +6574,37 @@ No Settings, fuel, route, voice, ranking, or Steps 1–4 logic is modified.
 }
 </style>
 
+<script>/* NAVUE_FUEL_PRICE_TWO_DECIMAL_DISPLAY_V1 — display formatting only */
+(function(){
+ 'use strict';
+ function two(v){
+  var s=String(v==null?'':v).trim();
+  if(!s)return '';
+  var n=Number(s);
+  return Number.isFinite(n)?n.toFixed(2):s;
+ }
+ function formatFuelPriceField(){
+  var pref=document.getElementById('prefFuelPrice');
+  if(pref&&pref.value.trim()!=='')pref.value=two(pref.value);
+  var onboard=document.getElementById('fuelPrice');
+  if(onboard&&onboard.value.trim()!=='')onboard.value=two(onboard.value);
+ }
+ document.addEventListener('click',function(e){
+  if(e.target&&e.target.closest&&e.target.closest('#preferences [data-setting="fuel"]')){
+    setTimeout(formatFuelPriceField,0);
+    setTimeout(formatFuelPriceField,80);
+  }
+ },true);
+ document.addEventListener('focusout',function(e){
+  if(e.target&&e.target.id==='prefFuelPrice'&&e.target.value.trim()!==''){
+    e.target.value=two(e.target.value);
+  }
+ },true);
+ if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(formatFuelPriceField,0)});
+ }else{
+  setTimeout(formatFuelPriceField,0);
+ }
+})();
+</script>
+
