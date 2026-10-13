@@ -6447,3 +6447,50 @@ after rollover. Manual Close only. No voice, mic, speaker, route, fuel, or ledge
 })();
 </script>
 
+<script>/* NAVUE_MONTHLY_STEP5_TEMP_PREVIEW_BUTTON_V1 — temporary verification control only */
+(function(){
+ 'use strict';
+ function addButton(){
+  var prefs=document.getElementById('preferences');
+  if(!prefs||document.getElementById('navueMonthlyPreviewButton'))return;
+
+  var restart=[...prefs.querySelectorAll('button')].find(function(b){return /Restart Onboarding/i.test(b.textContent||'')});
+  if(!restart)return;
+
+  var btn=document.createElement('button');
+  btn.id='navueMonthlyPreviewButton';
+  btn.type='button';
+  btn.className='secondary';
+  btn.textContent='Preview Month-End Summary';
+  btn.onclick=function(){
+   var ok=false;
+   try{
+    if(typeof window.navueMonthlyPreviewEndPopup==='function'){
+     var prev=typeof window.navuePreviousMonthlyFinalized==='function'?window.navuePreviousMonthlyFinalized():null;
+     if(prev) ok=window.navueMonthlyPreviewEndPopup(prev);
+     else if(typeof window.navueCurrentMonthlySummary==='function'){
+      var cur=window.navueCurrentMonthlySummary(new Date());
+      var now=new Date();
+      var start=new Date(now.getFullYear(),now.getMonth(),1).getTime();
+      var end=new Date(now.getFullYear(),now.getMonth()+1,1).getTime()-1;
+      var demo=Object.assign({},cur,{
+       finalized:true,
+       monthKey:now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'),
+       periodStart:start,
+       periodEnd:end
+      });
+      ok=window.navueMonthlyPreviewEndPopup(demo);
+     }
+    }
+   }catch(e){}
+   if(!ok) alert('Monthly summary preview is not available yet.');
+  };
+
+  restart.insertAdjacentElement('afterend',btn);
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',addButton);
+ else addButton();
+ setTimeout(addButton,0);
+})();
+</script>
+
