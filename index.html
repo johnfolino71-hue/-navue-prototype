@@ -4574,21 +4574,7 @@ button.gear svg{width:26px;height:26px;display:block}
     if(!w){alert('Please allow pop-ups to print the report.');return}
     var safe=reportText().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     w.document.write('<!doctype html><html><head><title>NaVue Live Network — Owner Report</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Arial,sans-serif;padding:32px;color:#172126}pre{white-space:pre-wrap;font:16px/1.5 Arial,sans-serif}</style></head><body><pre>'+safe+'</pre><script>window.onload=function(){window.print()}<\/script>
-<style>/* NAVUE_SETTINGS_HEADER_REFINEMENT_V1 — approved visual-only Settings header refinement */
-#preferences.navue-settings-menu-mode>h1{
-  font-size:28px!important;
-  line-height:1.1!important;
-  font-weight:700!important;
-  margin-top:-4px!important;
-  margin-bottom:6px!important;
-}
-#preferences.navue-settings-menu-mode .navue-settings-group:first-child{
-  margin-top:0!important;
-}
-#preferences.navue-settings-menu-mode .navue-settings-group:first-child>.navue-settings-group-title{
-  display:none!important;
-}
-</style>
+
 </body></html>');
     w.document.close();
   }
@@ -6631,3 +6617,18 @@ No Settings, fuel, route, voice, ranking, or Steps 1–4 logic is modified.
 })();
 </script>
 
+<style>/* NAVUE_SETTINGS_HEADER_REFINEMENT_V1 — approved visual-only Settings header refinement */
+#preferences.navue-settings-menu-mode>h1{
+  font-size:28px!important;
+  line-height:1.1!important;
+  font-weight:700!important;
+  margin-top:-4px!important;
+  margin-bottom:6px!important;
+}
+#preferences.navue-settings-menu-mode .navue-settings-group:first-child{
+  margin-top:0!important;
+}
+#preferences.navue-settings-menu-mode .navue-settings-group:first-child>.navue-settings-group-title{
+  display:none!important;
+}
+</style>
