@@ -6392,7 +6392,7 @@ No Settings, fuel, route, voice, ranking, or Steps 1–4 logic is modified.
          '<div class="navue-monthly-popup-item"><span class="navue-monthly-popup-label">Distance driven</span><span class="navue-monthly-popup-value" data-k="distance"></span></div>'+
          '<div class="navue-monthly-popup-item"><span class="navue-monthly-popup-label">Estimated fuel cost</span><span class="navue-monthly-popup-value" data-k="fuel"></span></div>'+
        '</div>'+
-       '<div class="navue-monthly-popup-note">View this summary later in Settings → Fuel &amp; Cost.</div>'+
+       '<div class="navue-monthly-popup-note">View this summary later in Settings → Driving Cost Summary.</div>'+
        '<button type="button" class="navue-monthly-popup-close">Close</button>'+
      '</div>';
    document.body.appendChild(popup);
@@ -6513,4 +6513,23 @@ No Settings, fuel, route, voice, ranking, or Steps 1–4 logic is modified.
  }
 })();
 </script>
+
+<style>/* NAVUE_DRIVING_COST_SUMMARY_SAFE_VISIBLE_ONLY_V1 — visual labels only; internal "Fuel & Cost" text remains untouched */
+#preferences .navue-settings-menu [data-setting="fuel"] .navue-settings-label{
+  font-size:0!important;
+}
+#preferences .navue-settings-menu [data-setting="fuel"] .navue-settings-label::after{
+  content:'Driving Cost Summary';
+  font-size:17px;
+  font-weight:700;
+}
+#preferences .navue-settings-detail:has([data-navue-fuel-settings-node="1"]) .navue-settings-detail-title{
+  font-size:0!important;
+}
+#preferences .navue-settings-detail:has([data-navue-fuel-settings-node="1"]) .navue-settings-detail-title::after{
+  content:'Driving Cost Summary';
+  font-size:25px;
+  font-weight:850;
+}
+</style>
 
