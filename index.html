@@ -6283,3 +6283,27 @@ Tolls/ferries remain separate from fuel.
 })();
 </script>
 
+<script>/* NAVUE_ONBOARDING_ROUTE_ENGINE_ALIGNMENT_V1 — onboarding examples aligned to the corrected route engine */
+(function(){
+ 'use strict';
+ function us(){return (p.fuelUnits||'metric')==='us'}
+ function dist(km){return us()?(km*0.621371).toFixed(0)+' mi':km+' km'}
+ function apply(){
+  if(!window.Q||!Q.time)return;
+  Q.time[0]='Which route would you normally choose?';
+  Q.time[1]=[
+   ['Fastest route — 24 min • '+dist(34)+'\nGets you there soonest','fast'],
+   ['Shortest route — 26 min • '+dist(29)+'\nLeast distance to drive','short'],
+   ['Balanced route — 29 min • '+dist(25)+'\nBest overall time-and-distance trade-off','balanced']
+  ];
+ }
+ var oldAsk=window.ask;
+ if(typeof oldAsk==='function')window.ask=function(k){
+  if(k==='time')apply();
+  return oldAsk.apply(this,arguments);
+ };
+ document.addEventListener('DOMContentLoaded',apply);
+ setTimeout(apply,0);
+})();
+</script>
+
