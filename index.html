@@ -163,14 +163,10 @@ function speak(t,force=false,style=p.voiceStyle,after){
   }catch(e){finish()}
  }
  try{
-  // Superseded utterances must not restart listening during a newer prompt.
+  // Keep recognition alive while NaVue speaks so a clear driver command can interrupt.
+  // Superseded utterances are still cancelled; the active microphone session is not.
   speechSynthesis.cancel();
-  const listening=rec;
-  if(listening){
-   // Release recognition's audio session before asking Safari to speak.
-   if(listening.addEventListener)listening.addEventListener('end',begin,{once:true});
-   timer=setTimeout(begin,350);stopListen(false);
-  }else begin()
+  begin()
  }catch(e){finish()}
 }
 function previewVoice(){speak(greet(),true)}function routine(){let n=new Date(),m=n.getHours()*60+n.getMinutes(),a=p.history.filter(x=>x.dow===n.getDay()&&Math.abs(x.mins-m)<=30),c={};a.forEach(x=>c[x.destination]=(c[x.destination]||0)+1);let b=Object.entries(c).sort((x,y)=>y[1]-x[1])[0];return b&&b[1]>=3?b[0]:null}function speakerIcon(on){return '🔊'}function updateHomeSpeaker(){if(homeSpeaker){homeSpeaker.textContent=speakerIcon(p.voice);homeSpeaker.classList.toggle('voice-on',!!p.voice);homeSpeaker.setAttribute('aria-label',p.voice?'Speaker on':'Speaker off')}}function showHome(announce=true){voiceFlow=!!p.micEnabled;homeGreeting.textContent=greet()+' Where are you going?';let r=null;show('home');updateHomeSpeaker();if(announce&&p.voice)speak(r?greet()+' Heading to '+r+'?':greet()+' Where are you going?',false,p.voiceStyle,()=>{if(p.micEnabled)setTimeout(()=>rearmVoice('home'),180)});else if(p.micEnabled)setTimeout(()=>rearmVoice('home'),250)}function toggleMainVoice(){p.voice=!p.voice;updateHomeSpeaker();if(p.voice)speak(greet()+' Where are you going?',true,p.voiceStyle,()=>{if(p.micEnabled)setTimeout(()=>rearmVoice('home'),180)});else{try{speechSynthesis.cancel()}catch(e){}}}function confirmRoutine(r){p.destination=r;buildRoutes()}function openDestination(){destinationInput.value='';destinationChanged();renderRecent();show('destination')}function destinationChanged(){findRoutesBtn.disabled=!destinationInput.value.trim()}function quickDestination(x){p.destination=x;buildRoutes()}function renderRecent(){recentBox.innerHTML='';p.recent.slice(0,20).forEach(x=>{let d=document.createElement('div');d.className='card';d.textContent='↻ '+x;d.onclick=()=>{p.destination=x;buildRoutes()};recentBox.appendChild(d)})}function addRecent(x){if(['Home','Work'].includes(x))return;p.recent=[x,...p.recent.filter(y=>y.toLowerCase()!==x.toLowerCase())].slice(0,20)}function resolveDestination(){let q=destinationInput.value.trim();if(!q)return;let ex=['Home','Work',...p.recent].find(x=>x.toLowerCase()===q.toLowerCase());if(ex){p.destination=ex;return buildRoutes(voiceFlow)}if(/[0-9]/.test(q)&&!/(,|toronto|mississauga|vaughan|on\b)/i.test(q)){pending=[q+' — Mississauga, ON',q+' — Toronto, ON'];ambiguousText.textContent='I found more than one possible match for “'+q+'”.';ambiguityOptions.innerHTML='';pending.forEach(x=>{let d=document.createElement('div');d.className='card';d.textContent=x;d.onclick=()=>selectDest(x,false);ambiguityOptions.appendChild(d)});show('ambiguity');setTimeout(()=>speak('Mississauga or Toronto?',false,p.voiceStyle,()=>voiceFlow&&startListen('ambiguity',ambiguityMic,true)),250);return}selectDest(q,voiceFlow)}function selectDest(x,byVoice=false){p.destination=x;save();buildRoutes(byVoice)}function bias(id){let t=Object.values(p.routeStats).reduce((a,b)=>a+b,0);return t<2?0:Math.round(((p.routeStats[id]||0)/t-.333)*15)}function scores(){let a=78,b=76,c=72;if(['avoid','local'].includes(p.road)){a+=9;b-=5;c-=6}else if(p.road==='highway'){b+=8;c+=4;a-=4}if(p.paid==='no'){a+=4;b+=2;c-=12}if(p.priority==='fastest'){b+=5;c+=7}else if(p.priority==='cost'){a+=6;c-=5}else if(p.priority==='eco')a+=5;else if(p.priority==='balanced')b+=5;if(p.time==='short')a+=3;else b+=3;return[a+bias('A'),b+bias('B'),c+bias('C')].map(x=>Math.max(45,Math.min(97,x)))}function eta(m){return new Date(Date.now()+m*60000).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}/* NAVUE_STRICT_ROUTE_RESTRICTIONS_V1
@@ -2054,9 +2050,8 @@ Prototype road split is temporary demo data until live route-segment classificat
   clearTimeout(retryTimer);
   // Discard queued callbacks from pages the driver has already left.
   if(auto&&(!p.micEnabled||(mode!=='routine'&&mode!==active())))return;
-  if(window.navueSpeechPending||((active()==='navigation'?tripVoice:p.voice)&&window.speechSynthesis&&(speechSynthesis.speaking||speechSynthesis.pending))){
-   retryTimer=setTimeout(function(){if(p.micEnabled&&!rec)rearmVoice(active())},250);return
-  }
+  // Recognition may remain active while NaVue speaks. Final-result filtering below
+  // prevents NaVue from acting on its own spoken prompt.
   // An enabled listener follows the active screen; changing controls is not a new session.
   if(rec&&p.micEnabled){micState(mic,false);mic=button;micState(button,true);return;}
   if(p.micEnabled)voiceFlow=true;
@@ -2064,6 +2059,14 @@ Prototype road split is temporary demo data until live route-segment classificat
   if(!session)return result;
   var ended=session.onend,errored=session.onerror,nextResult=0,ignoreSpeech=false;
   function appSpeaking(){if(!(active()==='navigation'?tripVoice:p.voice))return false;return (window.speechSynthesis&&(speechSynthesis.speaking||speechSynthesis.pending))||Date.now()<(window.navueVoiceQuietUntil||0)}
+  function cleanSpeech(v){return String(v||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim()}
+  function validInterrupt(text,screen){
+   var t=cleanSpeech(text);
+   if(screen==='routes')return /^(?:route\s*)?(?:a|ay|aye|eh|b|be|bee|c|see|sea|first|second|third|one|two|three|1|2|3)$/.test(t)||/^(?:take|choose|select|pick|use)\s+(?:route\s+)?(?:a|b|c|one|two|three|first|second|third)$/.test(t);
+   if(screen==='navigation')return /\b(?:voice guidance|guidance|voice|speaker)\b.*\b(?:on|off|mute|unmute)\b/.test(t)||/^(?:find me|show me|search for|look for|find|i need)\s+(?:a\s+|an\s+|some\s+)?(?:coffee|coffee shop|cafe|gas|gas station|fuel|restaurant|food|pharmacy|washroom|restroom|grocery|ev charger|charging station)(?:\s+.*)?$/.test(t)||/^(?:coffee|coffee shop|cafe|gas|gas station|fuel|restaurant|food|pharmacy|washroom|restroom|grocery)(?:\s+(?:nearby|near me|ahead|along .*route))?$/.test(t)||/\b(?:another|different|alternate)\b.*\b(?:route|way)\b/.test(t);
+   if(screen==='home'||screen==='destination')return /(?:^|\s)(?:take me|bring me|drive me|navigate me|go|head|get)\s+(?:to\s+)?(?:my\s+)?(?:home|work|office)$/.test(t)||/^(?:home|work|office|the office)$/.test(t);
+   return false
+  }
   session.onspeechstart=function(){ignoreSpeech=!!appSpeaking()};
   session.onresult=function(e){
    if(rec!==session||!p.micEnabled)return;
@@ -2071,9 +2074,18 @@ Prototype road split is temporary demo data until live route-segment classificat
    for(;index<e.results.length;index++){
     var item=e.results[index];if(!item||!item[0]||item.isFinal===false)continue;
     nextResult=index+1;
-    // Do not interpret NaVue's own spoken prompt as a driver command.
-    if(ignoreSpeech||appSpeaking()){ignoreSpeech=false;continue}
-    handleVoice(item[0].transcript.trim(),active());
+    var transcript=item[0].transcript.trim(),screen=active(),speaking=appSpeaking();
+    if(ignoreSpeech||speaking){
+     if(speaking&&validInterrupt(transcript,screen)){
+      ignoreSpeech=false;window.navueSpeechPending=false;window.navueVoiceQuietUntil=0;window.navueSpeechTurn=(window.navueSpeechTurn||0)+1;
+      try{speechSynthesis.cancel()}catch(x){}
+      handleVoice(transcript,screen);
+      if(rec!==session||!p.micEnabled)break;
+      continue
+     }
+     ignoreSpeech=false;continue
+    }
+    handleVoice(transcript,screen);
     if(rec!==session||!p.micEnabled)break;
    }
   };
@@ -7041,13 +7053,7 @@ No Settings, fuel, route, voice, ranking, or Steps 1–4 logic is modified.
     session.navueStep1BargeIn=true;
     var previousSpeechStart=session.onspeechstart;
     session.onspeechstart=function(e){
-      var speaking=!!(window.speechSynthesis&&(speechSynthesis.speaking||speechSynthesis.pending))||!!window.navueSpeechPending;
-      if(speaking&&p.micEnabled){
-        window.navueSpeechPending=false;
-        window.navueVoiceQuietUntil=0;
-        try{speechSynthesis.cancel()}catch(x){}
-        return;
-      }
+      // Wait for the final transcript before deciding whether this is the driver or NaVue itself.
       if(previousSpeechStart)previousSpeechStart.call(this,e);
     };
     return result;
@@ -7095,5 +7101,61 @@ No Settings, fuel, route, voice, ranking, or Steps 1–4 logic is modified.
 
     return priorHandle.apply(this,arguments);
   };
+})();
+</script>
+
+
+<script>/* NAVUE_AI_STEP1_STABILITY_CORE_V3 — listening continuity + context/intention stability */
+(function(){
+ 'use strict';
+ var previousHandle=window.handleVoice;
+ function clean(v){return String(v||'').toLowerCase().replace(/[’']/g,'').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim()}
+ function page(){var el=document.querySelector('.screen.active');return el?el.id:''}
+ function stripWake(t){return clean(t).replace(/^(?:hey\s+)?(?:navue|navu|nabu|nebu|nephew|nav view|na view)\s+/,'').replace(/^(?:can|could|would)\s+you\s+/,'').replace(/^please\s+/,'').trim()}
+ function saved(name){var key=clean(name);return (p.savedPlaces||[]).find(function(r){return clean(r.name)===key&&r.address&&!/^(home|work)$/i.test(String(r.address).trim())})||null}
+ function goSaved(name){
+  var r=saved(name);if(!r)return false;
+  p.destination=r.address;try{save()}catch(e){}buildRoutes(false);
+  if(p.micEnabled){voiceFlow=true;setTimeout(function(){if(!rec&&typeof rearmVoice==='function')rearmVoice('routes')},40)}
+  if(p.voice&&typeof speak==='function')setTimeout(function(){if(page()!=='routes')return;speak(navueRoutePrompt(),false,p.voiceStyle,function(){if(p.micEnabled&&!rec&&typeof rearmVoice==='function')setTimeout(function(){rearmVoice('routes')},100)})},100);
+  return true
+ }
+ function destinationIntent(raw){
+  var t=stripWake(raw);
+  if(t==='home'||/\b(?:take me|bring me|drive me|navigate me|go|head|get)\s+(?:to\s+)?(?:my\s+)?home$/.test(t))return'home';
+  if(/^(?:work|office|the office)$/.test(t)||/\b(?:take me|bring me|drive me|navigate me|go|head|get)\s+(?:to\s+)?(?:my\s+)?(?:work|office|the office)$/.test(t))return'work';
+  return''
+ }
+ function category(raw){
+  var t=stripWake(raw)
+   .replace(/^(?:search|look)\s+(?:along|on)\s+(?:my|the)\s+route\s+(?:for\s+)?/,'')
+   .replace(/^(?:find me|show me|get me|search for|look for|look up|find|show|get)\s+/,'')
+   .replace(/^i\s+(?:need|want)\s+/,'')
+   .replace(/^(?:a|an|some|the)\s+/,'')
+   .replace(/\s+(?:nearby|near me|close by|ahead|up ahead|along (?:my|the) route|on (?:my|the) route|on the way).*$/,'')
+   .trim();
+  var m={'coffee':'coffee','coffee shop':'coffee','coffee shops':'coffee','cafe':'coffee','cafes':'coffee','tim hortons':'tim hortons','starbucks':'starbucks','gas':'gas','gas station':'gas','gas stations':'gas','fuel':'gas','ev':'ev charging','ev charging':'ev charging','ev charger':'ev charging','ev chargers':'ev charging','charging station':'ev charging','charging stations':'ev charging','restaurant':'restaurants','restaurants':'restaurants','food':'restaurants','rest area':'rest areas','rest areas':'rest areas','washroom':'washrooms','washrooms':'washrooms','restroom':'washrooms','restrooms':'washrooms','pharmacy':'pharmacy','pharmacies':'pharmacy','grocery':'groceries','groceries':'groceries','grocery store':'groceries','grocery stores':'groceries'};
+  return m[t]||null
+ }
+ function routeChoice(raw){
+  var t=stripWake(raw).replace(/^(?:take|choose|select|pick|use)\s+(?:me\s+)?(?:to\s+)?(?:route\s+)?/,'').replace(/^route\s+/,'').trim();
+  var m={a:'a',ay:'a',aye:'a',eh:'a',one:'a',first:'a','1':'a',b:'b',be:'b',bee:'b',two:'b',second:'b','2':'b',c:'c',see:'c',sea:'c',three:'c',third:'c','3':'c'};
+  return m[t]||''
+ }
+ function polite(raw){return /^(?:thank you|thanks|thanks navue|thank you navue|appreciate it|much appreciated)$/.test(stripWake(raw))}
+ function ensure(delay){if(!p.micEnabled)return;voiceFlow=true;setTimeout(function(){if(!p.micEnabled||document.hidden||rec)return;var s=page();if(/^(home|destination|ambiguity|routes|navigation)$/.test(s)&&typeof rearmVoice==='function')rearmVoice(s)},delay||120)}
+ window.handleVoice=function(raw,mode){
+  var s=page();
+  if(polite(raw)){if((s==='navigation'?tripVoice:p.voice)&&typeof speak==='function')speak("You're welcome.",false,p.voiceStyle,function(){ensure(80)});else ensure(40);return}
+  if(s==='home'||s==='destination'||mode==='home'||mode==='destination'){
+   var d=destinationIntent(raw);
+   if(d==='home'){if(goSaved('home'))return;return previousHandle.call(this,'home',mode)}
+   if(d==='work'){if(goSaved('work'))return;return previousHandle.call(this,'work',mode)}
+  }
+  if(s==='routes'||mode==='routes'){var r=routeChoice(raw);if(r)return previousHandle.call(this,'route '+r,mode)}
+  if(s==='navigation'){var cat=category(raw);if(cat)return previousHandle.call(this,'find '+cat+' along my route',mode)}
+  return previousHandle.apply(this,arguments)
+ };
+ setInterval(function(){if(!p.micEnabled||!voiceFlow||document.hidden||rec)return;var s=page();if(/^(home|destination|ambiguity|routes|navigation)$/.test(s)&&typeof rearmVoice==='function')rearmVoice(s)},1200);
 })();
 </script>
