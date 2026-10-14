@@ -8030,3 +8030,267 @@ No Settings, fuel, route, voice, ranking, or Steps 1–4 logic is modified.
  };
 })();
 </script>
+
+
+<script>/* NAVUE_AI_APP_INTENT_ARBITER_V7 — intent priority + context replacement + exact feature routing */
+(function(){
+ 'use strict';
+
+ var priorHandle=window.handleVoice;
+ var priorStart=window.startListen;
+ var pendingEnd='';
+ var pendingFuel=false;
+ var lastHighKey='',lastHighAt=0;
+
+ function clean(v){
+  return String(v||'').toLowerCase().replace(/[’']/g,'').replace(/[^a-z0-9\s.$]/g,' ').replace(/\s+/g,' ').trim();
+ }
+ function active(){
+  var e=document.querySelector('.screen.active');return e?e.id:'';
+ }
+ function snapshot(){
+  try{return window.navue3c&&window.navue3c.snapshot?window.navue3c.snapshot():null}catch(e){return null}
+ }
+ function stopSpeech(){
+  window.navueSpeechTurn=(window.navueSpeechTurn||0)+1;
+  window.navueSpeechPending=false;window.navueVoiceQuietUntil=0;
+  try{speechSynthesis.cancel()}catch(e){}
+ }
+ function speakOnly(t){
+  if(typeof speak==='function'&&(active()==='navigation'?tripVoice:p.voice))speak(t,true,p.voiceStyle);
+ }
+ function hideEndVisual(){
+  var status=document.getElementById('navue3cStatus');
+  if(status&&/end.*trip|yes or no/i.test(status.textContent||'')){status.textContent='';status.hidden=true;status.classList.remove('navue-alert-popup')}
+  document.querySelectorAll('#navigation .navue-alert-popup,#navigation [role="status"]').forEach(function(x){
+   if(/end.*trip|yes or no/i.test(x.textContent||'')){x.textContent='';x.hidden=true}
+  });
+ }
+ function closeCurrentPanel(){
+  var st=snapshot();
+  if(!st||!st.panel)return;
+  var buttons=Array.from(document.querySelectorAll('#navigation .c3-panel button'));
+  var b=buttons.find(function(x){return /^(cancel|close|back)$/i.test((x.textContent||'').trim())});
+  if(b){try{b.click()}catch(e){}}
+ }
+ function exactSetting(key,focus){
+  if(active()==='navigation'){window.navueSettingsReturn='navigation';try{prefReturn='navigation'}catch(e){}}
+  if(typeof openPreferences==='function')openPreferences();else if(typeof show==='function')show('preferences');
+  var tries=0;
+  function enter(){
+   tries++;
+   var row=document.querySelector('#preferences .navue-settings-menu [data-setting="'+key+'"]');
+   if(row){row.click();if(focus)setTimeout(function(){var x=document.querySelector(focus);if(x){try{x.scrollIntoView({block:'center'})}catch(e){};try{x.focus()}catch(e){}}},70);return}
+   if(tries<8)setTimeout(enter,50);
+  }
+  setTimeout(enter,0);
+ }
+ function parsePrice(raw){
+  var t=clean(raw).replace(/\$/g,'');
+  var m=t.match(/\b(\d{1,2})\.(\d{1,3})\b/);
+  if(m)return Number(m[1]+'.'+m[2]);
+  m=t.match(/\b(\d)\s+(\d{2})\b/);
+  if(m)return Number(m[1]+'.'+m[2]);
+  return null;
+ }
+ function updateFuel(n){
+  if(!(n>0&&n<100))return false;
+  p.fuelPrice=String(Math.round(n*1000)/1000);
+  try{save()}catch(e){}
+  var i=document.getElementById('prefFuelPrice');if(i)i.value=p.fuelPrice;
+  pendingFuel=false;
+  speakOnly('Fuel price updated to $'+Number(p.fuelPrice).toFixed(2)+'.');
+  return true;
+ }
+ function fuelSettingsIntent(t){
+  return /\b(?:fuel|gas)\b/.test(t)&&/\b(?:cost|price)\b/.test(t)&&
+   (/\b(?:change|edit|update|set|open|show|adjust|modify)\b/.test(t)||/^(?:fuel|gas) (?:cost|price)$/.test(t));
+ }
+ function speedSettingsIntent(t){
+  return /\b(?:speedometer|speed limit|speed alert|speed settings)\b/.test(t)&&
+   !/\b(?:simulate|test|reminder)\b/.test(t);
+ }
+ function viewIntent(t){
+  return active()==='navigation'&&(/^(?:open|show|change)?\s*(?:map )?(?:view|vue|view mode)$/.test(t)||/\bmap view\b/.test(t));
+ }
+ function destinationRouteChoice(t){
+  if(active()!=='destination')return false;
+  if(!/^(?:find|show|get|build)?\s*routes?$/.test(t)&&!/^find routes?$/.test(t))return false;
+  var input=document.getElementById('destinationInput');
+  if(!input||!input.value.trim())return false;
+  var b=document.getElementById('findRoutesBtn');
+  if(b){b.click();return true}
+  return false;
+ }
+ function shortAdd(t){
+  var st=snapshot();
+  if(active()!=='navigation'||!st||st.panel!=='confirm'||! /^(?:add|yes|okay|ok|do it|go ahead|that one|this one)$/.test(t))return false;
+  var b=Array.from(document.querySelectorAll('#navigation .c3-panel .c3-actions button')).find(function(x){return /add stop/i.test(x.textContent||'')});
+  if(b){b.click();return true}
+  return false;
+ }
+ function endIntent(t){
+  return /\b(?:end|finish|stop|cancel)\b.*\b(?:trip|navigation|journey)\b/.test(t)||/^(?:end trip|finish trip|stop navigation)$/.test(t);
+ }
+ function wholeIntent(t){
+  return /^(?:entire trip|whole trip|the trip|end it|yes|yeah|yep|do it|end the trip)$/.test(t)||/\b(?:entire|whole)\b.*\btrip\b/.test(t);
+ }
+ function stopIntent(t){
+  return /^(?:stop|the stop|next stop|remove stop|skip stop|end stop)$/.test(t)||/\b(?:remove|skip|end)\b.*\bstop\b/.test(t);
+ }
+ function noIntent(t){return /^(?:no|nope|continue|keep going|dont|do not)$/.test(t)}
+ function beginEnd(){
+  closeCurrentPanel();stopSpeech();hideEndVisual();window.navueEndTripPending=false;
+  var st=snapshot(),n=st&&Array.isArray(st.stops)?st.stops.length:0;
+  if(n){
+   pendingEnd='choose';
+   speakOnly('Do you want to end the next stop, or end the entire trip?');
+  }else{
+   pendingEnd='confirm';
+   speakOnly('Do you want to end this trip?');
+  }
+ }
+ function completeEnd(){
+  pendingEnd='';window.navueEndTripPending=false;stopSpeech();hideEndVisual();
+  if(typeof finishTrip==='function')finishTrip();
+ }
+ function removeNextStop(){
+  pendingEnd='';
+  priorHandle.call(window,'remove stop','navigation');
+ }
+ function handlePendingEnd(t){
+  if(!pendingEnd)return false;
+  if(pendingEnd==='choose'){
+   if(wholeIntent(t)){completeEnd();return true}
+   if(stopIntent(t)){removeNextStop();return true}
+   if(noIntent(t)){pendingEnd='';speakOnly('Okay, continuing the trip.');return true}
+   speakOnly('Do you want to end the next stop, or end the entire trip?');return true;
+  }
+  if(pendingEnd==='confirm'){
+   if(wholeIntent(t)||/^(?:yes|yeah|yep|sure|okay|ok|confirm)$/.test(t)){completeEnd();return true}
+   if(noIntent(t)){pendingEnd='';speakOnly('Okay, continuing the trip.');return true}
+   speakOnly('Do you want to end this trip?');return true;
+  }
+  return false;
+ }
+ function openView(){
+  var b=document.querySelector('#navigation .navue-map-view-btn');
+  if(b){b.click();return true}
+  return false;
+ }
+ function settingsNatural(t){
+  if(fuelSettingsIntent(t)){
+   closeCurrentPanel();stopSpeech();
+   var n=parsePrice(t);
+   if(n!=null){exactSetting('fuel','#prefFuelPrice');setTimeout(function(){updateFuel(n)},100);return true}
+   pendingFuel=true;exactSetting('fuel','#prefFuelPrice');speakOnly('What fuel price would you like to use?');return true;
+  }
+  if(speedSettingsIntent(t)){
+   closeCurrentPanel();stopSpeech();exactSetting('speed');return true;
+  }
+  if(/\bmonthly\b.*\b(?:summary|driving)\b|\bdriving summary\b/.test(t)){
+   closeCurrentPanel();stopSpeech();exactSetting('fuel','#navueMonthlyCurrentSummary');return true;
+  }
+  if(/\b(?:map display|map type|satellite|terrain)\b/.test(t)){
+   closeCurrentPanel();stopSpeech();exactSetting('map');return true;
+  }
+  if(/\b(?:driving preferences|road preferences|route priority|lane guidance)\b/.test(t)){
+   closeCurrentPanel();stopSpeech();exactSetting('navigation');return true;
+  }
+  return false;
+ }
+ function featureAudit(){
+  var settings=Array.from(document.querySelectorAll('#preferences .navue-settings-row')).map(function(r){
+   return {key:r.dataset.setting||'',label:(r.querySelector('.navue-settings-label')||r).textContent.trim()};
+  });
+  var nav=[
+   ['destination',!!document.getElementById('destination')],
+   ['routes',!!document.getElementById('routes')],
+   ['navigation',!!document.getElementById('navigation')],
+   ['saved',typeof window.openSavedRoutesPage==='function'],
+   ['map-view',!!document.querySelector('#navigation .navue-map-view-btn')],
+   ['road-alerts',!!document.getElementById('navueRoadAlerts')],
+   ['stops/search',!!window.navue3c],
+   ['fuel-cost',!!document.querySelector('#preferences [data-setting="fuel"]')],
+   ['speedometer',!!document.querySelector('#preferences [data-setting="speed"]')]
+  ];
+  return {settings:settings,navigation:nav,knowledge:window.navueAppKnowledgeV1?window.navueAppKnowledgeV1.snapshot():[]};
+ }
+ window.navueAppAuditV1={snapshot:featureAudit};
+
+ function highPriority(raw){
+  var t=clean(raw);
+  if(!t)return false;
+
+  if(handlePendingEnd(t))return true;
+
+  if(pendingFuel){
+   var n=parsePrice(t);
+   if(n!=null){updateFuel(n);return true}
+   if(/^(?:cancel|never mind|back)$/.test(t)){pendingFuel=false;return true}
+  }
+
+  if(endIntent(t)){beginEnd();return true}
+  if(shortAdd(t))return true;
+  if(destinationRouteChoice(t))return true;
+  if(settingsNatural(t))return true;
+  if(viewIntent(t)){stopSpeech();openView();return true}
+
+  if(active()==='preferences'){
+   if(/^(?:back|go back|return to map|back to map|back to navigation|return to trip)$/.test(t)){
+    if(window.navueSettingsReturn==='navigation'||prefReturn==='navigation'){show('navigation');return true}
+   }
+  }
+  return false;
+ }
+
+ window.handleVoice=function(raw,mode){
+  if(highPriority(raw))return;
+  return priorHandle.apply(this,arguments);
+ };
+
+ window.startListen=function(mode,button,auto){
+  var result=priorStart.apply(this,arguments),session=rec;
+  if(!session||session.navueIntentArbiterV7)return result;
+  session.navueIntentArbiterV7=true;
+  try{session.interimResults=true}catch(e){}
+  var old=session.onresult;
+  session.onresult=function(e){
+   if(rec!==session||!p.micEnabled)return;
+   var start=typeof e.resultIndex==='number'?e.resultIndex:0;
+   for(var i=start;i<e.results.length;i++){
+    var item=e.results[i];if(!item||!item[0])continue;
+    var raw=item[0].transcript.trim();if(!raw)continue;
+    var t=clean(raw);
+    var priority=endIntent(t)||fuelSettingsIntent(t)||speedSettingsIntent(t)||viewIntent(t)||destinationRouteChoice(t)||shortAdd(t)||!!pendingEnd||!!pendingFuel;
+    if(priority){
+     var key=t+'|'+active()+'|'+(snapshot()&&snapshot().panel||'');
+     if(key===lastHighKey&&Date.now()-lastHighAt<1200)return;
+     lastHighKey=key;lastHighAt=Date.now();
+     if(highPriority(raw))return;
+    }
+   }
+   if(old)return old.call(this,e);
+  };
+  return result;
+ };
+
+ // Remove the obsolete "use a NaVue command" wording from any older fall-through response.
+ var oldSpeak=window.speak;
+ if(typeof oldSpeak==='function'){
+  window.speak=function(t){
+   if(/please use a navue command/i.test(String(t||'')))arguments[0]='What would you like to change?';
+   return oldSpeak.apply(this,arguments);
+  };
+ }
+
+ // Keep stale end-trip text from surviving a trip transition.
+ var oldShow=window.show;
+ if(typeof oldShow==='function')window.show=function(id){
+  var r=oldShow.apply(this,arguments);
+  if(id!=='navigation'){pendingEnd='';window.navueEndTripPending=false;setTimeout(hideEndVisual,0)}
+  else setTimeout(hideEndVisual,0);
+  return r;
+ };
+})();
+</script>
