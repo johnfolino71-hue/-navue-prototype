@@ -7694,3 +7694,339 @@ No Settings, fuel, route, voice, ranking, or Steps 1–4 logic is modified.
  };
 })();
 </script>
+
+
+<script>/* NAVUE_AI_APP_KNOWLEDGE_V6 — app-wide feature knowledge + contextual actions */
+(function(){
+ 'use strict';
+
+ var priorHandle=window.handleVoice;
+ var priorFinish=window.finishTrip;
+ var priorChoose=window.chooseRoute;
+ var pendingStreet='';
+
+ function clean(v){
+  return String(v||'').toLowerCase()
+   .replace(/[’']/g,'')
+   .replace(/[^a-z0-9\s.$]/g,' ')
+   .replace(/\s+/g,' ')
+   .trim();
+ }
+ function page(){
+  var el=document.querySelector('.screen.active');
+  return el?el.id:'';
+ }
+ function words(v){
+  return clean(v).replace(/\$/g,'').split(' ').filter(Boolean);
+ }
+ function stopSpeech(){
+  window.navueSpeechTurn=(window.navueSpeechTurn||0)+1;
+  window.navueSpeechPending=false;
+  window.navueVoiceQuietUntil=0;
+  try{speechSynthesis.cancel()}catch(e){}
+ }
+ function say(text){
+  if(typeof speak==='function'&&(page()==='navigation'?tripVoice:p.voice))speak(text,true,p.voiceStyle);
+ }
+ function active3c(){
+  try{return window.navue3c&&window.navue3c.snapshot?window.navue3c.snapshot():null}catch(e){return null}
+ }
+ function click(selector){
+  var el=document.querySelector(selector);
+  if(el){el.click();return true}
+  return false;
+ }
+ function preserveTripReturn(){
+  if(page()==='navigation'){
+   try{prefReturn='navigation'}catch(e){}
+   window.navueSettingsReturn='navigation';
+  }
+ }
+ function openSettingsKey(key,focusSelector){
+  preserveTripReturn();
+  if(typeof openPreferences==='function')openPreferences();else if(typeof show==='function')show('preferences');
+  setTimeout(function(){
+   var row=document.querySelector('#preferences .navue-settings-menu [data-setting="'+key+'"]');
+   if(row)row.click();
+   if(focusSelector)setTimeout(function(){
+    var input=document.querySelector(focusSelector);
+    if(input){input.focus();try{input.scrollIntoView({block:'center'})}catch(e){}}
+   },45);
+  },25);
+  return true;
+ }
+ function openMapView(){
+  if(page()!=='navigation')return false;
+  return click('#navigation .navue-map-view-btn');
+ }
+ function chooseMapView(mode){
+  if(page()!=='navigation')return false;
+  var pop=document.querySelector('#navigation .navue-map-view-pop');
+  if(!pop||pop.hidden)openMapView();
+  var b=document.querySelector('#navigation .navue-map-view-pop [data-view="'+mode+'"]');
+  if(b){b.click();return true}
+  return false;
+ }
+ function openSaved(){
+  if(typeof openSavedRoutesPage==='function'){openSavedRoutesPage();return true}
+  if(typeof openDestination==='function'){openDestination();return true}
+  return false;
+ }
+ function openRecent(){
+  if(typeof openDestination!=='function')return false;
+  openDestination();
+  setTimeout(function(){var x=document.getElementById('recentBox');if(x)try{x.scrollIntoView({block:'start'})}catch(e){}},40);
+  return true;
+ }
+ function openStops(){
+  if(page()!=='navigation')return false;
+  // Use the existing navigation mechanism so 3C owns the state/action.
+  priorHandle.call(window,'show my stops','navigation');
+  return true;
+ }
+ function openSearch(){
+  if(page()!=='navigation')return false;
+  priorHandle.call(window,'search along my route','navigation');
+  return true;
+ }
+ function openRoadAlerts(){
+  if(page()!=='navigation')return false;
+  return click('#navueRoadAlerts');
+ }
+ function openDestinationFeature(){
+  if(typeof openDestination==='function'){openDestination();return true}
+  return false;
+ }
+ function openAlternate(){
+  if(typeof openAlternateRoutes==='function'){openAlternateRoutes(false);return true}
+  return false;
+ }
+ function openSettings(){
+  preserveTripReturn();
+  if(typeof openPreferences==='function'){openPreferences();return true}
+  return false;
+ }
+
+ // This is the persistent semantic map NaVue AI uses instead of phrase-by-phrase commands.
+ var FEATURES=[
+  {id:'destination',label:'Destination',keywords:['destination','address','where','place'],screens:['home','destination','navigation'],actions:['open','change'],run:openDestinationFeature},
+  {id:'routes',label:'Routes',keywords:['route','routes','alternate','alternative','different route','another route'],screens:['routes','navigation'],actions:['open','change'],run:openAlternate},
+  {id:'saved',label:'Saved places & routes',keywords:['saved','saved place','saved places','saved route','saved routes','bookmark'],screens:['home','destination','navigation'],actions:['open','use','manage'],run:openSaved},
+  {id:'recent',label:'Recent destinations',keywords:['recent','recents','recent destination','recent destinations','history'],screens:['home','destination','navigation'],actions:['open','use'],run:openRecent},
+  {id:'map-view',label:'Navigation View',keywords:['view','vue','map view','view mode','2d','3d','automatic view'],screens:['navigation'],actions:['open','change'],run:openMapView},
+  {id:'stops',label:'Stops',keywords:['stop','stops','trip stops'],screens:['navigation'],actions:['open','manage','remove','add'],run:openStops},
+  {id:'search-route',label:'Search Along Route',keywords:['search along route','along route','find along route','search route'],screens:['navigation'],actions:['open','search'],run:openSearch},
+  {id:'road-alerts',label:'Road Alerts & Reports',keywords:['road alert','road alerts','report','reports','hazard','hazards','accident','crash','pileup','police','closure'],screens:['navigation'],actions:['open','report'],run:openRoadAlerts},
+  {id:'settings',label:'Settings',keywords:['settings','preferences','options'],screens:['home','destination','routes','navigation'],actions:['open'],run:openSettings},
+  {id:'profile',label:'Profile',keywords:['profile','name','account details','personal info'],setting:'general'},
+  {id:'map-display',label:'Map Display',keywords:['map display','map type','satellite','terrain','traffic layer','3d buildings'],setting:'map'},
+  {id:'voice-settings',label:'Voice Guidance / Speaker',keywords:['voice settings','voice guidance settings','speaker settings','microphone settings','voice sound'],setting:'voice'},
+  {id:'location',label:'Location',keywords:['location','location settings'],setting:'location'},
+  {id:'driving-preferences',label:'Driving Preferences / Onboarding',keywords:['driving preferences','route priority','road preferences','lane guidance','driving settings'],setting:'navigation'},
+  {id:'tolls',label:'Toll & HOV Passes',keywords:['toll','tolls','hov','ferries','paid ferries'],setting:'tolls'},
+  {id:'alerts-settings',label:'Alerts & Reports',keywords:['alert settings','alerts settings','reports settings'],setting:'alerts'},
+  {id:'fuel',label:'Fuel & Cost',keywords:['fuel','fuel cost','fuel price','gas price','average fuel price','mileage cost'],setting:'fuel',focus:'#prefFuelPrice'},
+  {id:'monthly-summary',label:'Current Monthly Summary',keywords:['monthly summary','driving summary','month summary','monthly driving','trips completed','distance driven','driving hours'],setting:'fuel',focus:'#navueMonthlyCurrentSummary'},
+  {id:'speed',label:'Speedometer',keywords:['speedometer','speed limit','speed alert','speed settings'],setting:'speed'},
+  {id:'notifications',label:'Notifications',keywords:['notification','notifications'],setting:'notifications'},
+  {id:'planned',label:'Planned Drives',keywords:['planned drive','planned drives'],setting:'planned'},
+  {id:'reminders',label:'Reminders',keywords:['reminder','reminders'],setting:'reminders'},
+  {id:'account',label:'Account & Login',keywords:['account','login','sign in'],setting:'account'},
+  {id:'privacy',label:'Privacy',keywords:['privacy'],setting:'privacy'},
+  {id:'about',label:'About NaVue',keywords:['about navue','about'],setting:'about'},
+  {id:'invite',label:'Invite a Friend',keywords:['invite','invite friend','share navue'],setting:'invite'},
+  {id:'help',label:'Help',keywords:['help','support'],setting:'help'}
+ ];
+
+ function addDynamicSettingsKnowledge(){
+  document.querySelectorAll('#preferences .navue-settings-menu .navue-settings-row').forEach(function(row){
+   var key=row.dataset.setting,label=(row.querySelector('.navue-settings-label')||row).textContent.trim();
+   if(!key||FEATURES.some(function(x){return x.setting===key}))return;
+   FEATURES.push({id:'setting-'+key,label:label,keywords:[label.toLowerCase()],setting:key});
+  });
+ }
+ addDynamicSettingsKnowledge();
+ document.addEventListener('DOMContentLoaded',addDynamicSettingsKnowledge);
+
+ window.navueAppKnowledgeV1={
+  features:FEATURES,
+  refresh:addDynamicSettingsKnowledge,
+  snapshot:function(){return FEATURES.map(function(f){return {id:f.id,label:f.label,keywords:f.keywords,setting:f.setting||null,actions:f.actions||['open']}})}
+ };
+
+ function hasActionVerb(t){
+  return /\b(?:open|show|bring up|go to|take me to|change|edit|manage|view|see|display|check|look at)\b/.test(t);
+ }
+ function scoreFeature(raw,f){
+  var t=clean(raw),score=0;
+  (f.keywords||[]).forEach(function(k){
+   k=clean(k);
+   if(!k)return;
+   if(t===k)score=Math.max(score,100);
+   else if(t.indexOf(k)>=0)score=Math.max(score,60+k.split(' ').length*8);
+  });
+  var ts=words(t),ks=[];
+  (f.keywords||[]).forEach(function(k){ks=ks.concat(words(k))});
+  var overlap=ts.filter(function(w){return w.length>2&&ks.indexOf(w)>=0}).length;
+  score+=overlap*7;
+  if(f.screens&&f.screens.indexOf(page())>=0)score+=8;
+  return score;
+ }
+ function resolveFeature(raw){
+  var t=clean(raw);
+  if(!hasActionVerb(t)&&page()!=='navigation')return null;
+  var ranked=FEATURES.map(function(f){return [f,scoreFeature(t,f)]})
+   .sort(function(a,b){return b[1]-a[1]});
+  return ranked[0]&&ranked[0][1]>=25?ranked[0][0]:null;
+ }
+ function runFeature(feature){
+  if(!feature)return false;
+  if(feature.setting)return openSettingsKey(feature.setting,feature.focus);
+  if(typeof feature.run==='function')return !!feature.run();
+  return false;
+ }
+
+ function contextualShortAnswer(raw){
+  if(page()!=='navigation')return false;
+  var t=clean(raw),st=active3c(),panel=st&&st.panel||'';
+
+  // The current question supplies the missing words: "Add" means add the offered stop.
+  if(panel==='confirm'&&/^(?:add|yes|okay|ok|do it|that one|this one|go ahead)$/.test(t)){
+   var buttons=document.querySelectorAll('#navigation .c3-panel .c3-actions button');
+   for(var i=0;i<buttons.length;i++)if(clean(buttons[i].textContent)==='add stop'){buttons[i].click();return true}
+  }
+  if(panel==='confirm'&&/^(?:no|cancel|dont|do not|never mind)$/.test(t)){
+   var cancel=Array.from(document.querySelectorAll('#navigation .c3-panel .c3-actions button')).find(function(b){return /cancel|no/i.test(b.textContent)});
+   if(cancel){cancel.click();return true}
+  }
+  return false;
+ }
+
+ function knownAddress(addr){
+  var key=clean(addr);
+  if(!key)return false;
+  var all=[].concat(p.recent||[]).concat((p.savedPlaces||[]).map(function(x){return x.address}));
+  try{
+   var named=JSON.parse(localStorage.getItem('navueSavedNamed')||'{}');
+   Object.keys(named||{}).forEach(function(k){if(named[k])all.push(named[k])});
+  }catch(e){}
+  return all.some(function(x){return clean(x)===key});
+ }
+ function stripDestinationLead(raw){
+  return String(raw||'').replace(/^(?:hey\s+)?(?:navue|navu|nabu|nebu|nephew)\s+/i,'')
+   .replace(/^(?:please\s+)?(?:take|bring|drive|navigate)\s+me\s+(?:to\s+)?/i,'')
+   .replace(/^(?:please\s+)?(?:go|head|get)\s+(?:to\s+)?/i,'')
+   .trim();
+ }
+ function looksIncompleteNewStreet(raw){
+  var a=stripDestinationLead(raw),t=clean(a);
+  if(!/\d/.test(t)||!/[a-z]/.test(t)||knownAddress(a))return false;
+  if(/,/.test(a)||/\b(?:toronto|vaughan|mississauga|brampton|markham|richmond hill|ontario|on|canada)\b/i.test(a))return false;
+  // Prototype rule: a brand-new numbered street requires a city before route/image choices.
+  return /\b(?:st|street|rd|road|ave|avenue|blvd|boulevard|dr|drive|ln|lane|crt|court|way|hwy|highway|cres|crescent)\b/i.test(a);
+ }
+ function askCity(raw){
+  pendingStreet=stripDestinationLead(raw);
+  if(page()!=='destination'&&typeof openDestination==='function')openDestination();
+  setTimeout(function(){
+   var input=document.getElementById('destinationInput');
+   if(input){input.value=pendingStreet;try{destinationChanged()}catch(e){}}
+  },0);
+  stopSpeech();
+  say('What city is that in?');
+  return true;
+ }
+ function isCityReply(raw){
+  var t=clean(raw);
+  return !!pendingStreet && /^[a-z][a-z .'-]{1,40}$/i.test(String(raw||'').trim()) &&
+   !/\b(?:route|stop|voice|settings|cancel|back|no|yes)\b/.test(t);
+ }
+
+ function parseFuelPrice(raw){
+  var t=clean(raw).replace(/\$/g,'');
+  var m=t.match(/\b(\d{1,2})(?:\.(\d{1,3}))\b/);
+  if(m)return Number(m[1]+'.'+m[2]);
+  m=t.match(/\b(\d)\s+(\d{2})\b/);
+  if(m)return Number(m[1]+'.'+m[2]);
+  return null;
+ }
+ function fuelPriceIntent(raw){
+  var t=clean(raw);
+  if(!/\b(?:fuel|gas)\b/.test(t)||!/\bprice\b/.test(t))return false;
+  if(/\b(?:set|change|update|make|use)\b/.test(t)){
+   var n=parseFuelPrice(raw);
+   if(n>0&&n<100){
+    p.fuelPrice=String(Math.round(n*1000)/1000);
+    try{save()}catch(e){}
+    var input=document.getElementById('prefFuelPrice');if(input)input.value=p.fuelPrice;
+    say('Fuel price updated to $'+Number(p.fuelPrice).toFixed(2)+'.');
+    return true;
+   }
+  }
+  return false;
+ }
+
+ function clearTransient(){
+  window.navueEndTripPending=false;
+  pendingStreet='';
+  stopSpeech();
+  var status=document.getElementById('navue3cStatus');
+  if(status){status.hidden=true;status.textContent='';status.classList.remove('navue-alert-popup')}
+  var traffic=document.querySelector('#navigation .c3-traffic');if(traffic)traffic.hidden=true;
+  var view=document.querySelector('#navigation .navue-map-view-pop');if(view)view.hidden=true;
+  var manual=document.getElementById('navueManualSheet');if(manual)manual.classList.remove('open');
+  document.querySelectorAll('#navigation .c3-report-prompt').forEach(function(x){x.hidden=true});
+ }
+
+ window.finishTrip=function(){
+  clearTransient();
+  var r=priorFinish.apply(this,arguments);
+  setTimeout(clearTransient,0);
+  return r;
+ };
+ window.chooseRoute=function(){
+  // Every new trip starts with a clean conversational session, not stale yes/no state.
+  window.navueEndTripPending=false;
+  pendingStreet='';
+  var status=document.getElementById('navue3cStatus');if(status){status.hidden=true;status.textContent=''}
+  return priorChoose.apply(this,arguments);
+ };
+
+ window.handleVoice=function(raw,mode){
+  var t=clean(raw),active=page();
+
+  if(contextualShortAnswer(raw))return;
+
+  // Prototype-only destination clarification rule.
+  if(pendingStreet&&isCityReply(raw)){
+   var full=pendingStreet+', '+String(raw).trim();
+   pendingStreet='';
+   var input=document.getElementById('destinationInput');
+   if(input){input.value=full;try{destinationChanged()}catch(e){}}
+   return priorHandle.call(this,full,'destination');
+  }
+  if((active==='home'||active==='destination'||mode==='home'||mode==='destination')&&looksIncompleteNewStreet(raw)){
+   return askCity(raw);
+  }
+
+  if(fuelPriceIntent(raw))return;
+
+  // Fast map-view choices use current live-map context.
+  if(active==='navigation'){
+   if(/^(?:2d|two d|2 d|2d view|two d view)$/.test(t)&&chooseMapView('2d'))return;
+   if(/^(?:3d|three d|3 d|3d view|three d view)$/.test(t)&&chooseMapView('3d'))return;
+   if(/^(?:automatic|automatic view|auto view)$/.test(t)&&chooseMapView('automatic'))return;
+  }
+
+  // Returning from a settings detour keeps the active trip alive.
+  if(active==='preferences'&&/^(?:back to|return to|go back to|open)\s+(?:the\s+)?(?:map|navigation|trip|drive)$/.test(t)){
+   if(typeof show==='function'){show('navigation');return}
+  }
+
+  var feature=resolveFeature(raw);
+  if(feature&&runFeature(feature))return;
+
+  return priorHandle.apply(this,arguments);
+ };
+})();
+</script>
