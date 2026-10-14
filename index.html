@@ -7438,3 +7438,259 @@ No Settings, fuel, route, voice, ranking, or Steps 1–4 logic is modified.
  };
 })();
 </script>
+
+
+<script>/* NAVUE_AI_STEP1_FAST_RESPONSE_V5 — high-confidence intent fast lane */
+(function(){
+ 'use strict';
+
+ var priorStart=window.startListen;
+ var priorHandle=window.handleVoice;
+
+ function clean(v){
+  return String(v||'').toLowerCase()
+   .replace(/[’']/g,'')
+   .replace(/[^a-z0-9\s]/g,' ')
+   .replace(/\s+/g,' ')
+   .trim();
+ }
+ function screen(){
+  var el=document.querySelector('.screen.active');
+  return el?el.id:'';
+ }
+ function stopSpeech(){
+  window.navueSpeechTurn=(window.navueSpeechTurn||0)+1;
+  window.navueSpeechPending=false;
+  window.navueVoiceQuietUntil=0;
+  try{speechSynthesis.cancel()}catch(e){}
+ }
+ function syncVoice(){
+  try{setSpeaker()}catch(e){}
+  try{updateHomeSpeaker()}catch(e){}
+  document.querySelectorAll('#homeSpeaker,#speakerBtn,.navue-session-speaker').forEach(function(b){
+   var on=screen()==='navigation'?!!tripVoice:!!p.voice;
+   b.classList.toggle('voice-on',on);
+   b.setAttribute('aria-pressed',on?'true':'false');
+  });
+ }
+ function setGuidance(on){
+  // Preserve the locked behavior: guidance changes immediately; microphone remains ON.
+  p.voice=!!on;
+  tripVoice=!!on;
+  p.micEnabled=true;
+  voiceFlow=true;
+  try{save()}catch(e){}
+  if(!on)stopSpeech();
+  syncVoice();
+  if(on&&typeof speak==='function'){
+   // State/action happens first. Spoken confirmation follows.
+   speak('Voice guidance on.',true,p.voiceStyle);
+  }
+ }
+ function current3c(){
+  try{return window.navue3c&&window.navue3c.snapshot?window.navue3c.snapshot():null}catch(e){return null}
+ }
+ function visibleIncident(){
+  var box=document.querySelector('#navigation .c3-traffic');
+  return !!(box&&!box.hidden&&/take it\?/i.test(box.textContent||''));
+ }
+ function ordinal(t){
+  t=clean(t);
+  if(/^(?:1|one|first|sample one|option one|result one)$/.test(t))return 0;
+  if(/^(?:2|two|second|sample two|option two|result two)$/.test(t))return 1;
+  if(/^(?:3|three|third|sample three|option three|result three)$/.test(t))return 2;
+  return -1;
+ }
+ function yes(t){return /^(?:yes|yeah|yep|sure|okay|ok|confirm|do it|take it|add it|use it|go ahead)$/.test(clean(t))}
+ function no(t){return /^(?:no|nope|no thanks|cancel|leave it|stay|keep my route)$/.test(clean(t))}
+ function route(t){
+  t=clean(t)
+   .replace(/^(?:take|choose|select|pick|use)\s+(?:the\s+)?(?:route\s+)?/,'')
+   .replace(/^route\s+/,'').trim();
+  var m={a:'a',ay:'a',aye:'a',eh:'a',one:'a',first:'a','1':'a',
+         b:'b',be:'b',bee:'b',two:'b',second:'b','2':'b',
+         c:'c',see:'c',sea:'c',three:'c',third:'c','3':'c'};
+  return m[t]||'';
+ }
+ function destination(t){
+  t=clean(t).replace(/^(?:hey\s+)?(?:navue|navu|nabu|nebu|nephew|nav view|na view)\s+/,'').trim();
+  if(t==='home'||/\b(?:take me|bring me|drive me|navigate me|go|head|get)\s+(?:to\s+)?(?:my\s+)?home$/.test(t))return'home';
+  if(/^(?:work|office|the office)$/.test(t)||/\b(?:take me|bring me|drive me|navigate me|go|head|get)\s+(?:to\s+)?(?:my\s+)?(?:work|office|the office)$/.test(t))return'work';
+  return'';
+ }
+ function category(t){
+  t=clean(t);
+  if(/\b(?:coffee|cafe|starbucks|tim hortons)\b/.test(t))return'coffee';
+  if(/\b(?:gas|fuel|petrol)\b/.test(t))return'gas';
+  if(/\b(?:charger|charging|ev)\b/.test(t))return'ev charging';
+  if(/\b(?:restaurant|food)\b/.test(t))return'restaurants';
+  if(/\b(?:washroom|restroom|toilet)\b/.test(t))return'washrooms';
+  if(/\bpharmac/.test(t))return'pharmacy';
+  if(/\b(?:grocery|groceries)\b/.test(t))return'groceries';
+  return'';
+ }
+ function guidance(t){
+  t=clean(t);
+  if(/^(?:voice|voice guidance|guidance|speaker)\s+(?:off|mute)$/.test(t)||
+     /^(?:turn|switch|shut)\s+(?:the\s+)?(?:voice|voice guidance|guidance|speaker)\s+off$/.test(t))return'off';
+  if(/^(?:voice|voice guidance|guidance|speaker)\s+(?:on|unmute)$/.test(t)||
+     /^(?:turn|switch)\s+(?:the\s+)?(?:voice|voice guidance|guidance|speaker)\s+(?:back\s+)?on$/.test(t))return'on';
+  return'';
+ }
+ function endTrip(t){
+  return /^(?:end trip|end the trip|finish trip|finish the trip|stop navigation|stop the navigation|cancel trip|cancel the trip)$/.test(clean(t));
+ }
+ function endWhole(t){
+  return /^(?:entire trip|the entire trip|whole trip|the whole trip|end entire trip|end the entire trip)$/.test(clean(t));
+ }
+ function endStop(t){
+  return /^(?:stop|the stop|next stop|remove stop|remove the stop|end stop|end the stop|skip stop|skip the stop)$/.test(clean(t));
+ }
+
+ function inferFast(raw){
+  var t=clean(raw),s=screen(),st=current3c(),panel=st&&st.panel||'';
+
+  var g=guidance(t);
+  if(g)return{kind:'guidance',value:g};
+
+  if(s==='home'||s==='destination'){
+   var d=destination(t);
+   if(d)return{kind:'destination',value:d};
+  }
+
+  if(s==='routes'){
+   var r=route(t);
+   if(r)return{kind:'route',value:r};
+  }
+
+  if(s==='navigation'){
+   if(panel==='results'){
+    var n=ordinal(t);
+    if(n>=0)return{kind:'result',value:n};
+   }
+   if(panel==='confirm'){
+    if(yes(t)||/^(?:add stop|add the stop|add it as a stop)$/.test(t))return{kind:'stop-confirm',value:true};
+    if(no(t))return{kind:'stop-confirm',value:false};
+   }
+   if(visibleIncident()){
+    if(yes(t))return{kind:'incident',value:true};
+    if(no(t))return{kind:'incident',value:false};
+   }
+   if(endWhole(t))return{kind:'end-whole'};
+   if(endStop(t)&&st&&Array.isArray(st.stops)&&st.stops.length)return{kind:'end-stop'};
+   if(endTrip(t))return{kind:'end-trip'};
+
+   var cat=category(t);
+   if(cat&&(/^(?:find|find me|show me|search for|look for|i need|i want|coffee|cafe|gas|fuel|restaurant|food|pharmacy|washroom|restroom|grocery|ev|charging)/.test(t)))
+    return{kind:'search',value:cat};
+  }
+  return null;
+ }
+
+ function actFast(intent,raw,mode){
+  if(!intent)return false;
+
+  if(intent.kind==='guidance'){
+   setGuidance(intent.value==='on');
+   return true;
+  }
+  if(intent.kind==='destination'){
+   priorHandle.call(window,intent.value==='home'?'take me home':'take me to work',mode||screen());
+   return true;
+  }
+  if(intent.kind==='route'){
+   priorHandle.call(window,'route '+intent.value,mode||'routes');
+   return true;
+  }
+  if(intent.kind==='result'){
+   var results=document.querySelectorAll('#navigation .c3-panel .c3-result');
+   if(results[intent.value]){results[intent.value].click();return true}
+   return false;
+  }
+  if(intent.kind==='stop-confirm'){
+   var buttons=document.querySelectorAll('#navigation .c3-panel .c3-actions button');
+   for(var i=0;i<buttons.length;i++){
+    var label=clean(buttons[i].textContent);
+    if(intent.value&&label==='add stop'){buttons[i].click();return true}
+    if(!intent.value&&(label==='cancel'||label==='no')){buttons[i].click();return true}
+   }
+   return false;
+  }
+  if(intent.kind==='incident'){
+   var b=document.querySelectorAll('#navigation .c3-traffic .c3-actions button');
+   for(var j=0;j<b.length;j++){
+    var txt=clean(b[j].textContent);
+    if(intent.value&&txt==='yes'){b[j].click();return true}
+    if(!intent.value&&txt==='no'){b[j].click();return true}
+   }
+   return false;
+  }
+  if(intent.kind==='search'){
+   priorHandle.call(window,'find '+intent.value+' along my route',mode||'navigation');
+   return true;
+  }
+  if(intent.kind==='end-trip'){
+   priorHandle.call(window,'end trip',mode||'navigation');
+   return true;
+  }
+  if(intent.kind==='end-whole'){
+   priorHandle.call(window,'end the entire trip',mode||'navigation');
+   return true;
+  }
+  if(intent.kind==='end-stop'){
+   priorHandle.call(window,'remove stop',mode||'navigation');
+   return true;
+  }
+  return false;
+ }
+
+ // High-confidence intents execute on interim recognition instead of waiting for the browser's final transcript.
+ window.startListen=function(mode,button,auto){
+  var result=priorStart.apply(this,arguments),session=rec;
+  if(!session||session.navueFastResponseV5)return result;
+  session.navueFastResponseV5=true;
+  try{session.interimResults=true}catch(e){}
+
+  var oldResult=session.onresult;
+  var lastKey='',lastAt=0;
+
+  session.onresult=function(e){
+   if(rec!==session||!p.micEnabled)return;
+   var start=typeof e.resultIndex==='number'?e.resultIndex:0;
+
+   for(var i=start;i<e.results.length;i++){
+    var item=e.results[i];
+    if(!item||!item[0])continue;
+    var raw=item[0].transcript.trim();
+    if(!raw)continue;
+
+    var intent=inferFast(raw);
+    var key=intent?intent.kind+':'+String(intent.value==null?'':intent.value):'';
+
+    if(intent){
+     if(key===lastKey&&Date.now()-lastAt<1400){
+      if(item.isFinal){lastKey='';}
+      return;
+     }
+
+     // Driver input wins immediately, whether NaVue is speaking or silent.
+     if(window.navueSpeechPending||(window.speechSynthesis&&(speechSynthesis.speaking||speechSynthesis.pending)))stopSpeech();
+
+     lastKey=key;lastAt=Date.now();
+     if(actFast(intent,raw,mode||screen()))return;
+    }
+   }
+
+   if(oldResult)return oldResult.call(this,e);
+  };
+  return result;
+ };
+
+ // Final transcript fallback uses the same intent/context fast lane.
+ window.handleVoice=function(raw,mode){
+  var intent=inferFast(raw);
+  if(intent&&actFast(intent,raw,mode))return;
+  return priorHandle.apply(this,arguments);
+ };
+})();
+</script>
