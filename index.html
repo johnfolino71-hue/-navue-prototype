@@ -8294,3 +8294,232 @@ No Settings, fuel, route, voice, ranking, or Steps 1–4 logic is modified.
  };
 })();
 </script>
+
+
+<script>/* NAVUE_AI_CALL_DEST_ROUTE_STABILITY_V8 — call/audio priority + destination action protection + route first-command stability */
+(function(){
+ 'use strict';
+
+ var priorHandle=window.handleVoice;
+ var priorStart=window.startListen;
+ var priorRearm=window.rearmVoice;
+ var priorSpeak=window.speak;
+ var priorBuild=window.buildRoutes;
+
+ var suspended=false;
+ var resumeWanted=false;
+ var pendingCityAddress='';
+ var routeLast='',routeLastAt=0;
+
+ function clean(v){
+  return String(v||'').toLowerCase()
+   .replace(/[’']/g,'')
+   .replace(/[^a-z0-9\s.,'-]/g,' ')
+   .replace(/\s+/g,' ')
+   .trim();
+ }
+ function page(){
+  var x=document.querySelector('.screen.active');
+  return x?x.id:'';
+ }
+ function hardStopAudio(){
+  window.navueSpeechTurn=(window.navueSpeechTurn||0)+1;
+  window.navueSpeechPending=false;
+  window.navueVoiceQuietUntil=0;
+  try{speechSynthesis.cancel()}catch(e){}
+  try{if(typeof stopListen==='function')stopListen(false)}catch(e){}
+ }
+ function suspendForInterruption(){
+  if(suspended)return;
+  suspended=true;
+  resumeWanted=!!(p&&p.micEnabled&&voiceFlow);
+  hardStopAudio();
+ }
+ function resumeAfterInterruption(){
+  if(!suspended)return;
+  if(document.hidden)return;
+  suspended=false;
+  if(resumeWanted&&p&&p.micEnabled){
+   setTimeout(function(){
+    if(!suspended&&!document.hidden&&typeof priorRearm==='function')priorRearm.call(window,page());
+   },280);
+  }
+  resumeWanted=false;
+ }
+ document.addEventListener('visibilitychange',function(){
+  if(document.hidden)suspendForInterruption();
+  else resumeAfterInterruption();
+ });
+ window.addEventListener('blur',suspendForInterruption);
+ window.addEventListener('pagehide',suspendForInterruption);
+ window.addEventListener('focus',resumeAfterInterruption);
+ window.addEventListener('pageshow',resumeAfterInterruption);
+ document.addEventListener('freeze',suspendForInterruption);
+
+ // No NaVue speech should start while Safari/the web app is backgrounded or interrupted.
+ if(typeof priorSpeak==='function'){
+  window.speak=function(){
+   if(suspended||document.hidden){
+    window.navueSpeechPending=false;
+    var after=arguments[3];
+    if(typeof after==='function')setTimeout(after,0);
+    return;
+   }
+   return priorSpeak.apply(this,arguments);
+  };
+ }
+
+ // Prevent recognizers from rearming while the page is backgrounded/interrupted.
+ if(typeof priorRearm==='function'){
+  window.rearmVoice=function(id){
+   if(suspended||document.hidden)return;
+   return priorRearm.apply(this,arguments);
+  };
+ }
+
+ function knownAddress(addr){
+  var k=clean(addr).replace(/[,.]/g,'').trim();
+  if(!k)return false;
+  var list=[].concat(p.recent||[]).concat((p.savedPlaces||[]).map(function(x){return x&&x.address||''}));
+  return list.some(function(x){return clean(x).replace(/[,.]/g,'').trim()===k});
+ }
+ function stripLead(raw){
+  return String(raw||'')
+   .replace(/^(?:hey\s+)?(?:navue|navu|nabu|nebu|nephew)\s+/i,'')
+   .replace(/^(?:please\s+)?(?:take|bring|drive|navigate)\s+me\s+(?:to\s+)?/i,'')
+   .replace(/^(?:please\s+)?(?:go|head|get)\s+(?:to\s+)?/i,'')
+   .trim();
+ }
+ function newStreetMissingCity(raw){
+  var a=stripLead(raw),t=clean(a);
+  if(!/\d/.test(t)||!/[a-z]/.test(t)||knownAddress(a))return false;
+  if(!/\b(?:st|street|rd|road|ave|avenue|blvd|boulevard|dr|drive|ln|lane|crt|court|way|hwy|highway|cres|crescent)\b/i.test(a))return false;
+  // Prototype rule: comma/province or text after the street suffix is required for a brand-new address.
+  if(/,\s*[a-z]/i.test(a)||/\b(?:on|ontario|qc|quebec|bc|alberta|ab|canada)\b/i.test(a))return false;
+  var suffix=/\b(?:st|street|rd|road|ave|avenue|blvd|boulevard|dr|drive|ln|lane|crt|court|way|hwy|highway|cres|crescent)\b/i;
+  var m=suffix.exec(a);
+  if(m){
+   var tail=a.slice(m.index+m[0].length).trim();
+   if(tail.length>1)return false;
+  }
+  return true;
+ }
+ function askCity(raw){
+  pendingCityAddress=stripLead(raw);
+  if(page()!=='destination'&&typeof openDestination==='function')openDestination();
+  setTimeout(function(){
+   var i=document.getElementById('destinationInput');
+   if(i){i.value=pendingCityAddress;try{destinationChanged()}catch(e){}}
+  },0);
+  hardStopAudio();
+  if(typeof speak==='function')speak('What city is that in?',true,p.voiceStyle);
+ }
+ function cityReply(raw){
+  var s=String(raw||'').trim(),t=clean(s);
+  return !!pendingCityAddress &&
+   /^[a-z][a-z .'-]{1,40}$/i.test(s) &&
+   !/\b(?:route|routes|stop|voice|settings|cancel|back|yes|no|image)\b/.test(t);
+ }
+ function acceptCity(raw){
+  var full=pendingCityAddress+', '+String(raw).trim();
+  pendingCityAddress='';
+  var i=document.getElementById('destinationInput');
+  if(i){i.value=full;try{destinationChanged()}catch(e){}}
+  p.destination=full;try{save()}catch(e){}
+  if(typeof buildRoutes==='function')buildRoutes(true);
+ }
+
+ function findRoutesIntent(t){
+  return /^(?:find|show|get|build)?\s*routes?$/.test(t)||/^find routes?$/.test(t);
+ }
+ function destinationFindRoutes(raw){
+  if(page()!=='destination'||!findRoutesIntent(clean(raw)))return false;
+  var i=document.getElementById('destinationInput');
+  var address=i&&i.value.trim();
+  if(!address)return false;
+  // Preserve the address already captured. "Find routes" is an action, never a new place name.
+  p.destination=address;try{save()}catch(e){}
+  hardStopAudio();
+  if(typeof buildRoutes==='function')buildRoutes(false);
+  return true;
+ }
+
+ function routeLetter(raw){
+  var t=clean(raw)
+   .replace(/^(?:take|choose|select|pick|use)\s+(?:the\s+)?(?:route\s+)?/,'')
+   .replace(/^route\s+/,'')
+   .trim();
+  var map={a:'A',ay:'A',aye:'A',eh:'A',one:'A',first:'A','1':'A',
+           b:'B',be:'B',bee:'B',two:'B',second:'B','2':'B',
+           c:'C',see:'C',sea:'C',three:'C',third:'C','3':'C'};
+  return map[t]||'';
+ }
+ function chooseRouteNow(raw){
+  if(page()!=='routes')return false;
+  var id=routeLetter(raw);if(!id)return false;
+  var key=id,now=Date.now();
+  if(key===routeLast&&now-routeLastAt<1200)return true;
+  var r=(window.currentRoutes||currentRoutes||[]).find(function(x){return String(x.id).toUpperCase()===id});
+  if(!r)return false;
+  routeLast=key;routeLastAt=now;
+  hardStopAudio();
+  if(typeof chooseRoute==='function'){chooseRoute(r,true);return true}
+  return false;
+ }
+
+ // Get the route listener ready immediately when A/B/C choices appear.
+ if(typeof priorBuild==='function'){
+  window.buildRoutes=function(){
+   var r=priorBuild.apply(this,arguments);
+   function arm(){
+    if(!suspended&&!document.hidden&&page()==='routes'&&p.micEnabled&&!rec&&typeof startListen==='function'){
+     try{startListen('routes',window.routeMic||document.getElementById('routeMic'),true)}catch(e){}
+    }
+   }
+   setTimeout(arm,10);setTimeout(arm,80);setTimeout(arm,180);
+   return r;
+  };
+ }
+
+ window.handleVoice=function(raw,mode){
+  if(suspended||document.hidden)return;
+  if(pendingCityAddress&&cityReply(raw)){acceptCity(raw);return}
+  if((page()==='home'||page()==='destination'||mode==='home'||mode==='destination')&&newStreetMissingCity(raw)){askCity(raw);return}
+  if(destinationFindRoutes(raw))return;
+  if(chooseRouteNow(raw))return;
+  return priorHandle.apply(this,arguments);
+ };
+
+ window.startListen=function(mode,button,auto){
+  if(suspended||document.hidden)return;
+  var result=priorStart.apply(this,arguments),session=rec;
+  if(!session||session.navueCallDestRouteV8)return result;
+  session.navueCallDestRouteV8=true;
+  try{session.interimResults=true}catch(e){}
+  var old=session.onresult;
+  session.onresult=function(e){
+   if(suspended||document.hidden||rec!==session||!p.micEnabled)return;
+   var start=typeof e.resultIndex==='number'?e.resultIndex:0;
+   for(var i=start;i<e.results.length;i++){
+    var item=e.results[i];if(!item||!item[0])continue;
+    var raw=item[0].transcript.trim();if(!raw)continue;
+
+    // Route A/B/C gets first-command priority on interim speech.
+    if(page()==='routes'&&routeLetter(raw)){
+     if(chooseRouteNow(raw))return;
+    }
+    // Protect the destination action before older place-name handlers see it.
+    if(page()==='destination'&&findRoutesIntent(clean(raw))){
+     if(destinationFindRoutes(raw))return;
+    }
+   }
+   if(old)return old.call(this,e);
+  };
+  return result;
+ };
+
+ window.navueInterruptionStateV1=function(){
+  return {suspended:suspended,hidden:document.hidden,resumeWanted:resumeWanted};
+ };
+})();
+</script>
